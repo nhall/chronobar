@@ -13,14 +13,14 @@ final class StatusItemController: NSObject {
     private let popover = NSPopover()
     private let pill: NSHostingView<PillView>
 
-    init(tracker: Tracker, storageRoot: URL) {
+    init(tracker: Tracker, storageRoot: URL, preferences: Preferences, loginItem: LoginItem) {
         self.tracker = tracker
-        pill = ClickThroughHostingView(rootView: PillView(tracker: tracker))
+        pill = ClickThroughHostingView(rootView: PillView(tracker: tracker, preferences: preferences))
         super.init()
 
         popover.behavior = .transient
         let content = NSHostingController(rootView: PanelView(
-            tracker: tracker, panel: panel,
+            tracker: tracker, panel: panel, preferences: preferences, loginItem: loginItem,
             start: { [weak self] project in self?.perform { try tracker.start(project) } },
             pause: { [weak self] in self?.perform { try tracker.pause() } },
             archive: { [weak self] project in self?.perform { try tracker.archiveProject(project) } },
@@ -30,7 +30,8 @@ final class StatusItemController: NSObject {
                 // The folder only exists after the first write.
                 try? FileManager.default.createDirectory(at: storageRoot, withIntermediateDirectories: true)
                 NSWorkspace.shared.open(storageRoot)
-            }))
+            },
+            quit: { NSApp.terminate(nil) }))
         content.sizingOptions = .preferredContentSize
         popover.contentViewController = content
 
@@ -70,7 +71,7 @@ final class StatusItemController: NSObject {
         }
     }
 
-    private func showPanel(newProject: Bool) {
+    func showPanel(newProject: Bool = false) {
         panel.showingNewProject = newProject
         if popover.isShown { return }
         guard let button = statusItem.button else { return }

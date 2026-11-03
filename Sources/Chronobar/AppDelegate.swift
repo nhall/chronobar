@@ -3,13 +3,22 @@ import ChronobarCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    let preferences = Preferences(defaults: .standard)
+    let loginItem = LoginItem()
     private var tracker: Tracker!
     private var statusItem: StatusItemController!
     private var timer: Timer?
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // Before launch finishes, so with Show in Dock off the app starts silently in the menu bar.
+        applyDockPolicy()
+        observeShowInDock()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         tracker = Tracker(clock: SystemTimeSource(), storageRoot: Self.storageRoot, defaults: .standard)
-        statusItem = StatusItemController(tracker: tracker, storageRoot: Self.storageRoot)
+        statusItem = StatusItemController(
+            tracker: tracker, storageRoot: Self.storageRoot, preferences: preferences, loginItem: loginItem)
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -26,9 +35,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Clicking the Dock icon opens the Panel under the Pill.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        statusItem?.showPanel()
+        return false
+    }
+
     private func tick() {
         tracker.tick()
         statusItem.refresh()
+    }
+
+    private func applyDockPolicy() {
+        let policy: NSApplication.ActivationPolicy = preferences.showInDock ? .regular : .accessory
+        guard NSApp.activationPolicy() != policy else { return }
+        NSApp.setActivationPolicy(policy)
+        // Leaving the Dock deactivates the app, which would drop the Settings window behind other apps.
+        if policy == .accessory && NSApp.isRunning { NSApp.activate() }
+    }
+
+    private func observeShowInDock() {
+        withObservationTracking {
+            _ = preferences.showInDock
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                self?.applyDockPolicy()
+                self?.observeShowInDock()
+            }
+        }
     }
 
     /// `~/Library/Application Support/Chronobar`.
