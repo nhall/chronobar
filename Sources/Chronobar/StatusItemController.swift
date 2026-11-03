@@ -13,7 +13,7 @@ final class StatusItemController: NSObject {
     private let popover = NSPopover()
     private let pill: NSHostingView<PillView>
 
-    init(tracker: Tracker, preferences: Preferences, loginItem: LoginItem) {
+    init(tracker: Tracker, storageRoot: URL, preferences: Preferences, loginItem: LoginItem) {
         self.tracker = tracker
         pill = ClickThroughHostingView(rootView: PillView(tracker: tracker, preferences: preferences))
         super.init()
@@ -25,6 +25,12 @@ final class StatusItemController: NSObject {
             pause: { [weak self] in self?.perform { try tracker.pause() } },
             archive: { [weak self] project in self?.perform { try tracker.archiveProject(project) } },
             close: { [weak self] in self?.popover.performClose(nil) },
+            openDataFolder: { [weak self] in
+                self?.popover.performClose(nil)
+                // The folder only exists after the first write.
+                try? FileManager.default.createDirectory(at: storageRoot, withIntermediateDirectories: true)
+                NSWorkspace.shared.open(storageRoot)
+            },
             quit: { NSApp.terminate(nil) }))
         content.sizingOptions = .preferredContentSize
         popover.contentViewController = content
@@ -69,12 +75,14 @@ final class StatusItemController: NSObject {
         panel.showingNewProject = newProject
         if popover.isShown { return }
         guard let button = statusItem.button else { return }
-        // Each opening starts on today and picks up hand edits to any Day file and the Project list.
-        // Tick first so a timer running past midnight rolls over before today's file is re-read.
+        // Each opening starts on today, picks up hand edits to any Day file and the Project list, and
+        // retries writes deferred while a Day file was malformed. Tick first so a timer running past
+        // midnight rolls over before today's file is re-read.
         tracker.tick()
         tracker.reload()
         panel.viewedDay = nil
         panel.showingSummary = false
+        refresh()
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }

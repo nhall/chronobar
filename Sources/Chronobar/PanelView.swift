@@ -24,6 +24,7 @@ struct PanelView: View {
     let pause: () -> Void
     let archive: (String) -> Void
     let close: () -> Void
+    let openDataFolder: () -> Void
     let quit: () -> Void
 
     var body: some View {
@@ -65,6 +66,7 @@ struct PanelView: View {
                 Menu {
                     SettingsLink { Text("Settings…") }
                         .keyboardShortcut(",", modifiers: .command)
+                    Button("Open data folder", action: openDataFolder)
                     Divider()
                     Button("Quit Chronobar", action: quit)
                         .keyboardShortcut("q", modifiers: .command)
@@ -74,7 +76,14 @@ struct PanelView: View {
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .fixedSize()
-                .help("Settings and Quit")
+                .help("Settings, data folder and Quit")
+            }
+            if tracker.isMalformed(day) {
+                Label("This Day's file can't be read, so changes to it are refused. Fix it by hand in the data folder.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if !preferences.loginHintDismissed && !loginItem.isOn {
                 LoginHint(

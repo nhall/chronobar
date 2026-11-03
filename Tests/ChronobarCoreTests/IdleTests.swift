@@ -224,6 +224,7 @@ import ChronobarCore
         }
         #expect(contents(dayFile(root, "2026-11-03")) == before)
         #expect(contents(dayFile(root, "2026-11-04")) == "{ oops")
+        #expect(tracker.isMalformed(Day(year: 2026, month: 11, day: 4)))
         #expect(tracker.running?.start == FakeClock("2026-11-05T00:00:00").now)
     }
 }
