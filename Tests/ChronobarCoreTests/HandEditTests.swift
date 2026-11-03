@@ -69,6 +69,112 @@ import ChronobarCore
         #expect(!tracker.isMalformed(today))
     }
 
+    @Test func aRunningTimerKeepsRunningWhenItsFileBreaks() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        write(Self.malformed)
+        tracker.reload()
+
+        clock.set("2026-11-03T10:00:00")
+        tracker.tick()
+
+        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.total("Website Redesign", on: today) == 3600)
+        #expect(throws: (any Error).self) { try tracker.start("Internal") }
+        #expect(tracker.running?.project == "Website Redesign")
+        #expect(contents(dayFile(root, "2026-11-03")) == Self.malformed)
+    }
+
+    @Test func aPauseWhileTheFileIsBrokenLandsOnTheTickAfterItIsFixed() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        write(Self.malformed)
+        tracker.reload()
+
+        clock.set("2026-11-03T10:00:00")
+        try tracker.pause()
+        clock.set("2026-11-03T10:05:00")
+        tracker.tick()
+
+        #expect(tracker.running == nil)
+        #expect(tracker.total("Website Redesign", on: today) == 3600)
+        #expect(contents(dayFile(root, "2026-11-03")) == Self.malformed)
+
+        write(Self.fixed)
+        clock.set("2026-11-03T10:06:00")
+        tracker.tick()
+        #expect(contents(dayFile(root, "2026-11-03")) == Self.fixedAndPaused)
+
+        // Lands once: later ticks leave the file alone.
+        write(Self.fixed)
+        tracker.tick()
+        #expect(contents(dayFile(root, "2026-11-03")) == Self.fixed)
+    }
+
+    @Test func aPauseWhileTheFileIsBrokenLandsWhenThePanelReloads() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        write(Self.malformed)
+        tracker.reload()
+        clock.set("2026-11-03T10:00:00")
+        try tracker.pause()
+
+        write(Self.fixed)
+        clock.set("2026-11-03T10:06:00")
+        tracker.reload()
+
+        #expect(contents(dayFile(root, "2026-11-03")) == Self.fixedAndPaused)
+        #expect(!tracker.isMalformed(today))
+        #expect(tracker.running == nil)
+        #expect(tracker.rows(today) == [
+            Row(project: "Internal", total: 900),
+            Row(project: "Website Redesign", total: 3600),
+        ])
+    }
+
+    @Test func aStartAfterTheFixLandsTheDeferredPauseFirst() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        write(Self.malformed)
+        tracker.reload()
+        clock.set("2026-11-03T10:00:00")
+        try tracker.pause()
+
+        write(Self.fixed)
+        clock.set("2026-11-03T10:06:00")
+        try tracker.start("Internal")
+
+        #expect(contents(dayFile(root, "2026-11-03")) == """
+        {
+          "date": "2026-11-03",
+          "entries": [
+            { "project": "Internal", "seconds": 900, "note": "manual" },
+            { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00" },
+            { "project": "Internal", "start": "2026-11-03T10:06:00-05:00", "end": null }
+          ]
+        }
+
+        """)
+    }
+
+    private static let fixed = #"""
+    { "date": "2026-11-03", "entries": [
+      { "project": "Internal", "seconds": 900, "note": "manual" },
+      { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": null }
+    ] }
+    """#
+
+    private static let fixedAndPaused = """
+    {
+      "date": "2026-11-03",
+      "entries": [
+        { "project": "Internal", "seconds": 900, "note": "manual" },
+        { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00" }
+      ]
+    }
+
+    """
+
     private static let malformed = #"{ "date": "2026-11-03", "entries": [ { "project": "Internal", "start": "9am" } ] }"#
 
     private func write(_ text: String, _ date: String = "2026-11-03") {

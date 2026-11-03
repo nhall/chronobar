@@ -35,6 +35,9 @@ public final class Tracker {
     @ObservationIgnored private let store: DayStore
     @ObservationIgnored private let defaults: UserDefaults?
     private var todayEntries: [Entry] = []
+    /// Writes deferred because their Day's file was malformed, oldest first. Retried on `tick()` and
+    /// `reload()`; lost on quit, which leaves the open Entry for crash recovery.
+    @ObservationIgnored private var pending: [(day: Day, change: (inout [Entry]) -> Void)] = []
 
     private static let selectedProjectKey = "selectedProject"
 
@@ -49,10 +52,11 @@ public final class Tracker {
         reload()
     }
 
-    /// Re-reads today's file. A file that won't parse is flagged in `malformedDays` and the last good
-    /// read is kept, so a running timer keeps running.
+    /// Retries deferred writes, then re-reads today's file. A file that won't parse is flagged in
+    /// `malformedDays` and the last good read is kept, so a running timer keeps running.
     public func reload() {
         now = clock.now
+        retryPending()
         guard let entries = try? read(today) else { return }
         todayEntries = entries
         running = todayEntries.lazy.compactMap { entry -> Running? in
@@ -67,21 +71,28 @@ public final class Tracker {
     /// Whether `day`'s file failed to parse when last read. The Panel warns about it.
     public func isMalformed(_ day: Day) -> Bool { malformedDays.contains(day) }
 
-    /// Starts a timer for `project`, pausing any running one first.
+    /// Starts a timer for `project`, pausing any running one first. Refused, leaving any running timer
+    /// alone, while today's file is malformed.
     public func start(_ project: String) throws {
+        retryPending()
+        _ = try read(today)
         try pause()
-        try updateToday { $0.append(.timed(project: project, start: now, end: nil)) }
-        running = Running(project: project, start: now)
+        let start = now
+        try updateToday { $0.append(.timed(project: project, start: start, end: nil)) }
+        running = Running(project: project, start: start)
         selectedProject = project
     }
 
+    /// Closes the running Entry. If today's file is malformed the timer still stops, and closing the
+    /// Entry waits until the file parses again.
     public func pause() throws {
         now = clock.now
         guard running != nil else { return }
-        try updateToday { entries in
+        let end = now
+        try updateToday(deferringIfMalformed: true) { entries in
             entries = entries.map { entry in
                 if case .timed(let project, let start, nil) = entry {
-                    return .timed(project: project, start: start, end: now)
+                    return .timed(project: project, start: start, end: end)
                 }
                 return entry
             }
@@ -99,9 +110,10 @@ public final class Tracker {
         }
     }
 
-    /// Called every second by the UI so running totals advance.
+    /// Called every second by the UI so running totals advance. Retries deferred writes.
     public func tick() {
         now = clock.now
+        retryPending()
     }
 
     /// The Project's total on `day`, never below zero.
@@ -126,13 +138,36 @@ public final class Tracker {
         rows(day).reduce(0) { $0 + $1.total }
     }
 
-    /// Re-reads today's file, applies `change` and writes it back.
-    private func updateToday(_ change: (inout [Entry]) -> Void) throws {
+    /// Re-reads today's file, applies `change` and writes it back. Earlier deferred writes land first.
+    /// If the file is malformed the write is refused, or with `deferringIfMalformed` applied to the
+    /// cached Entries only and queued until the file parses.
+    private func updateToday(
+        deferringIfMalformed: Bool = false, _ change: @escaping (inout [Entry]) -> Void
+    ) throws {
         let day = today
+        retryPending()
+        do {
+            try write(day, change)
+        } catch is DayFile.Malformed where deferringIfMalformed {
+            change(&todayEntries)
+            pending.append((day, change))
+        }
+    }
+
+    /// Applies deferred writes in order, stopping at the first whose file still won't parse.
+    private func retryPending() {
+        while let (day, change) = pending.first {
+            guard (try? write(day, change)) != nil else { return }
+            pending.removeFirst()
+        }
+    }
+
+    /// Re-reads `day`'s file, applies `change` and writes it back.
+    private func write(_ day: Day, _ change: (inout [Entry]) -> Void) throws {
         var entries = try read(day)
         change(&entries)
         try store.save(day, entries, timeZone: clock.calendar.timeZone)
-        todayEntries = entries
+        if day == today { todayEntries = entries }
     }
 
     /// Loads `day`'s file, recording in `malformedDays` whether it parsed.
