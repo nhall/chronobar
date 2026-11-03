@@ -81,6 +81,20 @@ import ChronobarCore
         #expect(tracker.projects == [])
     }
 
+    @Test func anArchivedSelectionStaysClearedAfterARelaunch() throws {
+        let suite = "ChronobarCoreTests-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
+        try tracker.start("Website Redesign")
+        try tracker.archiveProject("Website Redesign")
+
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: UserDefaults(suiteName: suite)!)
+        #expect(relaunched.running?.project == "Website Redesign")
+        #expect(relaunched.selectedProject == nil)
+    }
+
     @Test func archivingAnotherProjectKeepsTheSelection() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Internal")
