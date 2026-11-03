@@ -1,6 +1,7 @@
 import SwiftUI
 import ServiceManagement
 import ChronobarCore
+import KeyboardShortcuts
 import os
 
 extension RunningColor {
@@ -64,6 +65,7 @@ struct SettingsView: View {
                     .tag(color)
                 }
             }
+            KeyboardShortcuts.Recorder("Play/pause shortcut", name: .toggleTimer)
             Toggle("Show in Dock", isOn: $preferences.showInDock)
             Toggle("Start at login", isOn: Binding(get: { loginItem.isOn }, set: { loginItem.set($0) }))
             if loginItem.status == .requiresApproval {
@@ -76,6 +78,10 @@ struct SettingsView: View {
                         .controlSize(.small)
                 }
             }
+            Toggle("Detect idle keyboard and mouse", isOn: $preferences.detectsInputIdle)
+            Stepper("Idle after \(preferences.idleThresholdMinutes) min without input",
+                    value: $preferences.idleThresholdMinutes, in: 1...480)
+                .disabled(!preferences.detectsInputIdle)
         }
         .formStyle(.grouped)
         .frame(width: 400)

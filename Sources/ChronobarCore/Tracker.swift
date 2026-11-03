@@ -44,6 +44,16 @@ public struct Summary: Equatable, Sendable {
     }
 }
 
+/// The idle alert's answers.
+public enum IdleChoice: Sendable {
+    /// Drop the Idle time and keep the timer running from now.
+    case remove
+    /// Drop the Idle time and leave the timer stopped.
+    case removeAndStop
+    /// Count the Idle time.
+    case keep
+}
+
 /// Core's single entry point: the timer, totals and the Day files behind them.
 @MainActor @Observable
 public final class Tracker {
@@ -158,6 +168,47 @@ public final class Tracker {
         now = clock.now
         rollOver()
         retryPending()
+    }
+
+    /// Answers the idle alert. `remove` and `removeAndStop` drop the time since `idleStart` from every Day
+    /// it covers: a timed Entry straddling it ends there, later timed Entries are deleted and manual Entries
+    /// stay. `remove` then restarts the running Project from now. If any of those Day files won't parse,
+    /// nothing is changed.
+    public func resolveIdle(since idleStart: Date, choice: IdleChoice) throws {
+        now = clock.now
+        rollOver()
+        guard choice != .keep else { return }
+        let idleStart = min(idleStart, now)
+        let project = running?.project
+        let firstDay = Day(containing: idleStart, in: clock.calendar)
+        let days = Set(store.days().filter { $0 >= firstDay } + [today]).sorted()
+        // Read every Day before writing any, so a malformed one (or one with deferred writes still queued)
+        // refuses the whole removal.
+        retryPending()
+        let loaded = try days.map { day in
+            guard !pending.contains(where: { $0.day == day }) else { throw DayFile.Malformed() }
+            return (day, try read(day))
+        }
+        for (day, entries) in loaded {
+            let kept = Self.removing(entries, after: idleStart, asOf: now)
+            if kept != entries { try store.save(day, kept, timeZone: clock.calendar.timeZone) }
+        }
+        reload()
+        if choice == .remove, let project {
+            let start = now
+            try updateToday { $0.append(.timed(project: project, start: start, end: nil)) }
+            running = Running(project: project, start: start)
+        }
+    }
+
+    /// `entries` without their timed time after `cut`; an open Entry counts up to `now`.
+    private static func removing(_ entries: [Entry], after cut: Date, asOf now: Date) -> [Entry] {
+        entries.compactMap { entry in
+            guard case .timed(let project, let start, let end) = entry else { return entry }
+            if start >= cut { return nil }
+            if (end ?? now) > cut { return .timed(project: project, start: start, end: cut) }
+            return entry
+        }
     }
 
     /// The Project's total on `day`, never below zero.
