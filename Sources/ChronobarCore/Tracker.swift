@@ -7,11 +7,25 @@ public struct Running: Equatable, Sendable {
     public let start: Date
 }
 
+/// One Project's line in the Panel for a Day.
+public struct Row: Equatable, Sendable {
+    public let project: String
+    public let total: TimeInterval
+
+    public init(project: String, total: TimeInterval) {
+        self.project = project
+        self.total = total
+    }
+}
+
 /// Core's single entry point: the timer, totals and the Day files behind them.
 @MainActor @Observable
 public final class Tracker {
     public private(set) var running: Running?
-    public private(set) var selectedProject: String?
+    /// The Project ▶ starts: the one most recently started. Kept in `defaults` across launches.
+    public private(set) var selectedProject: String? {
+        didSet { defaults?.set(selectedProject, forKey: Self.selectedProjectKey) }
+    }
     /// The active Projects, in `projects.txt` order.
     public private(set) var projects: [String] = []
     /// The clock's time at the last command or `tick()`. Totals of a running timer count up to here.
@@ -20,14 +34,20 @@ public final class Tracker {
     @ObservationIgnored private let clock: TimeSource
     @ObservationIgnored private let store: DayStore
     @ObservationIgnored private let projectStore: ProjectStore
+    @ObservationIgnored private let defaults: UserDefaults?
     private var todayEntries: [Entry] = []
 
+    private static let selectedProjectKey = "selectedProject"
+
     /// Reads today's file. An open Entry there is the running timer, so a timer survives a relaunch.
-    public init(clock: TimeSource, storageRoot: URL) {
+    /// With no `defaults`, the Selected Project is kept in memory only.
+    public init(clock: TimeSource, storageRoot: URL, defaults: UserDefaults? = nil) {
         self.clock = clock
         self.store = DayStore(root: storageRoot)
         self.projectStore = ProjectStore(root: storageRoot)
+        self.defaults = defaults
         self.now = clock.now
+        self.selectedProject = defaults?.string(forKey: Self.selectedProjectKey)
         reload()
     }
 
@@ -93,6 +113,20 @@ public final class Tracker {
             .filter { $0.project == project }
             .reduce(0) { $0 + $1.seconds(asOf: now) }
         return max(0, raw)
+    }
+
+    /// One Row per Project with Entries on `day`, in the order each first appears in the Day file.
+    public func rows(_ day: Day) -> [Row] {
+        var projects: [String] = []
+        for entry in todayEntries where !projects.contains(entry.project) {
+            projects.append(entry.project)
+        }
+        return projects.map { Row(project: $0, total: total($0, on: day)) }
+    }
+
+    /// The Day's grand total: the sum of its Rows, each already clamped at zero.
+    public func dayTotal(_ day: Day) -> TimeInterval {
+        rows(day).reduce(0) { $0 + $1.total }
     }
 
     /// Adds `name` to the Project list and returns the Project's name. A name matching an active Project

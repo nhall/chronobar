@@ -1,0 +1,95 @@
+import Foundation
+import Testing
+import ChronobarCore
+
+@MainActor @Suite struct RowsTests {
+    let clock = FakeClock("2026-11-03T09:00:00")
+    let root = temporaryRoot()
+
+    @Test func startingAnotherProjectPausesTheRunningOne() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T10:00:00")
+        try tracker.start("Internal")
+        clock.set("2026-11-03T10:15:00")
+        tracker.tick()
+
+        #expect(tracker.running?.project == "Internal")
+        #expect(tracker.total("Website Redesign", on: tracker.today) == 60 * 60)
+        #expect(tracker.total("Internal", on: tracker.today) == 15 * 60)
+        #expect(contents(dayFile(root, "2026-11-03")) == """
+        {
+          "date": "2026-11-03",
+          "entries": [
+            { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00" },
+            { "project": "Internal", "start": "2026-11-03T10:00:00-05:00", "end": null }
+          ]
+        }
+
+        """)
+    }
+
+    @Test func rowsListEachProjectWithTimeTodayInTheOrderFirstStarted() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T10:00:00")
+        try tracker.start("Internal")
+        clock.set("2026-11-03T10:20:00")
+        tracker.tick()
+
+        #expect(tracker.rows(tracker.today) == [
+            Row(project: "Website Redesign", total: 60 * 60),
+            Row(project: "Internal", total: 20 * 60),
+        ])
+    }
+
+    @Test func restartingAProjectAddsToItsRow() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T10:00:00")
+        try tracker.start("Internal")
+        clock.set("2026-11-03T10:30:00")
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T11:00:00")
+        try tracker.pause()
+
+        #expect(tracker.rows(tracker.today) == [
+            Row(project: "Website Redesign", total: 90 * 60),
+            Row(project: "Internal", total: 30 * 60),
+        ])
+    }
+
+    @Test func anEmptyDayHasNoRowsAndAZeroTotal() {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        #expect(tracker.rows(tracker.today).isEmpty)
+        #expect(tracker.dayTotal(tracker.today) == 0)
+    }
+
+    @Test func dayTotalIsTheSumOfTheRowsShown() throws {
+        try FileManager.default.createDirectory(
+            at: dayFile(root, "2026-11-03").deletingLastPathComponent(), withIntermediateDirectories: true)
+        try """
+        {
+          "date": "2026-11-03",
+          "entries": [
+            { "project": "Website Redesign", "start": "2026-11-03T07:00:00-05:00", "end": "2026-11-03T08:00:00-05:00" },
+            { "project": "Internal", "seconds": -900, "note": "adjustment" },
+            { "project": "Garden Shed", "seconds": 1800, "note": "manual" }
+          ]
+        }
+        """.write(to: dayFile(root, "2026-11-03"), atomically: true, encoding: .utf8)
+
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T09:15:00")
+        tracker.tick()
+
+        #expect(tracker.rows(tracker.today) == [
+            Row(project: "Website Redesign", total: 75 * 60),
+            Row(project: "Internal", total: 0),
+            Row(project: "Garden Shed", total: 30 * 60),
+        ])
+        #expect(tracker.dayTotal(tracker.today) == 105 * 60)
+    }
+}
