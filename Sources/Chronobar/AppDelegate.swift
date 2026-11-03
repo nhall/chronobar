@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        loginItem.renew()
         tracker = Tracker(clock: SystemTimeSource(), storageRoot: Self.storageRoot, defaults: .standard)
         statusItem = StatusItemController(
             tracker: tracker, storageRoot: Self.storageRoot, preferences: preferences, loginItem: loginItem)

@@ -37,6 +37,18 @@ final class LoginItem {
 
     func refresh() { status = SMAppService.mainApp.status }
 
+    /// Called at launch. Registering again points the login item at this copy of the app, as
+    /// `brew upgrade` deletes the versioned folder (and signature) it was registered from.
+    func renew() {
+        guard isOn else { return }
+        do {
+            try SMAppService.mainApp.register()
+        } catch {
+            Logger(subsystem: "Chronobar", category: "login").error("\(error, privacy: .public)")
+        }
+        refresh()
+    }
+
     func set(_ on: Bool) {
         do {
             if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
