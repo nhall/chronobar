@@ -7,7 +7,7 @@ import ChronobarCore
     let root = temporaryRoot()
 
     @Test func startingThenPausingRecordsTheTimeToday() throws {
-        let tracker = try Tracker(clock: clock, storageRoot: root)
+        let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T10:30:00")
         try tracker.pause()
@@ -17,7 +17,7 @@ import ChronobarCore
     }
 
     @Test func runningTotalTicksUpOnEachTick() throws {
-        let tracker = try Tracker(clock: clock, storageRoot: root)
+        let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         clock.advance(83 * 60 + 30)
         tracker.tick()
@@ -27,7 +27,7 @@ import ChronobarCore
     }
 
     @Test func toggleResumesTheSelectedProjectAndAddsToItsTotal() throws {
-        let tracker = try Tracker(clock: clock, storageRoot: root)
+        let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T10:00:00")
         try tracker.toggle()
@@ -44,7 +44,7 @@ import ChronobarCore
     }
 
     @Test func toggleWithNoSelectedProjectDoesNothing() throws {
-        let tracker = try Tracker(clock: clock, storageRoot: root)
+        let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.toggle()
 
         #expect(tracker.running == nil)

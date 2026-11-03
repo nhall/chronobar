@@ -16,32 +16,50 @@ public final class Tracker {
     public private(set) var now: Date
 
     @ObservationIgnored private let clock: TimeSource
+    @ObservationIgnored private let store: DayStore
     private var todayEntries: [Entry] = []
 
-    public init(clock: TimeSource, storageRoot: URL) throws {
+    /// Reads today's file. An open Entry there is the running timer, so a timer survives a relaunch.
+    public init(clock: TimeSource, storageRoot: URL) {
         self.clock = clock
+        self.store = DayStore(root: storageRoot)
         self.now = clock.now
+        reload()
+    }
+
+    /// Re-reads today's file. A file that won't parse reads as empty; writes to it are refused.
+    public func reload() {
+        now = clock.now
+        todayEntries = (try? store.load(today)) ?? []
+        running = todayEntries.lazy.compactMap { entry -> Running? in
+            if case .timed(let project, let start, nil) = entry { return Running(project: project, start: start) }
+            return nil
+        }.first
+        if let running { selectedProject = running.project }
     }
 
     public var today: Day { Day(containing: now, in: clock.calendar) }
 
+    /// Starts a timer for `project`, pausing any running one first.
     public func start(_ project: String) throws {
-        now = clock.now
-        todayEntries.append(.timed(project: project, start: now, end: nil))
+        try pause()
+        try updateToday { $0.append(.timed(project: project, start: now, end: nil)) }
         running = Running(project: project, start: now)
         selectedProject = project
     }
 
     public func pause() throws {
         now = clock.now
-        guard let running else { return }
-        todayEntries = todayEntries.map { entry in
-            if case .timed(let project, let start, nil) = entry {
-                return .timed(project: project, start: start, end: now)
+        guard running != nil else { return }
+        try updateToday { entries in
+            entries = entries.map { entry in
+                if case .timed(let project, let start, nil) = entry {
+                    return .timed(project: project, start: start, end: now)
+                }
+                return entry
             }
-            return entry
         }
-        self.running = nil
+        running = nil
     }
 
     /// Pauses the running timer, or starts the Selected Project. Does nothing with no Selected Project;
@@ -65,5 +83,14 @@ public final class Tracker {
             .filter { $0.project == project }
             .reduce(0) { $0 + $1.seconds(asOf: now) }
         return max(0, raw)
+    }
+
+    /// Re-reads today's file, applies `change` and writes it back.
+    private func updateToday(_ change: (inout [Entry]) -> Void) throws {
+        let day = today
+        var entries = try store.load(day)
+        change(&entries)
+        try store.save(day, entries, timeZone: clock.calendar.timeZone)
+        todayEntries = entries
     }
 }
