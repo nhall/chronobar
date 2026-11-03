@@ -215,8 +215,9 @@ import ChronobarCore
         clock.set("2026-11-03T10:00:00")
         try tracker.pause()
 
-        // Viewing the past Day flags it; nothing writes to it.
-        #expect(!tracker.isMalformed(past))
+        // Starting a new name looked for a past spelling, which read and flagged the past Day, as viewing
+        // it does; nothing writes to it.
+        #expect(tracker.isMalformed(past))
         #expect(tracker.weekTotals(containing: past).first { $0.day == past }?.total == 0)
         #expect(tracker.isMalformed(past))
         #expect(!tracker.isMalformed(today))

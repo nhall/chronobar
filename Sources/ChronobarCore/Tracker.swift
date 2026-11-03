@@ -70,7 +70,7 @@ public final class Tracker {
         recover(reparsed: reparsed)
     }
 
-    public var today: Day { Day(containing: now, in: clock.calendar) }
+    public var today: Day { Day(containing: now, in: calendar) }
 
     /// Whether `day`'s file failed to parse when last read. The Panel warns about it.
     public func isMalformed(_ day: Day) -> Bool { malformedDays.contains(day) }
@@ -206,8 +206,8 @@ public final class Tracker {
         let idleEnd = idleEnd.map { min($0, now) }
         let idleStart = min(idleStart, idleEnd ?? now)
         let project = running?.project
-        let firstDay = Day(containing: idleStart, in: clock.calendar)
-        let lastDay = idleEnd.map { Day(containing: $0, in: clock.calendar) } ?? today
+        let firstDay = Day(containing: idleStart, in: calendar)
+        let lastDay = idleEnd.map { Day(containing: $0, in: calendar) } ?? today
         let days = Set(files.days().filter { $0 >= firstDay && $0 <= lastDay } + [today]).sorted()
         // Read every Day before writing any, so a malformed one (or one with deferred writes still queued)
         // refuses the whole removal.
@@ -319,7 +319,7 @@ public final class Tracker {
     /// The name a past Entry used for this Project, newest Day first. Malformed Days are skipped.
     private func historicalName(matching name: String) -> String? {
         for day in files.days() {
-            let entries = (try? DayStore(root: projectStore.root).load(day)) ?? []
+            let entries = (try? files.read(day)) ?? []
             if let entry = entries.last(where: { ProjectName.matches($0.project, name) }) { return entry.project }
         }
         return nil
@@ -379,8 +379,8 @@ public final class Tracker {
     private func rollOver() {
         guard files.loadedDay != today else { return }
         while let running, files.loadedDay < today {
-            let midnight = clock.calendar.dateInterval(of: .day, for: running.start)!.end
-            let next = Day(containing: midnight, in: clock.calendar)
+            let midnight = calendar.dateInterval(of: .day, for: running.start)!.end
+            let next = Day(containing: midnight, in: calendar)
             let project = running.project
             try? files.update(files.loadedDay, deferringIfMalformed: true) { Self.close(&$0, at: midnight) }
             try? files.update(next, deferringIfMalformed: true) {

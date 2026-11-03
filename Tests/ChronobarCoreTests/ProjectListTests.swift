@@ -162,4 +162,14 @@ import ChronobarCore
         #expect(tracker.running?.project == "Mobile App")
         #expect(tracker.total("Mobile App", on: tracker.today) == 30 * 60)
     }
+
+    /// Looking for a past spelling skips a malformed Day, but flags it like any other read.
+    @Test func aMalformedPastDayIsSkippedAndFlaggedWhenLookingForAName() throws {
+        try write(root, "2026-11-02", #"    { "project": "garden shed", "start": "9am" }"#)
+        try write(root, "2026-11-01", #"    { "project": "Garden Shed", "seconds": 600, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        #expect(try tracker.addProject("GARDEN SHED") == "Garden Shed")
+        #expect(tracker.isMalformed(Day("2026-11-02")!))
+    }
 }
