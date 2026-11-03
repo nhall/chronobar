@@ -133,8 +133,10 @@ Items marked *(not built yet)* are waiting on later work; update this list as th
 - [ ] After a minute the time reads `0:01`; the day file has one entry with `"end": null`.
 - [ ] Click ⏸: the square goes gray with ▶, the time stays, the entry now has an `end`.
 - [ ] Click ▶: the same project resumes and its total keeps counting from where it was.
-- [ ] Start a second project from ＋ *(Panel row ▶ not built yet)*: the first entry closes and only one
-      entry is open.
+- [ ] Start a second project from ＋: the first entry closes, only one entry is open, and the Panel
+      highlights the new project's row.
+- [ ] Click the first project's ▶ in the Panel: it resumes on its existing row, and the second pauses.
+- [ ] Click the running row's clock icon: the timer pauses.
 - [ ] The Pill reads clearly in light and dark menu bars and on a notched display.
 
 **Idle after sleep and lock** *(not built yet)*
@@ -146,14 +148,16 @@ Items marked *(not built yet)* are waiting on later work; update this list as th
 - [ ] Remove & stop leaves the timer stopped; Keep changes nothing.
 - [ ] No alert appears when no timer was running.
 
-**Dock** *(not built yet)*
+**Dock**
 
 - [ ] Show in Dock on (default): the Dock icon appears; clicking it opens the Panel under the Pill.
 - [ ] Show in Dock off: the icon disappears at once and stays hidden after relaunching.
 
-**Start at login** *(not built yet)*
+**Start at login**
 
-- [ ] Off by default. Turn it on, log out and back in: Chronobar starts into the menu bar.
+- [ ] Off by default, and the Panel shows a hint about it until dismissed (it stays dismissed after
+      relaunching).
+- [ ] Turn it on in Settings, log out and back in: Chronobar starts into the menu bar.
 - [ ] With Show in Dock off as well, it starts with no Dock icon.
 - [ ] After `brew upgrade chronobar`, log out and in again: it still starts at login.
 - [ ] Turn it off: it no longer starts at login, and it no longer appears in System Settings › General
