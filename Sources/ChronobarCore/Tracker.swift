@@ -22,19 +22,28 @@ public struct Row: Equatable, Sendable {
 @MainActor @Observable
 public final class Tracker {
     public private(set) var running: Running?
-    public private(set) var selectedProject: String?
+    /// The Project ▶ starts: the one most recently started. Kept in `defaults` across launches.
+    public private(set) var selectedProject: String? {
+        didSet { defaults?.set(selectedProject, forKey: Self.selectedProjectKey) }
+    }
     /// The clock's time at the last command or `tick()`. Totals of a running timer count up to here.
     public private(set) var now: Date
 
     @ObservationIgnored private let clock: TimeSource
     @ObservationIgnored private let store: DayStore
+    @ObservationIgnored private let defaults: UserDefaults?
     private var todayEntries: [Entry] = []
 
+    private static let selectedProjectKey = "selectedProject"
+
     /// Reads today's file. An open Entry there is the running timer, so a timer survives a relaunch.
-    public init(clock: TimeSource, storageRoot: URL) {
+    /// With no `defaults`, the Selected Project is kept in memory only.
+    public init(clock: TimeSource, storageRoot: URL, defaults: UserDefaults? = nil) {
         self.clock = clock
         self.store = DayStore(root: storageRoot)
+        self.defaults = defaults
         self.now = clock.now
+        self.selectedProject = defaults?.string(forKey: Self.selectedProjectKey)
         reload()
     }
 
