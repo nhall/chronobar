@@ -1,6 +1,7 @@
 import SwiftUI
 import ServiceManagement
 import ChronobarCore
+import KeyboardShortcuts
 import os
 
 extension RunningColor {
@@ -64,6 +65,7 @@ struct SettingsView: View {
                     .tag(color)
                 }
             }
+            KeyboardShortcuts.Recorder("Play/pause shortcut", name: .toggleTimer)
             Toggle("Show in Dock", isOn: $preferences.showInDock)
             Toggle("Start at login", isOn: Binding(get: { loginItem.isOn }, set: { loginItem.set($0) }))
             if loginItem.status == .requiresApproval {
