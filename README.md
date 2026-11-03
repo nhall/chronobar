@@ -136,6 +136,9 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       highlights the new project's row.
 - [ ] Click the first project's ▶ in the Panel: it resumes on its existing row, and the second pauses.
 - [ ] Click the running row's clock icon: the timer pauses.
+- [ ] ＋, type part of a project name: matching projects are listed. Clicking one fills the field and
+      starts nothing; Start (or Return) then starts it. Right-click › Archive removes it from the list.
+- [ ] Type a project name in different case with extra spaces: it starts on the existing row.
 - [ ] The Pill reads clearly in light and dark menu bars and on a notched display.
 
 **Logging and adjusting time**

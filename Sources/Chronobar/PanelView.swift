@@ -326,8 +326,8 @@ private struct LoginHint: View {
 
 /// The ＋ form: a Project name, a duration and Start, with the matching Projects listed below the field.
 /// With a duration typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without
-/// starting a timer; on a past Day it always reads Log and needs a duration. Clicking a suggestion starts
-/// or logs it (on a past Day with no duration, it fills the name); right-clicking offers Archive.
+/// starting a timer; on a past Day it always reads Log and needs a duration. Clicking a suggestion fills
+/// the name, for Start or Log to act on; right-clicking offers Archive.
 /// A new name creates a Project.
 private struct NewProjectForm: View {
     @Binding var name: String
@@ -361,13 +361,8 @@ private struct NewProjectForm: View {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(suggestions, id: \.self) { project in
                             Button {
-                                if hasDuration {
-                                    log(project)
-                                } else if canStart {
-                                    start(project)
-                                } else {
-                                    name = project
-                                }
+                                name = project
+                                focused = true
                             } label: {
                                 Text(project)
                                     .frame(maxWidth: .infinity, alignment: .leading)
