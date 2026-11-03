@@ -19,8 +19,6 @@ public final class Tracker {
     public private(set) var projects: [String] = []
     /// The clock's time at the last command or `tick()`. Totals of a running timer count up to here.
     public private(set) var now: Date
-    /// Days whose file failed to parse when last read. Writes to them are refused until it parses again.
-    public private(set) var malformedDays: Set<Day> = []
     /// Idle time to ask about with the idle alert; cleared by `resolveIdle`.
     public private(set) var pendingIdle: PendingIdle?
 
@@ -29,19 +27,9 @@ public final class Tracker {
     /// then was left by a crash.
     @ObservationIgnored private let launched: Date
     @ObservationIgnored private let lastAlive: Date?
-    /// Days that were malformed and have since parsed, to check for Entries left open.
-    @ObservationIgnored private var reparsed: Set<Day> = []
-    @ObservationIgnored private let store: DayStore
+    @ObservationIgnored private let files: DayFiles
     @ObservationIgnored private let projectStore: ProjectStore
     @ObservationIgnored private let defaults: UserDefaults?
-    private var todayEntries: [Entry] = []
-    /// The Day `todayEntries` came from. It lags `today` from midnight until the next `tick()` or command.
-    @ObservationIgnored private var loadedDay: Day
-    /// Other Days' Entries, read on first use and dropped on `reload()` so hand edits show up.
-    @ObservationIgnored private var otherDays: [Day: [Entry]] = [:]
-    /// Writes deferred because their Day's file was malformed, oldest first. Retried on `tick()`,
-    /// `reload()` and before every write; lost on quit, which leaves the open Entry for crash recovery.
-    @ObservationIgnored private var pending: [(day: Day, change: (inout [Entry]) -> Void)] = []
 
     private static let selectedProjectKey = "selectedProject"
     private static let heartbeatKey = "heartbeat"
@@ -50,16 +38,18 @@ public final class Tracker {
     /// With no `defaults`, the Selected Project is kept in memory only.
     public init(clock: TimeSource, storageRoot: URL, defaults: UserDefaults? = nil) {
         self.clock = clock
-        self.store = DayStore(root: storageRoot)
+        self.files = DayFiles(root: storageRoot, clock: clock)
         self.projectStore = ProjectStore(root: storageRoot)
         self.defaults = defaults
         self.now = clock.now
         self.launched = clock.now
         self.lastAlive = defaults?.object(forKey: Self.heartbeatKey) as? Date
         self.selectedProject = defaults?.string(forKey: Self.selectedProjectKey)
-        self.loadedDay = Day(containing: clock.now, in: clock.calendar)
         reload()
     }
+
+    /// Days whose file failed to parse when last read. Writes to them are refused until it parses again.
+    public var malformedDays: Set<Day> { files.malformed }
 
     /// Retries deferred writes, then re-reads today's file and the Project list, and other Days' files
     /// when next asked for. A Day file that won't parse is flagged in `malformedDays` and its last good
@@ -67,24 +57,17 @@ public final class Tracker {
     public func reload() {
         now = clock.now
         projects = (try? projectStore.load()) ?? []
-        otherDays = [:]
-        retryPending()
         let known = running
-        if let entries = try? read(today) {
-            todayEntries = entries
-        } else if loadedDay != today {
-            todayEntries = []
-            for (day, change) in pending where day == today { change(&todayEntries) }
-        }
-        loadedDay = today
-        let open = todayEntries.compactMap(\.openTimer)
-        // An open Entry in a file that just parsed again is left for `recoverReparsedDays` to recover.
+        files.load(today)
+        let reparsed = files.takeReparsed()
+        let open = files.loadedEntries.compactMap(\.openTimer)
+        // An open Entry in a file that just parsed again is left for `recover(reparsed:)`.
         running = open.first { $0 == known } ?? (reparsed.contains(today) ? nil : open.first)
         // A running Project that was archived keeps running but isn't selected again.
         if let running, projects.contains(where: { ProjectName.matches($0, running.project) }) {
             selectedProject = storedName(running.project)
         }
-        recoverReparsedDays()
+        recover(reparsed: reparsed)
     }
 
     public var today: Day { Day(containing: now, in: clock.calendar) }
@@ -96,12 +79,12 @@ public final class Tracker {
     /// Refused, leaving any running timer alone, while today's file is malformed.
     public func start(_ name: String) throws {
         now = clock.now
-        retryPending()
-        _ = try read(today)
+        files.retryPending()
+        _ = try files.read(today)
         let project = try addProject(name)
         try pause()
         let start = now
-        try updateToday { $0.append(.timed(project: project, start: start, end: nil)) }
+        try files.update(today) { $0.append(.timed(project: project, start: start, end: nil)) }
         running = Running(project: project, start: start)
         selectedProject = project
     }
@@ -113,7 +96,7 @@ public final class Tracker {
         rollOver()
         guard running != nil else { return }
         let end = now
-        try updateToday(deferringIfMalformed: true) { Self.close(&$0, at: end) }
+        try files.update(today, deferringIfMalformed: true) { Self.close(&$0, at: end) }
         running = nil
     }
 
@@ -132,15 +115,15 @@ public final class Tracker {
     public func tick() {
         now = clock.now
         rollOver()
-        retryPending()
-        recoverReparsedDays()
+        files.retryPending()
+        recover(reparsed: files.takeReparsed())
         unblockPendingIdle()
     }
 
     /// Clears `pendingIdle.blockedBy` once that Day's file parses and its deferred writes have landed.
     private func unblockPendingIdle() {
         guard let idle = pendingIdle, let day = idle.blockedBy,
-              !pending.contains(where: { $0.day == day }), (try? read(day)) != nil else { return }
+              !files.hasPending(day), (try? files.read(day)) != nil else { return }
         pendingIdle = PendingIdle(since: idle.since, until: idle.until)
     }
 
@@ -161,7 +144,7 @@ public final class Tracker {
     public func recoverAfterLaunch() -> Date? {
         now = clock.now
         if let running {
-            recover(running, on: loadedDay)
+            recover(running, on: files.loadedDay)
         } else if let (day, entries) = lastTimedDay(), let open = entries.lazy.compactMap(\.openTimer).first {
             recover(open, on: day)
         }
@@ -170,11 +153,10 @@ public final class Tracker {
 
     /// Recovers open Entries in Day files that were malformed and now parse. Core's own running Entry is
     /// left alone; any other one was left by a crash.
-    private func recoverReparsedDays() {
-        let days = reparsed
-        reparsed = []
-        for day in days.sorted() where !pending.contains(where: { $0.day == day }) {
-            for timer in entries(on: day).compactMap(\.openTimer) where !(day == loadedDay && timer == running) {
+    private func recover(reparsed days: Set<Day>) {
+        for day in days.sorted() where !files.hasPending(day) {
+            for timer in files.entries(on: day).compactMap(\.openTimer)
+            where !(day == files.loadedDay && timer == running) {
                 recover(timer, on: day)
             }
         }
@@ -186,16 +168,13 @@ public final class Tracker {
     private func recover(_ timer: Running, on day: Day) {
         let lastAlive = max(timer.start, lastAlive ?? timer.start)
         if running == nil || running == timer {
-            if day != loadedDay {
-                todayEntries = entries(on: day)
-                loadedDay = day
-            }
+            files.move(to: day)
             running = timer
             noteIdle(PendingIdle(since: lastAlive))
             rollOver()
         } else {
             let end = max(timer.start, min(launched, calendar.dateInterval(of: .day, for: timer.start)!.end))
-            try? update(day, deferringIfMalformed: true) { entries in
+            try? files.update(day, deferringIfMalformed: true) { entries in
                 entries = entries.map { $0.openTimer == timer ? .timed(project: timer.project, start: timer.start, end: end) : $0 }
             }
             noteIdle(PendingIdle(since: min(lastAlive, end), until: end))
@@ -211,8 +190,8 @@ public final class Tracker {
 
     /// The newest past Day whose file has a timed Entry, with its Entries. Malformed Days are skipped.
     private func lastTimedDay() -> (Day, [Entry])? {
-        for day in store.days() where day < today {
-            guard let entries = try? read(day) else { continue }
+        for day in files.days() where day < today {
+            guard let entries = try? files.read(day) else { continue }
             if entries.contains(where: { if case .timed = $0 { true } else { false } }) { return (day, entries) }
         }
         return nil
@@ -232,15 +211,15 @@ public final class Tracker {
         let project = running?.project
         let firstDay = Day(containing: idleStart, in: clock.calendar)
         let lastDay = idleEnd.map { Day(containing: $0, in: clock.calendar) } ?? today
-        let days = Set(store.days().filter { $0 >= firstDay && $0 <= lastDay } + [today]).sorted()
+        let days = Set(files.days().filter { $0 >= firstDay && $0 <= lastDay } + [today]).sorted()
         // Read every Day before writing any, so a malformed one (or one with deferred writes still queued)
         // refuses the whole removal.
-        retryPending()
+        files.retryPending()
         let loaded: [(Day, [Entry])]
         do {
             loaded = try days.map { day in
-                guard !pending.contains(where: { $0.day == day }) else { throw MalformedDayFile(day: day) }
-                do { return (day, try read(day)) } catch is DayFile.Malformed { throw MalformedDayFile(day: day) }
+                guard !files.hasPending(day) else { throw MalformedDayFile(day: day) }
+                do { return (day, try files.read(day)) } catch is DayFile.Malformed { throw MalformedDayFile(day: day) }
             }
         } catch let error as MalformedDayFile {
             let since = min(idleStart, pendingIdle?.since ?? idleStart)
@@ -249,7 +228,7 @@ public final class Tracker {
         }
         for (day, entries) in loaded {
             let kept = Self.removing(entries, from: idleStart, to: idleEnd, asOf: now)
-            if kept != entries { try store.save(day, kept, timeZone: clock.calendar.timeZone) }
+            if kept != entries { try files.save(day, kept) }
         }
         pendingIdle = nil
         reload()
@@ -257,7 +236,7 @@ public final class Tracker {
             try pause()
         } else if running == nil, let project {
             let start = now
-            try updateToday { $0.append(.timed(project: project, start: start, end: nil)) }
+            try files.update(today) { $0.append(.timed(project: project, start: start, end: nil)) }
             running = Running(project: project, start: start)
         }
     }
@@ -280,7 +259,7 @@ public final class Tracker {
 
     /// The Project's total on `day`, never below zero.
     public func total(_ project: String, on day: Day) -> TimeInterval {
-        max(0, Self.sum(of: project, in: entries(on: day), asOf: now))
+        max(0, Self.sum(of: project, in: files.entries(on: day), asOf: now))
     }
 
     /// The raw sum of the Project's Entries, which may be negative after an adjustment.
@@ -292,7 +271,7 @@ public final class Tracker {
     /// that match are one Project, shown as the Project list spells it, else as its first Entry does.
     public func rows(_ day: Day) -> [Row] {
         var names: [String] = []
-        for entry in entries(on: day) where !names.contains(where: { ProjectName.matches($0, entry.project) }) {
+        for entry in files.entries(on: day) where !names.contains(where: { ProjectName.matches($0, entry.project) }) {
             names.append(storedName(entry.project))
         }
         return names.map { Row(project: $0, total: total($0, on: day)) }
@@ -310,23 +289,6 @@ public final class Tracker {
 
     /// The calendar Days and weeks are counted in.
     public var calendar: Calendar { clock.calendar }
-
-    /// The Day's Entries: the loaded Day's from memory, any other Day's from its file, read once until the
-    /// next `reload()`. A missing file is empty; a malformed one is flagged in `malformedDays` and reads as
-    /// just its deferred writes.
-    private func entries(on day: Day) -> [Entry] {
-        if day == loadedDay { return todayEntries }
-        if let cached = otherDays[day] { return cached }
-        var loaded: [Entry]
-        if let entries = try? read(day) {
-            loaded = entries
-        } else {
-            loaded = []
-            for (pendingDay, change) in pending where pendingDay == day { change(&loaded) }
-        }
-        otherDays[day] = loaded
-        return loaded
-    }
 
     /// Adds `name` to the Project list and returns the Project's name. A name matching an active Project
     /// returns its stored spelling and changes nothing; one matching an archived Project revives it with
@@ -359,8 +321,8 @@ public final class Tracker {
 
     /// The name a past Entry used for this Project, newest Day first. Malformed Days are skipped.
     private func historicalName(matching name: String) -> String? {
-        for day in store.days() {
-            let entries = (try? store.load(day)) ?? []
+        for day in files.days() {
+            let entries = (try? DayStore(root: projectStore.root).load(day)) ?? []
             if let entry = entries.last(where: { ProjectName.matches($0.project, name) }) { return entry.project }
         }
         return nil
@@ -384,7 +346,7 @@ public final class Tracker {
         now = clock.now
         rollOver()
         let project = try addProject(name)
-        try update(day) { $0.append(.manual(project: project, seconds: seconds, note: .manual)) }
+        try files.update(day) { $0.append(.manual(project: project, seconds: seconds, note: .manual)) }
     }
 
     /// Sets the Project's total on `day` to a typed total (`1:15`) or changes it (`+15`, `-10`), starting
@@ -403,9 +365,9 @@ public final class Tracker {
         func difference(_ entries: [Entry]) -> Int {
             Int((target - Self.sum(of: project, in: entries, asOf: now)).rounded())
         }
-        guard difference(entries(on: day)) != 0 else { return }
+        guard difference(files.entries(on: day)) != 0 else { return }
         // The difference is taken again from the Entries as re-read, so a hand edit can't skew it.
-        try update(day) { entries in
+        try files.update(day) { entries in
             let seconds = difference(entries)
             if seconds != 0 { entries.append(.manual(project: project, seconds: seconds, note: .adjustment)) }
         }
@@ -414,19 +376,17 @@ public final class Tracker {
     /// After midnight, splits a running timer at the start of each new Day so every Day's file holds only
     /// that Day's time, then loads today. Writes to a file that won't parse wait until it does.
     private func rollOver() {
-        guard loadedDay != today else { return }
-        while let running, loadedDay < today {
+        guard files.loadedDay != today else { return }
+        while let running, files.loadedDay < today {
             let midnight = clock.calendar.dateInterval(of: .day, for: running.start)!.end
             let next = Day(containing: midnight, in: clock.calendar)
             let project = running.project
-            try? update(loadedDay, deferringIfMalformed: true) { Self.close(&$0, at: midnight) }
-            try? update(next, deferringIfMalformed: true) {
+            try? files.update(files.loadedDay, deferringIfMalformed: true) { Self.close(&$0, at: midnight) }
+            try? files.update(next, deferringIfMalformed: true) {
                 $0.append(.timed(project: project, start: midnight, end: nil))
             }
             // Load the new Day as written, or as its deferred writes leave it if its file won't parse.
-            todayEntries = entries(on: next)
-            otherDays[next] = nil
-            loadedDay = next
+            files.move(to: next)
             self.running = Running(project: running.project, start: midnight)
         }
         reload()
@@ -439,64 +399,6 @@ public final class Tracker {
                 return .timed(project: project, start: start, end: end)
             }
             return entry
-        }
-    }
-
-    private func updateToday(
-        deferringIfMalformed: Bool = false, _ change: @escaping (inout [Entry]) -> Void
-    ) throws {
-        try update(today, deferringIfMalformed: deferringIfMalformed, change)
-    }
-
-    /// Re-reads `day`'s file, applies `change` and writes it back, after any earlier deferred writes to
-    /// it. If the file is malformed the write is refused, or with `deferringIfMalformed` applied to the
-    /// cached Entries only and queued until the file parses.
-    private func update(
-        _ day: Day, deferringIfMalformed: Bool = false, _ change: @escaping (inout [Entry]) -> Void
-    ) throws {
-        retryPending()
-        do {
-            guard !pending.contains(where: { $0.day == day }) else { throw DayFile.Malformed() }
-            try write(day, change)
-        } catch is DayFile.Malformed where deferringIfMalformed {
-            if day == loadedDay { change(&todayEntries) }
-            pending.append((day, change))
-        }
-    }
-
-    /// Applies deferred writes in order. A Day whose file still won't parse keeps its writes queued.
-    private func retryPending() {
-        var blocked: Set<Day> = []
-        pending = pending.filter { day, change in
-            guard !blocked.contains(day), (try? write(day, change)) != nil else {
-                blocked.insert(day)
-                return true
-            }
-            return false
-        }
-    }
-
-    /// Re-reads `day`'s file, applies `change` and writes it back.
-    private func write(_ day: Day, _ change: (inout [Entry]) -> Void) throws {
-        var entries = try read(day)
-        change(&entries)
-        try store.save(day, entries, timeZone: clock.calendar.timeZone)
-        if day == loadedDay { todayEntries = entries } else { otherDays[day] = entries }
-    }
-
-    /// Loads `day`'s file, recording in `malformedDays` whether it parsed.
-    private func read(_ day: Day) throws -> [Entry] {
-        do {
-            let entries = try store.load(day)
-            // Only touch the observable set on a change: views read past Days while rendering.
-            if malformedDays.contains(day) {
-                malformedDays.remove(day)
-                reparsed.insert(day)
-            }
-            return entries
-        } catch {
-            if !malformedDays.contains(day) { malformedDays.insert(day) }
-            throw error
         }
     }
 }
