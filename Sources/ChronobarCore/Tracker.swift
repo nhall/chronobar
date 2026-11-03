@@ -7,6 +7,17 @@ public struct Running: Equatable, Sendable {
     public let start: Date
 }
 
+/// One Project's line in the Panel for a Day.
+public struct Row: Equatable, Sendable {
+    public let project: String
+    public let total: TimeInterval
+
+    public init(project: String, total: TimeInterval) {
+        self.project = project
+        self.total = total
+    }
+}
+
 /// Core's single entry point: the timer, totals and the Day files behind them.
 @MainActor @Observable
 public final class Tracker {
@@ -83,6 +94,15 @@ public final class Tracker {
             .filter { $0.project == project }
             .reduce(0) { $0 + $1.seconds(asOf: now) }
         return max(0, raw)
+    }
+
+    /// One Row per Project with Entries on `day`, in the order each first appears in the Day file.
+    public func rows(_ day: Day) -> [Row] {
+        var projects: [String] = []
+        for entry in todayEntries where !projects.contains(entry.project) {
+            projects.append(entry.project)
+        }
+        return projects.map { Row(project: $0, total: total($0, on: day)) }
     }
 
     /// Re-reads today's file, applies `change` and writes it back.
