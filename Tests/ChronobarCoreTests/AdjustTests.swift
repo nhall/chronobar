@@ -123,6 +123,21 @@ import ChronobarCore
         #expect(tracker.total("Website Redesign", on: tracker.today) == 75 * 60)
     }
 
+    @Test func loggingAndAdjustingAreRefusedWhileTheDayFileIsMalformed() throws {
+        let tracker = try trackerWithAnHour()
+        try write(root, "2026-11-03", "{ oops")
+        let before = contents(dayFile(root, "2026-11-03"))
+
+        #expect(throws: (any Error).self) { try tracker.adjust("Website Redesign", "2:00", on: tracker.today) }
+        #expect(throws: (any Error).self) { try tracker.log("Website Redesign", "0:30", on: tracker.today) }
+
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+        #expect(tracker.isMalformed(tracker.today))
+        try write(root, "2026-11-03", #"{ "project": "Website Redesign", "seconds": 3600, "note": "manual" }"#)
+        tracker.reload()
+        #expect(tracker.total("Website Redesign", on: tracker.today) == 60 * 60)
+    }
+
     @Test func noChangeWritesNothing() throws {
         let tracker = try trackerWithAnHour()
         let before = contents(dayFile(root, "2026-11-03"))
