@@ -33,6 +33,8 @@ public final class Tracker {
     @ObservationIgnored private let store: DayStore
     @ObservationIgnored private let defaults: UserDefaults?
     private var todayEntries: [Entry] = []
+    /// Other Days' Entries, read on first use and dropped on `reload()` so hand edits show up.
+    @ObservationIgnored private var otherDays: [Day: [Entry]] = [:]
 
     private static let selectedProjectKey = "selectedProject"
 
@@ -47,9 +49,11 @@ public final class Tracker {
         reload()
     }
 
-    /// Re-reads today's file. A file that won't parse reads as empty; writes to it are refused.
+    /// Re-reads today's file, and other Days' files when next asked for. A file that won't parse reads
+    /// as empty; writes to it are refused.
     public func reload() {
         now = clock.now
+        otherDays = [:]
         todayEntries = (try? store.load(today)) ?? []
         running = todayEntries.lazy.compactMap { entry -> Running? in
             if case .timed(let project, let start, nil) = entry { return Running(project: project, start: start) }
@@ -99,7 +103,7 @@ public final class Tracker {
 
     /// The Project's total on `day`, never below zero.
     public func total(_ project: String, on day: Day) -> TimeInterval {
-        let raw = todayEntries
+        let raw = entries(on: day)
             .filter { $0.project == project }
             .reduce(0) { $0 + $1.seconds(asOf: now) }
         return max(0, raw)
@@ -108,7 +112,7 @@ public final class Tracker {
     /// One Row per Project with Entries on `day`, in the order each first appears in the Day file.
     public func rows(_ day: Day) -> [Row] {
         var projects: [String] = []
-        for entry in todayEntries where !projects.contains(entry.project) {
+        for entry in entries(on: day) where !projects.contains(entry.project) {
             projects.append(entry.project)
         }
         return projects.map { Row(project: $0, total: total($0, on: day)) }
@@ -119,12 +123,22 @@ public final class Tracker {
         rows(day).reduce(0) { $0 + $1.total }
     }
 
+    /// The Day's Entries: today's from memory, any other Day's from its file (empty if missing or malformed).
+    private func entries(on day: Day) -> [Entry] {
+        if day == today { return todayEntries }
+        if let cached = otherDays[day] { return cached }
+        let loaded = (try? store.load(day)) ?? []
+        otherDays[day] = loaded
+        return loaded
+    }
+
     /// Re-reads today's file, applies `change` and writes it back.
     private func updateToday(_ change: (inout [Entry]) -> Void) throws {
         let day = today
         var entries = try store.load(day)
         change(&entries)
         try store.save(day, entries, timeZone: clock.calendar.timeZone)
+        otherDays[day] = nil
         todayEntries = entries
     }
 }
