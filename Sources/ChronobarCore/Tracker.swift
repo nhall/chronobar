@@ -105,6 +105,11 @@ public final class Tracker {
         return projects.map { Row(project: $0, total: total($0, on: day)) }
     }
 
+    /// The Day's grand total: the sum of its Rows, each already clamped at zero.
+    public func dayTotal(_ day: Day) -> TimeInterval {
+        rows(day).reduce(0) { $0 + $1.total }
+    }
+
     /// Re-reads today's file, applies `change` and writes it back.
     private func updateToday(_ change: (inout [Entry]) -> Void) throws {
         let day = today
