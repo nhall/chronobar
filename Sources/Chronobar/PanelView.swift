@@ -18,6 +18,7 @@ struct PanelView: View {
     let start: (String) -> Void
     let pause: () -> Void
     let close: () -> Void
+    let openDataFolder: () -> Void
 
     var body: some View {
         let day = tracker.today
@@ -37,6 +38,21 @@ struct PanelView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Start a Project")
+                Menu {
+                    Button("Open data folder", action: openDataFolder)
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+            }
+            if tracker.isMalformed(day) {
+                Label("This Day's file can't be read, so changes to it are refused. Fix it by hand in the data folder.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if panel.showingNewProject {
                 NewProjectForm(name: $panel.newProjectName) { project in

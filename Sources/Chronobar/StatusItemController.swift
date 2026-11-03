@@ -13,7 +13,7 @@ final class StatusItemController: NSObject {
     private let popover = NSPopover()
     private let pill: NSHostingView<PillView>
 
-    init(tracker: Tracker) {
+    init(tracker: Tracker, storageRoot: URL) {
         self.tracker = tracker
         pill = ClickThroughHostingView(rootView: PillView(tracker: tracker))
         super.init()
@@ -23,7 +23,13 @@ final class StatusItemController: NSObject {
             tracker: tracker, panel: panel,
             start: { [weak self] project in self?.perform { try tracker.start(project) } },
             pause: { [weak self] in self?.perform { try tracker.pause() } },
-            close: { [weak self] in self?.popover.performClose(nil) }))
+            close: { [weak self] in self?.popover.performClose(nil) },
+            openDataFolder: { [weak self] in
+                self?.popover.performClose(nil)
+                // The folder only exists after the first write.
+                try? FileManager.default.createDirectory(at: storageRoot, withIntermediateDirectories: true)
+                NSWorkspace.shared.open(storageRoot)
+            }))
         content.sizingOptions = .preferredContentSize
         popover.contentViewController = content
 
@@ -67,6 +73,9 @@ final class StatusItemController: NSObject {
         panel.showingNewProject = newProject
         if popover.isShown { return }
         guard let button = statusItem.button else { return }
+        // Picks up hand edits to the Day files and retries writes deferred while one was malformed.
+        tracker.reload()
+        refresh()
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
