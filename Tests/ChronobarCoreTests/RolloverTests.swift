@@ -122,4 +122,67 @@ import ChronobarCore
         """)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 90 * 60)
     }
+
+    /// A Mac asleep across two midnights wakes to one Entry per Day.
+    @Test func wakingAfterTwoMidnightsFillsTheDayInBetween() throws {
+        let clock = FakeClock("2026-11-03T23:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-05T08:00:00")
+        tracker.tick()
+
+        #expect(contents(dayFile(root, "2026-11-04")) == """
+        {
+          "date": "2026-11-04",
+          "entries": [
+            { "project": "Website Redesign", "start": "2026-11-04T00:00:00-05:00", "end": "2026-11-05T00:00:00-05:00" }
+          ]
+        }
+
+        """)
+        #expect(contents(dayFile(root, "2026-11-05")) == """
+        {
+          "date": "2026-11-05",
+          "entries": [
+            { "project": "Website Redesign", "start": "2026-11-05T00:00:00-05:00", "end": null }
+          ]
+        }
+
+        """)
+        #expect(tracker.total("Website Redesign", on: tracker.today) == 8 * 3600)
+    }
+
+    @Test func pausingAfterMidnightBeforeATickClosesTheNewDaysEntry() throws {
+        let clock = FakeClock("2026-11-03T23:30:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-04T00:20:00")
+        try tracker.pause()
+
+        #expect(contents(dayFile(root, "2026-11-04")) == """
+        {
+          "date": "2026-11-04",
+          "entries": [
+            { "project": "Website Redesign", "start": "2026-11-04T00:00:00-05:00", "end": "2026-11-04T00:20:00-05:00" }
+          ]
+        }
+
+        """)
+        #expect(tracker.running == nil)
+        #expect(tracker.total("Website Redesign", on: tracker.today) == 20 * 60)
+    }
+
+    @Test func pausedPillShowsTheNewDaysTotalAfterMidnight() throws {
+        let clock = FakeClock("2026-11-03T22:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T23:00:00")
+        try tracker.pause()
+        clock.set("2026-11-04T00:01:00")
+        tracker.tick()
+
+        #expect(tracker.today == Day(year: 2026, month: 11, day: 4))
+        #expect(tracker.selectedProject == "Website Redesign")
+        #expect(tracker.total("Website Redesign", on: tracker.today) == 0)
+    }
 }
