@@ -18,6 +18,17 @@ public struct Row: Equatable, Sendable {
     }
 }
 
+/// One Day's grand total, as shown in the Week strip.
+public struct DayTotal: Equatable, Sendable {
+    public let day: Day
+    public let total: TimeInterval
+
+    public init(day: Day, total: TimeInterval) {
+        self.day = day
+        self.total = total
+    }
+}
+
 /// Core's single entry point: the timer, totals and the Day files behind them.
 @MainActor @Observable
 public final class Tracker {
@@ -122,6 +133,18 @@ public final class Tracker {
     public func dayTotal(_ day: Day) -> TimeInterval {
         rows(day).reduce(0) { $0 + $1.total }
     }
+
+    /// The seven Days of `day`'s week, starting on the calendar's first weekday, with their totals.
+    public func weekTotals(containing day: Day) -> [DayTotal] {
+        let first = day.startOfWeek(in: calendar)
+        return (0..<7).map { offset in
+            let day = first.adding(days: offset, in: calendar)
+            return DayTotal(day: day, total: dayTotal(day))
+        }
+    }
+
+    /// The calendar Days and weeks are counted in.
+    public var calendar: Calendar { clock.calendar }
 
     /// The Day's Entries: today's from memory, any other Day's from its file (empty if missing or malformed).
     private func entries(on day: Day) -> [Entry] {
