@@ -40,6 +40,11 @@ final class IdleMonitor {
         prompt(since: tracker.now - idle)
     }
 
+    /// Asks about the time since `since`, e.g. since the app was last alive before a crash.
+    func report(since: Date) {
+        prompt(since: since)
+    }
+
     private func observe(_ center: NotificationCenter, _ name: Notification.Name,
                          _ handle: @escaping @MainActor @Sendable (IdleMonitor) -> Void) {
         let token = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in

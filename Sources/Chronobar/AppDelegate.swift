@@ -1,5 +1,6 @@
 import AppKit
 import ChronobarCore
+import os
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -9,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: StatusItemController!
     private var idleMonitor: IdleMonitor!
     private var timer: Timer?
+    private var heartbeat: Timer?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Before launch finishes, so with Show in Dock off the app starts silently in the menu bar.
@@ -31,11 +33,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
 
+        let heartbeat = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tracker.heartbeat() }
+        }
+        RunLoop.main.add(heartbeat, forMode: .common)
+        self.heartbeat = heartbeat
+
         // Roll over to the new Day straight away on wake rather than on the next timer fire.
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
+        }
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tracker.heartbeat() }
+        }
+
+        // An Entry left open by a crash or forced shutdown: ask about the time since the app was last alive.
+        if let since = tracker.recoverAfterLaunch() {
+            statusItem.refresh()
+            idleMonitor.report(since: since)
+        }
+    }
+
+    /// Quitting stops the running timer at the quit time.
+    func applicationWillTerminate(_ notification: Notification) {
+        do {
+            try tracker?.pause()
+        } catch {
+            Logger(subsystem: "Chronobar", category: "quit").error("\(error, privacy: .public)")
         }
     }
 
