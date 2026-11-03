@@ -17,6 +17,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // `.common` keeps the Pill ticking while a menu or the popover is tracking events.
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+
+        // Roll over to the new Day straight away on wake rather than on the next timer fire.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
     }
 
     private func tick() {
