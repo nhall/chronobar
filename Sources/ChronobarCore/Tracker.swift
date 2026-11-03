@@ -31,15 +31,20 @@ public final class Tracker {
         reload()
     }
 
-    /// Re-reads today's file. A file that won't parse reads as empty; writes to it are refused.
+    /// Re-reads today's file and the Project list. A file that won't parse reads as empty; writes to it
+    /// are refused.
     public func reload() {
         now = clock.now
+        projects = (try? projectStore.load()) ?? []
         todayEntries = (try? store.load(today)) ?? []
         running = todayEntries.lazy.compactMap { entry -> Running? in
             if case .timed(let project, let start, nil) = entry { return Running(project: project, start: start) }
             return nil
         }.first
-        if let running { selectedProject = running.project }
+        // A running Project that was archived keeps running but isn't selected again.
+        if let running, projects.contains(where: { ProjectName.matches($0, running.project) }) {
+            selectedProject = running.project
+        }
     }
 
     public var today: Day { Day(containing: now, in: clock.calendar) }
@@ -105,6 +110,15 @@ public final class Tracker {
         try projectStore.save(list)
         projects = list
         return name
+    }
+
+    /// Removes the Project matching `name` from the Project list. Its Entries stay in the Day files.
+    public func archiveProject(_ name: String) throws {
+        var list = try projectStore.load()
+        list.removeAll { ProjectName.matches($0, name) }
+        try projectStore.save(list)
+        projects = list
+        if let selectedProject, ProjectName.matches(selectedProject, name) { self.selectedProject = nil }
     }
 
     /// Re-reads today's file, applies `change` and writes it back.
