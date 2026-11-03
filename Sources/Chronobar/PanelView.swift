@@ -18,9 +18,13 @@ final class PanelModel {
 struct PanelView: View {
     let tracker: Tracker
     @Bindable var panel: PanelModel
+    let preferences: Preferences
+    let loginItem: LoginItem
     let start: (String) -> Void
     let pause: () -> Void
+    let archive: (String) -> Void
     let close: () -> Void
+    let quit: () -> Void
 
     var body: some View {
         let today = tracker.today
@@ -58,16 +62,42 @@ struct PanelView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Start a Project")
+                Menu {
+                    SettingsLink { Text("Settings…") }
+                        .keyboardShortcut(",", modifiers: .command)
+                    Divider()
+                    Button("Quit Chronobar", action: quit)
+                        .keyboardShortcut("q", modifiers: .command)
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("Settings and Quit")
+            }
+            if !preferences.loginHintDismissed && !loginItem.isOn {
+                LoginHint(
+                    turnOn: {
+                        loginItem.set(true)
+                        preferences.loginHintDismissed = true
+                    },
+                    dismiss: { preferences.loginHintDismissed = true })
             }
             WeekStrip(week: tracker.weekTotals(containing: day), today: today, viewed: day,
-                      calendar: tracker.calendar, view: { show($0, today: today) },
+                      calendar: tracker.calendar, runningColor: preferences.runningColor.color,
+                      view: { show($0, today: today) },
                       move: { show(day.adding(days: 7 * $0, in: tracker.calendar), today: today) })
             if panel.showingNewProject {
-                NewProjectForm(name: $panel.newProjectName) { project in
-                    start(project)
-                    panel.showingNewProject = false
-                    close()
-                }
+                NewProjectForm(
+                    name: $panel.newProjectName,
+                    suggestions: tracker.suggestions(for: panel.newProjectName),
+                    start: { project in
+                        start(project)
+                        panel.showingNewProject = false
+                        close()
+                    },
+                    archive: archive)
             }
             if rows.isEmpty {
                 Text("No time tracked").foregroundStyle(.secondary)
@@ -75,7 +105,8 @@ struct PanelView: View {
                 VStack(spacing: 2) {
                     ForEach(rows, id: \.project) { row in
                         RowView(row: row, isRunning: isToday && tracker.running?.project == row.project,
-                                canStart: isToday, start: { start(row.project) }, pause: pause)
+                                canStart: isToday, runningColor: preferences.runningColor.color,
+                                start: { start(row.project) }, pause: pause)
                     }
                 }
             }
@@ -108,6 +139,7 @@ private struct WeekStrip: View {
     let today: Day
     let viewed: Day
     let calendar: Calendar
+    let runningColor: Color
     let view: (Day) -> Void
     let move: (Int) -> Void
 
@@ -143,7 +175,7 @@ private struct WeekStrip: View {
                 .foregroundStyle(isToday ? Color.white : item.day > today ? Color.secondary : Color.primary)
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(
-                    isToday ? Color.accentColor : isViewed ? Color.gray.opacity(0.35) : Color.clear))
+                    isToday ? runningColor : isViewed ? Color.gray.opacity(0.35) : Color.clear))
             Text(DurationFormat.hoursMinutes(item.total))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -182,6 +214,7 @@ private struct RowView: View {
     let row: Row
     let isRunning: Bool
     let canStart: Bool
+    let runningColor: Color
     let start: () -> Void
     let pause: () -> Void
 
@@ -205,25 +238,75 @@ private struct RowView: View {
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 5)
-                .fill(isRunning ? Color.accentColor : Color.clear))
+                .fill(isRunning ? runningColor : Color.clear))
     }
 }
 
-/// The ＋ form: a Project name and Start.
+/// The one-time suggestion to turn on Start at login. Either button hides it for good.
+private struct LoginHint: View {
+    let turnOn: () -> Void
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Start Chronobar when you log in?")
+                .font(.callout)
+            Spacer()
+            Button("Turn On", action: turnOn)
+                .controlSize(.small)
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless)
+            .help("Dismiss")
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
+    }
+}
+
+/// The ＋ form: a Project name and Start, with the matching Projects listed below the field.
+/// Clicking a suggestion starts it; right-clicking offers Archive. A new name creates a Project.
 private struct NewProjectForm: View {
     @Binding var name: String
+    let suggestions: [String]
     let start: (String) -> Void
+    let archive: (String) -> Void
     @FocusState private var focused: Bool
 
     var body: some View {
-        HStack {
-            TextField("Project", text: $name)
-                .textFieldStyle(.roundedBorder)
-                .focused($focused)
-                .onSubmit(submit)
-            Button("Start", action: submit)
-                .keyboardShortcut(.defaultAction)
-                .disabled(trimmed.isEmpty)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                TextField("Project", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($focused)
+                    .onSubmit(submit)
+                Button("Start", action: submit)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(trimmed.isEmpty)
+            }
+            if !suggestions.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(suggestions, id: \.self) { project in
+                            Button {
+                                start(project)
+                            } label: {
+                                Text(project)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 3)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button("Archive") { archive(project) }
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 160)
+                .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .onAppear { focused = true }
     }
