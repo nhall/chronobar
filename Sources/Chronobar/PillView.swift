@@ -13,6 +13,7 @@ enum PillMetrics {
 /// The two-segment menu bar item: the ▶/⏸ square and the Selected Project's time today.
 struct PillView: View {
     let tracker: Tracker
+    let preferences: Preferences
 
     var body: some View {
         let isRunning = tracker.running != nil
@@ -23,7 +24,7 @@ struct PillView: View {
                 .frame(width: PillMetrics.squareWidth, height: PillMetrics.height)
                 .background(
                     RoundedRectangle(cornerRadius: PillMetrics.cornerRadius)
-                        .fill(isRunning ? Color.accentColor : Color(nsColor: .systemGray)))
+                        .fill(isRunning ? preferences.runningColor.color : Color(nsColor: .systemGray)))
             Text(time)
                 .font(.system(size: 12, weight: .medium).monospacedDigit())
                 .foregroundStyle(.white)

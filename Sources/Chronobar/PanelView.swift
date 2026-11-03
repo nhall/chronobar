@@ -15,9 +15,12 @@ final class PanelModel {
 struct PanelView: View {
     let tracker: Tracker
     @Bindable var panel: PanelModel
+    let preferences: Preferences
+    let loginItem: LoginItem
     let start: (String) -> Void
     let pause: () -> Void
     let close: () -> Void
+    let quit: () -> Void
 
     var body: some View {
         let day = tracker.today
@@ -37,6 +40,27 @@ struct PanelView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Start a Project")
+                Menu {
+                    SettingsLink { Text("Settings…") }
+                        .keyboardShortcut(",", modifiers: .command)
+                    Divider()
+                    Button("Quit Chronobar", action: quit)
+                        .keyboardShortcut("q", modifiers: .command)
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("Settings and Quit")
+            }
+            if !preferences.loginHintDismissed && !loginItem.isOn {
+                LoginHint(
+                    turnOn: {
+                        loginItem.set(true)
+                        preferences.loginHintDismissed = true
+                    },
+                    dismiss: { preferences.loginHintDismissed = true })
             }
             if panel.showingNewProject {
                 NewProjectForm(name: $panel.newProjectName) { project in
@@ -51,6 +75,7 @@ struct PanelView: View {
                 VStack(spacing: 2) {
                     ForEach(rows, id: \.project) { row in
                         RowView(row: row, isRunning: tracker.running?.project == row.project,
+                                runningColor: preferences.runningColor.color,
                                 start: { start(row.project) }, pause: pause)
                     }
                 }
@@ -65,6 +90,7 @@ struct PanelView: View {
 private struct RowView: View {
     let row: Row
     let isRunning: Bool
+    let runningColor: Color
     let start: () -> Void
     let pause: () -> Void
 
@@ -86,7 +112,30 @@ private struct RowView: View {
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 5)
-                .fill(isRunning ? Color.accentColor : Color.clear))
+                .fill(isRunning ? runningColor : Color.clear))
+    }
+}
+
+/// The one-time suggestion to turn on Start at login. Either button hides it for good.
+private struct LoginHint: View {
+    let turnOn: () -> Void
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Start Chronobar when you log in?")
+                .font(.callout)
+            Spacer()
+            Button("Turn On", action: turnOn)
+                .controlSize(.small)
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless)
+            .help("Dismiss")
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
     }
 }
 
