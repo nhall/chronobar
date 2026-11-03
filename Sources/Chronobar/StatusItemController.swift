@@ -22,6 +22,7 @@ final class StatusItemController: NSObject {
         let content = NSHostingController(rootView: PanelView(
             tracker: tracker, panel: panel,
             start: { [weak self] project in self?.perform { try tracker.start(project) } },
+            pause: { [weak self] in self?.perform { try tracker.pause() } },
             close: { [weak self] in self?.popover.performClose(nil) }))
         content.sizingOptions = .preferredContentSize
         popover.contentViewController = content

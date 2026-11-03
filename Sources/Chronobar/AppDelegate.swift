@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var timer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        tracker = Tracker(clock: SystemTimeSource(), storageRoot: Self.storageRoot)
+        tracker = Tracker(clock: SystemTimeSource(), storageRoot: Self.storageRoot, defaults: .standard)
         statusItem = StatusItemController(tracker: tracker)
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in

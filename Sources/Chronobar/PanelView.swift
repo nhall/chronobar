@@ -16,13 +16,20 @@ struct PanelView: View {
     let tracker: Tracker
     @Bindable var panel: PanelModel
     let start: (String) -> Void
+    let pause: () -> Void
     let close: () -> Void
 
     var body: some View {
+        let day = tracker.today
+        let rows = tracker.rows(day)
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Today").font(.headline)
                 Spacer()
+                Text(DurationFormat.hoursMinutes(tracker.dayTotal(day)))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .help("Total today")
                 Button {
                     panel.showingNewProject.toggle()
                 } label: {
@@ -37,19 +44,49 @@ struct PanelView: View {
                     panel.showingNewProject = false
                     close()
                 }
-            } else if let project = tracker.selectedProject {
-                HStack {
-                    Text(project)
-                    Spacer()
-                    Text(DurationFormat.hoursMinutes(tracker.total(project, on: tracker.today)))
-                        .monospacedDigit()
-                }
-            } else {
+            }
+            if rows.isEmpty {
                 Text("No time tracked").foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 2) {
+                    ForEach(rows, id: \.project) { row in
+                        RowView(row: row, isRunning: tracker.running?.project == row.project,
+                                start: { start(row.project) }, pause: pause)
+                    }
+                }
             }
         }
         .padding()
         .frame(width: 280)
+    }
+}
+
+/// One Project's total today, with ▶ to switch to it, or a clock that pauses it while it runs.
+private struct RowView: View {
+    let row: Row
+    let isRunning: Bool
+    let start: () -> Void
+    let pause: () -> Void
+
+    var body: some View {
+        HStack {
+            Button(action: isRunning ? pause : start) {
+                Image(systemName: isRunning ? "clock.fill" : "play.fill")
+                    .frame(width: 16)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(isRunning ? Color.white : Color.secondary)
+            .help(isRunning ? "Pause" : "Start \(row.project)")
+            Text(row.project).lineLimit(1)
+            Spacer()
+            Text(DurationFormat.hoursMinutes(row.total)).monospacedDigit()
+        }
+        .foregroundStyle(isRunning ? Color.white : Color.primary)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(isRunning ? Color.accentColor : Color.clear))
     }
 }
 
