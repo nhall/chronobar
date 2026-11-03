@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let loginItem = LoginItem()
     private var tracker: Tracker!
     private var statusItem: StatusItemController!
+    private var idleMonitor: IdleMonitor!
     private var timer: Timer?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -18,6 +19,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         tracker = Tracker(clock: SystemTimeSource(), storageRoot: Self.storageRoot, defaults: .standard)
         statusItem = StatusItemController(tracker: tracker, preferences: preferences, loginItem: loginItem)
+        idleMonitor = IdleMonitor(tracker: tracker, preferences: preferences) { [weak self] in
+            self?.statusItem.refresh()
+        }
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -42,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func tick() {
         tracker.tick()
+        idleMonitor.poll()
         statusItem.refresh()
     }
 
