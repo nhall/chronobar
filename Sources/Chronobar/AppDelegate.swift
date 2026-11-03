@@ -17,7 +17,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         tracker = Tracker(clock: SystemTimeSource(), storageRoot: Self.storageRoot, defaults: .standard)
-        statusItem = StatusItemController(tracker: tracker, preferences: preferences, loginItem: loginItem)
+        statusItem = StatusItemController(
+            tracker: tracker, storageRoot: Self.storageRoot, preferences: preferences, loginItem: loginItem)
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
