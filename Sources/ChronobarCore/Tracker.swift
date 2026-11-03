@@ -33,6 +33,8 @@ public final class Tracker {
     @ObservationIgnored private let store: DayStore
     @ObservationIgnored private let defaults: UserDefaults?
     private var todayEntries: [Entry] = []
+    /// The Day `todayEntries` came from. It lags `today` from midnight until the next `tick()` or command.
+    @ObservationIgnored private var loadedDay: Day
 
     private static let selectedProjectKey = "selectedProject"
 
@@ -44,12 +46,14 @@ public final class Tracker {
         self.defaults = defaults
         self.now = clock.now
         self.selectedProject = defaults?.string(forKey: Self.selectedProjectKey)
+        self.loadedDay = Day(containing: clock.now, in: clock.calendar)
         reload()
     }
 
     /// Re-reads today's file. A file that won't parse reads as empty; writes to it are refused.
     public func reload() {
         now = clock.now
+        loadedDay = today
         todayEntries = (try? store.load(today)) ?? []
         running = todayEntries.lazy.compactMap { entry -> Running? in
             if case .timed(let project, let start, nil) = entry { return Running(project: project, start: start) }
@@ -70,15 +74,9 @@ public final class Tracker {
 
     public func pause() throws {
         now = clock.now
+        rollOver()
         guard running != nil else { return }
-        try updateToday { entries in
-            entries = entries.map { entry in
-                if case .timed(let project, let start, nil) = entry {
-                    return .timed(project: project, start: start, end: now)
-                }
-                return entry
-            }
-        }
+        try updateToday { Self.close(&$0, at: now) }
         running = nil
     }
 
@@ -92,9 +90,10 @@ public final class Tracker {
         }
     }
 
-    /// Called every second by the UI so running totals advance.
+    /// Called every second by the UI so running totals advance, and on wake. Rolls over to a new Day.
     public func tick() {
         now = clock.now
+        rollOver()
     }
 
     /// The Project's total on `day`, never below zero.
@@ -119,9 +118,37 @@ public final class Tracker {
         rows(day).reduce(0) { $0 + $1.total }
     }
 
-    /// Re-reads today's file, applies `change` and writes it back.
+    /// After midnight, splits a running timer at the start of each new Day so every Day's file holds only
+    /// that Day's time, then loads today. A file that won't parse keeps its open Entry (#9 retries).
+    private func rollOver() {
+        guard loadedDay != today else { return }
+        while let running, loadedDay < today {
+            let midnight = clock.calendar.dateInterval(of: .day, for: running.start)!.end
+            let next = Day(containing: midnight, in: clock.calendar)
+            try? update(loadedDay) { Self.close(&$0, at: midnight) }
+            try? update(next) { $0.append(.timed(project: running.project, start: midnight, end: nil)) }
+            loadedDay = next
+            self.running = Running(project: running.project, start: midnight)
+        }
+        reload()
+    }
+
+    /// Ends every open Entry at `end`.
+    private static func close(_ entries: inout [Entry], at end: Date) {
+        entries = entries.map { entry in
+            if case .timed(let project, let start, nil) = entry {
+                return .timed(project: project, start: start, end: end)
+            }
+            return entry
+        }
+    }
+
     private func updateToday(_ change: (inout [Entry]) -> Void) throws {
-        let day = today
+        try update(today, change)
+    }
+
+    /// Re-reads `day`'s file, applies `change` and writes it back.
+    private func update(_ day: Day, _ change: (inout [Entry]) -> Void) throws {
         var entries = try store.load(day)
         change(&entries)
         try store.save(day, entries, timeZone: clock.calendar.timeZone)
