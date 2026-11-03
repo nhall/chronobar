@@ -18,6 +18,32 @@ public struct Row: Equatable, Sendable {
     }
 }
 
+/// One Day's grand total, as shown in the Week strip.
+public struct DayTotal: Equatable, Sendable {
+    public let day: Day
+    public let total: TimeInterval
+
+    public init(day: Day, total: TimeInterval) {
+        self.day = day
+        self.total = total
+    }
+}
+
+/// The (i) Time Summary: grand totals for today, yesterday, this week and this month.
+public struct Summary: Equatable, Sendable {
+    public let today: TimeInterval
+    public let yesterday: TimeInterval
+    public let week: TimeInterval
+    public let month: TimeInterval
+
+    public init(today: TimeInterval, yesterday: TimeInterval, week: TimeInterval, month: TimeInterval) {
+        self.today = today
+        self.yesterday = yesterday
+        self.week = week
+        self.month = month
+    }
+}
+
 /// The idle alert's answers.
 public enum IdleChoice: Sendable {
     /// Drop the Idle time and keep the timer running from now.
@@ -48,6 +74,8 @@ public final class Tracker {
     private var todayEntries: [Entry] = []
     /// The Day `todayEntries` came from. It lags `today` from midnight until the next `tick()` or command.
     @ObservationIgnored private var loadedDay: Day
+    /// Other Days' Entries, read on first use and dropped on `reload()` so hand edits show up.
+    @ObservationIgnored private var otherDays: [Day: [Entry]] = [:]
 
     private static let selectedProjectKey = "selectedProject"
 
@@ -64,11 +92,12 @@ public final class Tracker {
         reload()
     }
 
-    /// Re-reads today's file and the Project list. A file that won't parse reads as empty; writes to it
-    /// are refused.
+    /// Re-reads today's file and the Project list, and other Days' files when next asked for. A file that
+    /// won't parse reads as empty; writes to it are refused.
     public func reload() {
         now = clock.now
         projects = (try? projectStore.load()) ?? []
+        otherDays = [:]
         loadedDay = today
         todayEntries = (try? store.load(today)) ?? []
         running = todayEntries.lazy.compactMap { entry -> Running? in
@@ -153,7 +182,7 @@ public final class Tracker {
 
     /// The Project's total on `day`, never below zero.
     public func total(_ project: String, on day: Day) -> TimeInterval {
-        let raw = todayEntries
+        let raw = entries(on: day)
             .filter { $0.project == project }
             .reduce(0) { $0 + $1.seconds(asOf: now) }
         return max(0, raw)
@@ -162,7 +191,7 @@ public final class Tracker {
     /// One Row per Project with Entries on `day`, in the order each first appears in the Day file.
     public func rows(_ day: Day) -> [Row] {
         var projects: [String] = []
-        for entry in todayEntries where !projects.contains(entry.project) {
+        for entry in entries(on: day) where !projects.contains(entry.project) {
             projects.append(entry.project)
         }
         return projects.map { Row(project: $0, total: total($0, on: day)) }
@@ -171,6 +200,43 @@ public final class Tracker {
     /// The Day's grand total: the sum of its Rows, each already clamped at zero.
     public func dayTotal(_ day: Day) -> TimeInterval {
         rows(day).reduce(0) { $0 + $1.total }
+    }
+
+    /// The seven Days of `day`'s week, starting on the calendar's first weekday, with their totals.
+    public func weekTotals(containing day: Day) -> [DayTotal] {
+        let first = day.startOfWeek(in: calendar)
+        return (0..<7).map { offset in
+            let day = first.adding(days: offset, in: calendar)
+            return DayTotal(day: day, total: dayTotal(day))
+        }
+    }
+
+    /// Today, yesterday, today's week (as in the Week strip) and today's calendar month, each the sum
+    /// of its Days' totals.
+    public func summary() -> Summary {
+        let today = today
+        let daysInMonth = calendar.range(of: .day, in: .month, for: today.noon(in: calendar))!
+        let month = daysInMonth.reduce(0) { sum, day in
+            sum + dayTotal(Day(year: today.year, month: today.month, day: day))
+        }
+        return Summary(
+            today: dayTotal(today),
+            yesterday: dayTotal(today.adding(days: -1, in: calendar)),
+            week: weekTotals(containing: today).reduce(0) { $0 + $1.total },
+            month: month)
+    }
+
+    /// The calendar Days and weeks are counted in.
+    public var calendar: Calendar { clock.calendar }
+
+    /// The Day's Entries: the loaded Day's from memory, any other Day's from its file (empty if missing
+    /// or malformed).
+    private func entries(on day: Day) -> [Entry] {
+        if day == loadedDay { return todayEntries }
+        if let cached = otherDays[day] { return cached }
+        let loaded = (try? store.load(day)) ?? []
+        otherDays[day] = loaded
+        return loaded
     }
 
     /// Adds `name` to the Project list and returns the Project's name. A name matching an active Project
@@ -254,6 +320,7 @@ public final class Tracker {
         var entries = try store.load(day)
         change(&entries)
         try store.save(day, entries, timeZone: clock.calendar.timeZone)
+        otherDays[day] = nil
         todayEntries = entries
     }
 }

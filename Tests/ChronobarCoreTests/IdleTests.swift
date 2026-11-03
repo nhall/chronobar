@@ -90,6 +90,7 @@ import ChronobarCore
         #expect(tracker.today == Day(year: 2026, month: 11, day: 4))
         #expect(tracker.running?.start == clock.now)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 0)
+        #expect(tracker.total("Website Redesign", on: Day(year: 2026, month: 11, day: 3)) == 40 * 60)
     }
 
     /// An overnight timer forgotten across two midnights: only manual Entries survive after the idle start.

@@ -33,4 +33,20 @@ public struct Day: Hashable, Comparable, Sendable, CustomStringConvertible {
     public static func < (lhs: Day, rhs: Day) -> Bool {
         (lhs.year, lhs.month, lhs.day) < (rhs.year, rhs.month, rhs.day)
     }
+
+    /// Noon on this Day: a moment safely inside it, even where DST skips or repeats midnight.
+    public func noon(in calendar: Calendar) -> Date {
+        calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))!
+    }
+
+    /// The Day `count` Days later (earlier if negative).
+    public func adding(days count: Int, in calendar: Calendar) -> Day {
+        Day(containing: calendar.date(byAdding: .day, value: count, to: noon(in: calendar))!, in: calendar)
+    }
+
+    /// The first Day of this Day's week, which starts on the calendar's `firstWeekday`.
+    public func startOfWeek(in calendar: Calendar) -> Day {
+        let weekday = calendar.component(.weekday, from: noon(in: calendar))
+        return adding(days: -((weekday - calendar.firstWeekday + 7) % 7), in: calendar)
+    }
 }
