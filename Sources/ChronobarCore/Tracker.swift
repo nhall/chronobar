@@ -92,8 +92,7 @@ public final class Tracker {
     /// Closes the running Entry. If today's file is malformed the timer still stops, and closing the
     /// Entry waits until the file parses again.
     public func pause() throws {
-        now = clock.now
-        rollOver()
+        catchUp()
         guard running != nil else { return }
         let end = now
         try files.update(today, deferringIfMalformed: true) { Self.close(&$0, at: end) }
@@ -113,8 +112,7 @@ public final class Tracker {
     /// Called every second by the UI so running totals advance, and on wake. Rolls over to a new Day and
     /// retries deferred writes, then recovers any Entry left open in a Day file that parsed again.
     public func tick() {
-        now = clock.now
-        rollOver()
+        catchUp()
         files.retryPending()
         recover(reparsed: files.takeReparsed())
         unblockPendingIdle()
@@ -175,7 +173,7 @@ public final class Tracker {
         } else {
             let end = max(timer.start, min(launched, calendar.dateInterval(of: .day, for: timer.start)!.end))
             try? files.update(day, deferringIfMalformed: true) { entries in
-                entries = entries.map { $0.openTimer == timer ? .timed(project: timer.project, start: timer.start, end: end) : $0 }
+                entries = entries.map { $0.openTimer == timer ? $0.closed(at: end) : $0 }
             }
             noteIdle(PendingIdle(since: min(lastAlive, end), until: end))
         }
@@ -203,8 +201,7 @@ public final class Tracker {
     /// the cut stopped it; `removeAndStop` leaves it stopped. If any of those Day files won't parse,
     /// nothing is changed.
     public func resolveIdle(since idleStart: Date, until idleEnd: Date? = nil, choice: IdleChoice) throws {
-        now = clock.now
-        rollOver()
+        catchUp()
         guard choice != .keep else { return pendingIdle = nil }
         let idleEnd = idleEnd.map { min($0, now) }
         let idleStart = min(idleStart, idleEnd ?? now)
@@ -343,8 +340,7 @@ public final class Tracker {
         guard case .absolute(let seconds) = try DurationInput(parsing: duration), seconds > 0 else {
             throw InvalidDuration(text: duration)
         }
-        now = clock.now
-        rollOver()
+        catchUp()
         let project = try addProject(name)
         try files.update(day) { $0.append(.manual(project: project, seconds: seconds, note: .manual)) }
     }
@@ -354,8 +350,7 @@ public final class Tracker {
     /// the stored sum; a running timer keeps running. Throws `InvalidDuration` for a typo.
     public func adjust(_ project: String, _ input: String, on day: Day) throws {
         let input = try DurationInput(parsing: input)
-        now = clock.now
-        rollOver()
+        catchUp()
         let target: TimeInterval = switch input {
         case .absolute(let seconds): TimeInterval(seconds)
         case .relative(let seconds): max(0, total(project, on: day) + TimeInterval(seconds))
@@ -371,6 +366,12 @@ public final class Tracker {
             let seconds = difference(entries)
             if seconds != 0 { entries.append(.manual(project: project, seconds: seconds, note: .adjustment)) }
         }
+    }
+
+    /// Brings `now` up to the clock and rolls over to a new Day. Every command starts with this.
+    private func catchUp() {
+        now = clock.now
+        rollOver()
     }
 
     /// After midnight, splits a running timer at the start of each new Day so every Day's file holds only
@@ -394,11 +395,6 @@ public final class Tracker {
 
     /// Ends every open Entry at `end`.
     private static func close(_ entries: inout [Entry], at end: Date) {
-        entries = entries.map { entry in
-            if case .timed(let project, let start, nil) = entry {
-                return .timed(project: project, start: start, end: end)
-            }
-            return entry
-        }
+        entries = entries.map { $0.closed(at: end) }
     }
 }

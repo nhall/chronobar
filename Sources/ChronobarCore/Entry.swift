@@ -19,6 +19,12 @@ public enum Entry: Equatable, Sendable {
         return nil
     }
 
+    /// This Entry ended at `end` if it's open, else unchanged.
+    func closed(at end: Date) -> Entry {
+        guard let timer = openTimer else { return self }
+        return .timed(project: timer.project, start: timer.start, end: end)
+    }
+
     /// Seconds this Entry counts, with a running Entry counted up to `now`.
     func seconds(asOf now: Date) -> TimeInterval {
         switch self {
