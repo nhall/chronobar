@@ -114,6 +114,16 @@ public final class Tracker {
         return project
     }
 
+    /// Active Projects containing `text`, ignoring case and surrounding spaces. Names starting with it
+    /// come first; otherwise the Project list's order is kept.
+    public func suggestions(for text: String) -> [String] {
+        let text = ProjectName.trimmed(text)
+        guard !text.isEmpty else { return projects }
+        let matching = projects.filter { $0.range(of: text, options: .caseInsensitive) != nil }
+        let prefixed = matching.filter { $0.range(of: text, options: [.caseInsensitive, .anchored]) != nil }
+        return prefixed + matching.filter { !prefixed.contains($0) }
+    }
+
     /// The name a past Entry used for this Project, newest Day first. Malformed Days are skipped.
     private func historicalName(matching name: String) -> String? {
         for day in store.days() {

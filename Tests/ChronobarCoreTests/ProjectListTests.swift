@@ -102,6 +102,36 @@ import ChronobarCore
         #expect(contents(projectsFile(root)) == "Website Redesign\n")
     }
 
+    @Test func suggestionsAreActiveProjectsMatchingWhatIsTypedPrefixesFirst() throws {
+        try "Print Shop\nMobile App\nInternal\nAnnual Report\n"
+            .write(to: projectsFile(root), atomically: true, encoding: .utf8)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.archiveProject("Annual Report")
+
+        #expect(tracker.suggestions(for: "") == ["Print Shop", "Mobile App", "Internal"])
+        #expect(tracker.suggestions(for: " in") == ["Internal", "Print Shop"])
+        #expect(tracker.suggestions(for: "APP") == ["Mobile App"])
+        #expect(tracker.suggestions(for: "report") == [])
+    }
+
+    @Test func aBlankNameIsRefused() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        #expect(throws: EmptyProjectName.self) { try tracker.start("   ") }
+        #expect(tracker.running == nil)
+        #expect(contents(projectsFile(root)) == nil)
+    }
+
+    @Test func aProjectListThatIsNotUTF8IsNeverOverwritten() throws {
+        let bytes = Data([0x49, 0x6E, 0xFF, 0xFE, 0x0A])
+        try bytes.write(to: projectsFile(root))
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        #expect(throws: (any Error).self) { try tracker.start("Internal") }
+        #expect(throws: (any Error).self) { try tracker.archiveProject("Internal") }
+        #expect(try Data(contentsOf: projectsFile(root)) == bytes)
+        #expect(tracker.running == nil)
+    }
+
     @Test func aNameFromAPastDayRevivesWithThatDaysSpelling() throws {
         try FileManager.default.createDirectory(
             at: dayFile(root, "2026-10-28").deletingLastPathComponent(), withIntermediateDirectories: true)
