@@ -138,6 +138,14 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] Click the running row's clock icon: the timer pauses.
 - [ ] The Pill reads clearly in light and dark menu bars and on a notched display.
 
+**Logging and adjusting time**
+
+- [ ] ＋, pick a project, type `1:30`: the button reads Log; Log adds 1:30 without starting a timer.
+- [ ] On a past Day, ＋ reads Log and stays disabled until a duration is typed.
+- [ ] Click a row's time, type `1:15`, Return: the row reads `1:15`. Try `+15` and `-10` too.
+- [ ] `-9:00` on a short row stops at `0:00`; a typo like `1:7x` beeps and changes nothing.
+- [ ] Adjusting the running row keeps the timer running from the new total.
+
 **Idle after sleep and lock**
 
 - [ ] Start a timer, sleep the Mac for a few minutes, wake it: one alert says when you went idle and
