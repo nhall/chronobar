@@ -83,6 +83,7 @@ public final class Tracker {
     @ObservationIgnored private var pending: [(day: Day, change: (inout [Entry]) -> Void)] = []
 
     private static let selectedProjectKey = "selectedProject"
+    private static let heartbeatKey = "heartbeat"
 
     /// Reads today's file. An open Entry there is the running timer, so a timer survives a relaunch.
     /// With no `defaults`, the Selected Project is kept in memory only.
@@ -168,6 +169,23 @@ public final class Tracker {
         now = clock.now
         rollOver()
         retryPending()
+    }
+
+    /// Records the clock's time as the last moment Chronobar was alive, while a timer runs. The UI calls
+    /// it every minute and on sleep; `recoverAfterLaunch()` reads it after a crash.
+    public func heartbeat() {
+        guard running != nil else { return }
+        defaults?.set(clock.now, forKey: Self.heartbeatKey)
+    }
+
+    /// Called once at launch. Quitting closes the running Entry, so an Entry still open means Chronobar
+    /// crashed or the Mac was forced off. Returns when it was last known alive (the later of the Entry's
+    /// start and the last Heartbeat) so the UI can ask about the time since with the idle alert; nil if
+    /// nothing was left open.
+    public func recoverAfterLaunch() -> Date? {
+        guard let running else { return nil }
+        let heartbeat = defaults?.object(forKey: Self.heartbeatKey) as? Date
+        return max(running.start, heartbeat ?? running.start)
     }
 
     /// Answers the idle alert. `remove` and `removeAndStop` drop the time since `idleStart` from every Day
