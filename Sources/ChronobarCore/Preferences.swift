@@ -21,6 +21,14 @@ public final class Preferences {
     public var loginHintDismissed: Bool {
         didSet { defaults.set(loginHintDismissed, forKey: Keys.loginHintDismissed) }
     }
+    /// Whether a stretch with no keyboard or mouse input raises the idle alert. Sleep and lock always do.
+    public var detectsInputIdle: Bool {
+        didSet { defaults.set(detectsInputIdle, forKey: Keys.detectsInputIdle) }
+    }
+    /// Minutes without input before the idle alert, at least 1.
+    public var idleThresholdMinutes: Int {
+        didSet { defaults.set(idleThresholdMinutes, forKey: Keys.idleThresholdMinutes) }
+    }
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -28,6 +36,8 @@ public final class Preferences {
         static let runningColor = "runningColor"
         static let showInDock = "showInDock"
         static let loginHintDismissed = "loginHintDismissed"
+        static let detectsInputIdle = "detectsInputIdle"
+        static let idleThresholdMinutes = "idleThresholdMinutes"
     }
 
     public init(defaults: UserDefaults) {
@@ -35,5 +45,7 @@ public final class Preferences {
         runningColor = defaults.string(forKey: Keys.runningColor).flatMap(RunningColor.init) ?? .accent
         showInDock = defaults.object(forKey: Keys.showInDock) as? Bool ?? true
         loginHintDismissed = defaults.bool(forKey: Keys.loginHintDismissed)
+        detectsInputIdle = defaults.object(forKey: Keys.detectsInputIdle) as? Bool ?? true
+        idleThresholdMinutes = (defaults.object(forKey: Keys.idleThresholdMinutes) as? Int).flatMap { $0 >= 1 ? $0 : nil } ?? 15
     }
 }
