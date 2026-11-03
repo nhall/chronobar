@@ -155,6 +155,15 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] Remove & stop leaves the timer stopped; Keep changes nothing.
 - [ ] No alert appears when no timer was running.
 
+**Quit and crash recovery**
+
+- [ ] Quit from the ⚙ menu with a timer running: the entry ends at the quit time; relaunching shows
+      no alert and no timer.
+- [ ] Start a timer, wait two minutes, `killall -9 Chronobar`, wait a few minutes, relaunch: one alert
+      says you've been idle since about the kill time; Remove idle time ends the entry there.
+- [ ] Repeat, but kill it before midnight and relaunch the next day: the old day's entry is found and
+      the alert covers the time since.
+
 **Dock**
 
 - [ ] Show in Dock on (default): the Dock icon appears; clicking it opens the Panel under the Pill.
