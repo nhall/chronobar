@@ -6,12 +6,26 @@ import ChronobarCore
 @MainActor @Observable
 final class PanelModel {
     var showingNewProject = false {
-        didSet { if !showingNewProject { newProjectName = "" } }
+        didSet {
+            if !showingNewProject {
+                newProjectName = ""
+                newProjectDuration = ""
+            }
+        }
     }
     var newProjectName = ""
+    /// The ＋ form's duration; empty starts a timer, anything else logs that much time.
+    var newProjectDuration = ""
     /// The Day the Panel shows; nil follows today, including across midnight.
-    var viewedDay: Day?
+    var viewedDay: Day? {
+        didSet { adjusting = nil }
+    }
     var showingSummary = false
+    /// The Project whose row's time is being typed over, and what has been typed.
+    var adjusting: String? {
+        didSet { adjustment = "" }
+    }
+    var adjustment = ""
 }
 
 /// The popover under the Pill.
@@ -22,6 +36,9 @@ struct PanelView: View {
     let loginItem: LoginItem
     let start: (String) -> Void
     let pause: () -> Void
+    /// Log and adjust return false when the input was refused, so the field keeps what was typed.
+    let log: (_ project: String, _ duration: String, _ day: Day) -> Bool
+    let adjust: (_ project: String, _ input: String, _ day: Day) -> Bool
     let archive: (String) -> Void
     let close: () -> Void
     let openDataFolder: () -> Void
@@ -62,7 +79,7 @@ struct PanelView: View {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.borderless)
-                .help("Start a Project")
+                .help(isToday ? "Start or log time" : "Log time")
                 Menu {
                     SettingsLink { Text("Settings…") }
                         .keyboardShortcut(",", modifiers: .command)
@@ -100,11 +117,16 @@ struct PanelView: View {
             if panel.showingNewProject {
                 NewProjectForm(
                     name: $panel.newProjectName,
+                    duration: $panel.newProjectDuration,
+                    canStart: isToday,
                     suggestions: tracker.suggestions(for: panel.newProjectName),
                     start: { project in
                         start(project)
                         panel.showingNewProject = false
                         close()
+                    },
+                    log: { project in
+                        if log(project, panel.newProjectDuration, day) { panel.showingNewProject = false }
                     },
                     archive: archive)
             }
@@ -115,7 +137,11 @@ struct PanelView: View {
                     ForEach(rows, id: \.project) { row in
                         RowView(row: row, isRunning: isToday && tracker.running?.project == row.project,
                                 canStart: isToday, runningColor: preferences.runningColor.color,
-                                start: { start(row.project) }, pause: pause)
+                                panel: panel,
+                                start: { start(row.project) }, pause: pause,
+                                adjust: {
+                                    if adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
+                                })
                     }
                 }
             }
@@ -218,14 +244,18 @@ private struct SummaryView: View {
 }
 
 /// One Project's total on the viewed Day. Today's rows have ▶ to switch to the Project, or a clock that
-/// pauses it while it runs; past Days' rows have neither.
+/// pauses it while it runs; past Days' rows have neither. Clicking the time types over it: a new total
+/// (`1:15`) or a change (`+15`, `-10`). Return applies it, Escape cancels.
 private struct RowView: View {
     let row: Row
     let isRunning: Bool
     let canStart: Bool
     let runningColor: Color
+    @Bindable var panel: PanelModel
     let start: () -> Void
     let pause: () -> Void
+    let adjust: () -> Void
+    @FocusState private var focused: Bool
 
     var body: some View {
         HStack {
@@ -240,7 +270,26 @@ private struct RowView: View {
             }
             Text(row.project).lineLimit(1)
             Spacer()
-            Text(DurationFormat.hoursMinutes(row.total)).monospacedDigit()
+            if panel.adjusting == row.project {
+                TextField(DurationFormat.hoursMinutes(row.total), text: $panel.adjustment)
+                    .textFieldStyle(.roundedBorder)
+                    .monospacedDigit()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 64)
+                    .focused($focused)
+                    .onSubmit(adjust)
+                    .onExitCommand { panel.adjusting = nil }
+                    .onAppear { focused = true }
+                    .help("A new total (1:15) or a change (+15, -10)")
+            } else {
+                Button {
+                    panel.adjusting = row.project
+                } label: {
+                    Text(DurationFormat.hoursMinutes(row.total)).monospacedDigit()
+                }
+                .buttonStyle(.plain)
+                .help("Change this total")
+            }
         }
         .foregroundStyle(isRunning ? Color.white : Color.primary)
         .padding(.horizontal, 6)
@@ -274,12 +323,18 @@ private struct LoginHint: View {
     }
 }
 
-/// The ＋ form: a Project name and Start, with the matching Projects listed below the field.
-/// Clicking a suggestion starts it; right-clicking offers Archive. A new name creates a Project.
+/// The ＋ form: a Project name, a duration and Start, with the matching Projects listed below the field.
+/// With a duration typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without
+/// starting a timer; on a past Day it always reads Log and needs a duration. Clicking a suggestion starts
+/// or logs it (on a past Day with no duration, it fills the name); right-clicking offers Archive.
+/// A new name creates a Project.
 private struct NewProjectForm: View {
     @Binding var name: String
+    @Binding var duration: String
+    let canStart: Bool
     let suggestions: [String]
     let start: (String) -> Void
+    let log: (String) -> Void
     let archive: (String) -> Void
     @FocusState private var focused: Bool
 
@@ -290,16 +345,28 @@ private struct NewProjectForm: View {
                     .textFieldStyle(.roundedBorder)
                     .focused($focused)
                     .onSubmit(submit)
-                Button("Start", action: submit)
+                TextField("h:mm", text: $duration)
+                    .textFieldStyle(.roundedBorder)
+                    .monospacedDigit()
+                    .frame(width: 52)
+                    .onSubmit(submit)
+                    .help("Time to log, such as 1:30 or 45 minutes. Leave empty to start a timer.")
+                Button(logs ? "Log" : "Start", action: submit)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(trimmed.isEmpty)
+                    .disabled(trimmed.isEmpty || (!canStart && !hasDuration))
             }
             if !suggestions.isEmpty {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(suggestions, id: \.self) { project in
                             Button {
-                                start(project)
+                                if hasDuration {
+                                    log(project)
+                                } else if canStart {
+                                    start(project)
+                                } else {
+                                    name = project
+                                }
                             } label: {
                                 Text(project)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -321,9 +388,15 @@ private struct NewProjectForm: View {
     }
 
     private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var hasDuration: Bool { !duration.trimmingCharacters(in: .whitespaces).isEmpty }
+    private var logs: Bool { hasDuration || !canStart }
 
     private func submit() {
         guard !trimmed.isEmpty else { return }
-        start(trimmed)
+        if hasDuration {
+            log(trimmed)
+        } else if canStart {
+            start(trimmed)
+        }
     }
 }

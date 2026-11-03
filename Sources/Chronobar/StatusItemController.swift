@@ -23,6 +23,12 @@ final class StatusItemController: NSObject {
             tracker: tracker, panel: panel, preferences: preferences, loginItem: loginItem,
             start: { [weak self] project in self?.perform { try tracker.start(project) } },
             pause: { [weak self] in self?.perform { try tracker.pause() } },
+            log: { [weak self] project, duration, day in
+                self?.perform { try tracker.log(project, duration, on: day) } ?? false
+            },
+            adjust: { [weak self] project, input, day in
+                self?.perform { try tracker.adjust(project, input, on: day) } ?? false
+            },
             archive: { [weak self] project in self?.perform { try tracker.archiveProject(project) } },
             close: { [weak self] in self?.popover.performClose(nil) },
             openDataFolder: { [weak self] in
@@ -87,14 +93,19 @@ final class StatusItemController: NSObject {
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 
-    private func perform(_ action: () throws -> Void) {
+    /// Runs a Core command; on an error (a typo in a duration, a malformed Day file) logs it, beeps and
+    /// returns false.
+    @discardableResult
+    private func perform(_ action: () throws -> Void) -> Bool {
+        defer { refresh() }
         do {
             try action()
+            return true
         } catch {
             Logger(subsystem: "Chronobar", category: "tracker").error("\(error, privacy: .public)")
             NSSound.beep()
+            return false
         }
-        refresh()
     }
 }
 
