@@ -1,6 +1,5 @@
 import AppKit
 import ServiceManagement
-import os
 
 /// Start at login, via `SMAppService.mainApp`. The system owns the state, so it is read back rather than
 /// stored: the user can also remove the login item in System Settings.
@@ -20,7 +19,7 @@ final class LoginItem {
         do {
             try SMAppService.mainApp.register()
         } catch {
-            Logger(subsystem: "Chronobar", category: "login").error("\(error, privacy: .public)")
+            reportFailure(error, category: "login", beep: false)
         }
         refresh()
     }
@@ -29,8 +28,7 @@ final class LoginItem {
         do {
             if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
         } catch {
-            Logger(subsystem: "Chronobar", category: "login").error("\(error, privacy: .public)")
-            NSSound.beep()
+            reportFailure(error, category: "login")
         }
         refresh()
     }

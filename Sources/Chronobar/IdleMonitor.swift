@@ -1,7 +1,6 @@
 import AppKit
 import CoreGraphics
 import ChronobarCore
-import os
 
 /// Turns sleep, screen lock and input inactivity into the idle alert while a timer runs. Its only logic is
 /// deciding the idle start; `Tracker.resolveIdle` does the rest.
@@ -110,8 +109,7 @@ final class IdleMonitor {
             refused(error.day)
             return
         } catch {
-            Logger(subsystem: "Chronobar", category: "idle").error("\(error, privacy: .public)")
-            NSSound.beep()
+            reportFailure(error, category: "idle")
         }
         resolved()
     }

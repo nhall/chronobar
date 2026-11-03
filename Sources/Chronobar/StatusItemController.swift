@@ -2,7 +2,6 @@ import AppKit
 import SwiftUI
 import ChronobarCore
 import KeyboardShortcuts
-import os
 
 /// The Pill's AppKit shell: an `NSStatusItem` hosting `PillView`, split into two click zones.
 /// The square toggles the timer; the time segment opens the Panel.
@@ -105,8 +104,7 @@ final class StatusItemController: NSObject {
             try action()
             return true
         } catch {
-            Logger(subsystem: "Chronobar", category: "tracker").error("\(error, privacy: .public)")
-            NSSound.beep()
+            reportFailure(error, category: "tracker")
             return false
         }
     }

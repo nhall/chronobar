@@ -1,6 +1,5 @@
 import AppKit
 import ChronobarCore
-import os
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -64,7 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             try tracker?.pause()
         } catch {
-            Logger(subsystem: "Chronobar", category: "quit").error("\(error, privacy: .public)")
+            reportFailure(error, category: "quit", beep: false)
         }
     }
 
