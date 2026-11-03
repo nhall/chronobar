@@ -96,7 +96,8 @@ public final class Tracker {
     }
 
     /// Adds `name` to the Project list and returns the Project's name. A name matching an active Project
-    /// returns its stored spelling and changes nothing.
+    /// returns its stored spelling and changes nothing; one matching an archived Project revives it with
+    /// the spelling its most recent Entries used.
     @discardableResult
     public func addProject(_ name: String) throws -> String {
         let name = ProjectName.trimmed(name)
@@ -106,10 +107,20 @@ public final class Tracker {
             projects = list
             return existing
         }
-        list.append(name)
+        let project = historicalName(matching: name) ?? name
+        list.append(project)
         try projectStore.save(list)
         projects = list
-        return name
+        return project
+    }
+
+    /// The name a past Entry used for this Project, newest Day first. Malformed Days are skipped.
+    private func historicalName(matching name: String) -> String? {
+        for day in store.days() {
+            let entries = (try? store.load(day)) ?? []
+            if let entry = entries.last(where: { ProjectName.matches($0.project, name) }) { return entry.project }
+        }
+        return nil
     }
 
     /// Removes the Project matching `name` from the Project list. Its Entries stay in the Day files.

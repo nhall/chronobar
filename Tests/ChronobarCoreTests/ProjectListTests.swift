@@ -89,4 +89,33 @@ import ChronobarCore
 
         #expect(tracker.selectedProject == "Website Redesign")
     }
+
+    @Test func typingAnArchivedNameRevivesItWithItsStoredSpelling() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T10:00:00")
+        try tracker.pause()
+        try tracker.archiveProject("Website Redesign")
+
+        #expect(try tracker.addProject(" website REDESIGN") == "Website Redesign")
+        #expect(tracker.projects == ["Website Redesign"])
+        #expect(contents(projectsFile(root)) == "Website Redesign\n")
+    }
+
+    @Test func aNameFromAPastDayRevivesWithThatDaysSpelling() throws {
+        try FileManager.default.createDirectory(
+            at: dayFile(root, "2026-10-28").deletingLastPathComponent(), withIntermediateDirectories: true)
+        try """
+        { "date": "2026-10-28", "entries": [ { "project": "Mobile App", "seconds": 900, "note": "manual" } ] }
+        """.write(to: dayFile(root, "2026-10-28"), atomically: true, encoding: .utf8)
+
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("mobile app")
+        clock.set("2026-11-03T09:30:00")
+        tracker.tick()
+
+        #expect(tracker.projects == ["Mobile App"])
+        #expect(tracker.running?.project == "Mobile App")
+        #expect(tracker.total("Mobile App", on: tracker.today) == 30 * 60)
+    }
 }
