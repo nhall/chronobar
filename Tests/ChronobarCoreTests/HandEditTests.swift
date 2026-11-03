@@ -157,6 +157,39 @@ import ChronobarCore
         """)
     }
 
+    @Test func aMidnightSplitIntoABrokenFileLandsOnceItIsFixed() throws {
+        clock.set("2026-11-03T23:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        write(Self.malformed)
+        tracker.reload()
+
+        clock.set("2026-11-04T00:30:00")
+        tracker.tick()
+
+        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.total("Website Redesign", on: Day("2026-11-04")!) == 1800)
+        #expect(contents(dayFile(root, "2026-11-03")) == Self.malformed)
+
+        write(#"""
+        { "date": "2026-11-03", "entries": [
+          { "project": "Website Redesign", "start": "2026-11-03T23:00:00-05:00", "end": null }
+        ] }
+        """#)
+        tracker.tick()
+
+        #expect(contents(dayFile(root, "2026-11-03")) == """
+        {
+          "date": "2026-11-03",
+          "entries": [
+            { "project": "Website Redesign", "start": "2026-11-03T23:00:00-05:00", "end": "2026-11-04T00:00:00-05:00" }
+          ]
+        }
+
+        """)
+        #expect(tracker.running?.project == "Website Redesign")
+    }
+
     private static let fixed = #"""
     { "date": "2026-11-03", "entries": [
       { "project": "Internal", "seconds": 900, "note": "manual" },
