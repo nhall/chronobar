@@ -85,6 +85,15 @@ struct DayStore {
         root.appendingPathComponent("days", isDirectory: true).appendingPathComponent("\(day).json")
     }
 
+    /// Every Day with a file, newest first.
+    func days() -> [Day] {
+        let folder = root.appendingPathComponent("days", isDirectory: true)
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+        return names.filter { $0.hasSuffix(".json") }
+            .compactMap { Day(String($0.dropLast(".json".count))) }
+            .sorted(by: >)
+    }
+
     /// The Day's Entries; none if the file doesn't exist yet. Throws `DayFile.Malformed` if it won't parse.
     func load(_ day: Day) throws -> [Entry] {
         let url = url(for: day)

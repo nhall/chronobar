@@ -9,20 +9,52 @@ final class PanelModel {
         didSet { if !showingNewProject { newProjectName = "" } }
     }
     var newProjectName = ""
+    /// The Day the Panel shows; nil follows today, including across midnight.
+    var viewedDay: Day?
+    var showingSummary = false
 }
 
 /// The popover under the Pill.
 struct PanelView: View {
     let tracker: Tracker
     @Bindable var panel: PanelModel
+    let preferences: Preferences
+    let loginItem: LoginItem
     let start: (String) -> Void
+    let pause: () -> Void
+    let archive: (String) -> Void
     let close: () -> Void
+    let quit: () -> Void
 
     var body: some View {
+        let today = tracker.today
+        let day = panel.viewedDay ?? today
+        let isToday = day == today
+        let rows = tracker.rows(day)
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Today").font(.headline)
+                Button {
+                    panel.viewedDay = nil
+                } label: {
+                    Text(title(day, isToday: isToday)).font(.headline)
+                }
+                .buttonStyle(.plain)
+                .help(isToday ? "" : "Back to today")
                 Spacer()
+                Text(DurationFormat.hoursMinutes(tracker.dayTotal(day)))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .help("Total for the day")
+                Button {
+                    panel.showingSummary.toggle()
+                } label: {
+                    Image(systemName: "info.circle")
+                }
+                .buttonStyle(.borderless)
+                .help("Time Summary")
+                .popover(isPresented: $panel.showingSummary, arrowEdge: .bottom) {
+                    SummaryView(summary: tracker.summary())
+                }
                 Button {
                     panel.showingNewProject.toggle()
                 } label: {
@@ -30,44 +62,251 @@ struct PanelView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Start a Project")
+                Menu {
+                    SettingsLink { Text("Settings…") }
+                        .keyboardShortcut(",", modifiers: .command)
+                    Divider()
+                    Button("Quit Chronobar", action: quit)
+                        .keyboardShortcut("q", modifiers: .command)
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("Settings and Quit")
             }
+            if !preferences.loginHintDismissed && !loginItem.isOn {
+                LoginHint(
+                    turnOn: {
+                        loginItem.set(true)
+                        preferences.loginHintDismissed = true
+                    },
+                    dismiss: { preferences.loginHintDismissed = true })
+            }
+            WeekStrip(week: tracker.weekTotals(containing: day), today: today, viewed: day,
+                      calendar: tracker.calendar, runningColor: preferences.runningColor.color,
+                      view: { show($0, today: today) },
+                      move: { show(day.adding(days: 7 * $0, in: tracker.calendar), today: today) })
             if panel.showingNewProject {
-                NewProjectForm(name: $panel.newProjectName) { project in
-                    start(project)
-                    panel.showingNewProject = false
-                    close()
-                }
-            } else if let project = tracker.selectedProject {
-                HStack {
-                    Text(project)
-                    Spacer()
-                    Text(DurationFormat.hoursMinutes(tracker.total(project, on: tracker.today)))
-                        .monospacedDigit()
-                }
-            } else {
+                NewProjectForm(
+                    name: $panel.newProjectName,
+                    suggestions: tracker.suggestions(for: panel.newProjectName),
+                    start: { project in
+                        start(project)
+                        panel.showingNewProject = false
+                        close()
+                    },
+                    archive: archive)
+            }
+            if rows.isEmpty {
                 Text("No time tracked").foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 2) {
+                    ForEach(rows, id: \.project) { row in
+                        RowView(row: row, isRunning: isToday && tracker.running?.project == row.project,
+                                canStart: isToday, runningColor: preferences.runningColor.color,
+                                start: { start(row.project) }, pause: pause)
+                    }
+                }
             }
         }
         .padding()
-        .frame(width: 280)
+        .frame(width: 300)
+    }
+
+    /// "Today, 03 Nov" or "Wednesday, 28 Oct", in the system locale.
+    private func title(_ day: Day, isToday: Bool) -> String {
+        let date = day.noon(in: tracker.calendar)
+        let style = Date.FormatStyle(locale: .autoupdatingCurrent, calendar: tracker.calendar,
+                                     timeZone: tracker.calendar.timeZone)
+        if isToday {
+            return "Today, " + date.formatted(style.day(.twoDigits).month(.abbreviated))
+        }
+        return date.formatted(style.weekday(.wide).day(.twoDigits).month(.abbreviated))
+    }
+
+    /// Views `day`, never past today; today itself goes back to following the clock.
+    private func show(_ day: Day, today: Day) {
+        panel.viewedDay = day < today ? day : nil
     }
 }
 
-/// The ＋ form: a Project name and Start.
-private struct NewProjectForm: View {
-    @Binding var name: String
-    let start: (String) -> Void
-    @FocusState private var focused: Bool
+/// Seven Days with their totals, ‹ › to move a week. Today has a filled running-color circle,
+/// the viewed Day a gray one.
+private struct WeekStrip: View {
+    let week: [DayTotal]
+    let today: Day
+    let viewed: Day
+    let calendar: Calendar
+    let runningColor: Color
+    let view: (Day) -> Void
+    let move: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button { move(-1) } label: { Image(systemName: "chevron.left") }
+                .buttonStyle(.borderless)
+                .help("Previous week")
+            ForEach(week, id: \.day) { item in
+                Button { view(item.day) } label: { column(item) }
+                    .buttonStyle(.plain)
+                    .disabled(item.day > today)
+                    .frame(maxWidth: .infinity)
+            }
+            Button { move(1) } label: { Image(systemName: "chevron.right") }
+                .buttonStyle(.borderless)
+                .disabled(week.contains { $0.day == today })
+                .help("Next week")
+        }
+    }
+
+    private func column(_ item: DayTotal) -> some View {
+        let date = item.day.noon(in: calendar)
+        let style = Date.FormatStyle(locale: .autoupdatingCurrent, calendar: calendar, timeZone: calendar.timeZone)
+        let isToday = item.day == today
+        let isViewed = item.day == viewed
+        return VStack(spacing: 2) {
+            Text(date.formatted(style.weekday(.narrow)))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(date.formatted(style.day()))
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(isToday ? Color.white : item.day > today ? Color.secondary : Color.primary)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(
+                    isToday ? runningColor : isViewed ? Color.gray.opacity(0.35) : Color.clear))
+            Text(DurationFormat.hoursMinutes(item.total))
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .contentShape(Rectangle())
+    }
+}
+
+/// The (i) Time Summary.
+private struct SummaryView: View {
+    let summary: Summary
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
+            line("Today", summary.today)
+            line("Yesterday", summary.yesterday)
+            line("This week", summary.week)
+            line("This month", summary.month)
+        }
+        .padding()
+    }
+
+    private func line(_ label: String, _ total: TimeInterval) -> some View {
+        GridRow {
+            Text(label)
+            Text(DurationFormat.hoursMinutes(total))
+                .monospacedDigit()
+                .gridColumnAlignment(.trailing)
+        }
+    }
+}
+
+/// One Project's total on the viewed Day. Today's rows have ▶ to switch to the Project, or a clock that
+/// pauses it while it runs; past Days' rows have neither.
+private struct RowView: View {
+    let row: Row
+    let isRunning: Bool
+    let canStart: Bool
+    let runningColor: Color
+    let start: () -> Void
+    let pause: () -> Void
 
     var body: some View {
         HStack {
-            TextField("Project", text: $name)
-                .textFieldStyle(.roundedBorder)
-                .focused($focused)
-                .onSubmit(submit)
-            Button("Start", action: submit)
-                .keyboardShortcut(.defaultAction)
-                .disabled(trimmed.isEmpty)
+            if canStart {
+                Button(action: isRunning ? pause : start) {
+                    Image(systemName: isRunning ? "clock.fill" : "play.fill")
+                        .frame(width: 16)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(isRunning ? Color.white : Color.secondary)
+                .help(isRunning ? "Pause" : "Start \(row.project)")
+            }
+            Text(row.project).lineLimit(1)
+            Spacer()
+            Text(DurationFormat.hoursMinutes(row.total)).monospacedDigit()
+        }
+        .foregroundStyle(isRunning ? Color.white : Color.primary)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(isRunning ? runningColor : Color.clear))
+    }
+}
+
+/// The one-time suggestion to turn on Start at login. Either button hides it for good.
+private struct LoginHint: View {
+    let turnOn: () -> Void
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Start Chronobar when you log in?")
+                .font(.callout)
+            Spacer()
+            Button("Turn On", action: turnOn)
+                .controlSize(.small)
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.borderless)
+            .help("Dismiss")
+        }
+        .padding(8)
+        .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
+    }
+}
+
+/// The ＋ form: a Project name and Start, with the matching Projects listed below the field.
+/// Clicking a suggestion starts it; right-clicking offers Archive. A new name creates a Project.
+private struct NewProjectForm: View {
+    @Binding var name: String
+    let suggestions: [String]
+    let start: (String) -> Void
+    let archive: (String) -> Void
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                TextField("Project", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($focused)
+                    .onSubmit(submit)
+                Button("Start", action: submit)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(trimmed.isEmpty)
+            }
+            if !suggestions.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(suggestions, id: \.self) { project in
+                            Button {
+                                start(project)
+                            } label: {
+                                Text(project)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 3)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button("Archive") { archive(project) }
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 160)
+                .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .onAppear { focused = true }
     }
