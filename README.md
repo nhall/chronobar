@@ -66,8 +66,7 @@ Command Line Tools alone; building the app doesn't.
 
 ## Your data
 
-Everything lives in `~/Library/Application Support/Chronobar`. The ⚙ menu will have **Open data
-folder** *(not built yet)*.
+Everything lives in `~/Library/Application Support/Chronobar`. The ⚙ menu has **Open data folder**.
 
 ```
 Chronobar/
@@ -124,7 +123,7 @@ The timing logic is covered by `swift test`. The menu bar, panel and system beha
 hand. Run through this list before a release, on the Homebrew build. Don't use a Mac whose real data
 you care about, or back up the data folder first.
 
-Items marked *(not built yet)* are waiting on later work; update this list as they land.
+Mark anything that isn't built yet *(not built yet)*, and update this list as features land.
 
 **Start, pause, switch**
 
@@ -139,7 +138,7 @@ Items marked *(not built yet)* are waiting on later work; update this list as th
 - [ ] Click the running row's clock icon: the timer pauses.
 - [ ] The Pill reads clearly in light and dark menu bars and on a notched display.
 
-**Idle after sleep and lock** *(not built yet)*
+**Idle after sleep and lock**
 
 - [ ] Start a timer, sleep the Mac for a few minutes, wake it: one alert says when you went idle and
       which project is running.
