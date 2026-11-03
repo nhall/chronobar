@@ -29,6 +29,21 @@ public struct DayTotal: Equatable, Sendable {
     }
 }
 
+/// The (i) Time Summary: grand totals for today, yesterday, this week and this month.
+public struct Summary: Equatable, Sendable {
+    public let today: TimeInterval
+    public let yesterday: TimeInterval
+    public let week: TimeInterval
+    public let month: TimeInterval
+
+    public init(today: TimeInterval, yesterday: TimeInterval, week: TimeInterval, month: TimeInterval) {
+        self.today = today
+        self.yesterday = yesterday
+        self.week = week
+        self.month = month
+    }
+}
+
 /// Core's single entry point: the timer, totals and the Day files behind them.
 @MainActor @Observable
 public final class Tracker {
@@ -141,6 +156,21 @@ public final class Tracker {
             let day = first.adding(days: offset, in: calendar)
             return DayTotal(day: day, total: dayTotal(day))
         }
+    }
+
+    /// Today, yesterday, today's week (as in the Week strip) and today's calendar month, each the sum
+    /// of its Days' totals.
+    public func summary() -> Summary {
+        let today = today
+        let daysInMonth = calendar.range(of: .day, in: .month, for: today.noon(in: calendar))!
+        let month = daysInMonth.reduce(0) { sum, day in
+            sum + dayTotal(Day(year: today.year, month: today.month, day: day))
+        }
+        return Summary(
+            today: dayTotal(today),
+            yesterday: dayTotal(today.adding(days: -1, in: calendar)),
+            week: weekTotals(containing: today).reduce(0) { $0 + $1.total },
+            month: month)
     }
 
     /// The calendar Days and weeks are counted in.
