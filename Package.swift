@@ -8,8 +8,9 @@ let package = Package(
         .executable(name: "Chronobar", targets: ["Chronobar"]),
     ],
     dependencies: [
-        // The only third-party package: the global play/pause shortcut and its recorder control.
-        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", .upToNextMinor(from: "1.15.0")),
+        // Pinned: 1.16.0 and later use SwiftUI macros (#Preview, @State, @Entry), which the
+        // Command Line Tools can't expand.
+        .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", exact: "1.15.0"),
     ],
     targets: [
         .target(name: "ChronobarCore"),
