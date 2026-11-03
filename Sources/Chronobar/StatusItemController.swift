@@ -19,8 +19,7 @@ final class StatusItemController: NSObject {
         super.init()
 
         popover.behavior = .transient
-        let content = NSHostingController(rootView: PanelView(
-            tracker: tracker, panel: panel, preferences: preferences, loginItem: loginItem,
+        let actions = PanelActions(
             start: { [weak self] project in self?.perform { try tracker.start(project) } },
             pause: { [weak self] in self?.perform { try tracker.pause() } },
             log: { [weak self] project, duration, day in
@@ -37,7 +36,9 @@ final class StatusItemController: NSObject {
                 try? FileManager.default.createDirectory(at: storageRoot, withIntermediateDirectories: true)
                 NSWorkspace.shared.open(storageRoot)
             },
-            quit: { NSApp.terminate(nil) }))
+            quit: { NSApp.terminate(nil) })
+        let content = NSHostingController(rootView: PanelView(
+            tracker: tracker, panel: panel, preferences: preferences, loginItem: loginItem, actions: actions))
         content.sizingOptions = .preferredContentSize
         popover.contentViewController = content
 

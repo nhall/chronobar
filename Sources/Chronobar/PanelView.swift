@@ -28,12 +28,8 @@ final class PanelModel {
     var adjustment = ""
 }
 
-/// The popover under the Pill.
-struct PanelView: View {
-    let tracker: Tracker
-    @Bindable var panel: PanelModel
-    let preferences: Preferences
-    let loginItem: LoginItem
+/// What the Panel asks the app to do.
+struct PanelActions {
     let start: (String) -> Void
     let pause: () -> Void
     /// Log and adjust return false when the input was refused, so the field keeps what was typed.
@@ -43,6 +39,15 @@ struct PanelView: View {
     let close: () -> Void
     let openDataFolder: () -> Void
     let quit: () -> Void
+}
+
+/// The popover under the Pill.
+struct PanelView: View {
+    let tracker: Tracker
+    @Bindable var panel: PanelModel
+    let preferences: Preferences
+    let loginItem: LoginItem
+    let actions: PanelActions
 
     var body: some View {
         let today = tracker.today
@@ -83,9 +88,9 @@ struct PanelView: View {
                 Menu {
                     SettingsLink { Text("Settings…") }
                         .keyboardShortcut(",", modifiers: .command)
-                    Button("Open data folder", action: openDataFolder)
+                    Button("Open data folder", action: actions.openDataFolder)
                     Divider()
-                    Button("Quit Chronobar", action: quit)
+                    Button("Quit Chronobar", action: actions.quit)
                         .keyboardShortcut("q", modifiers: .command)
                 } label: {
                     Image(systemName: "gearshape")
@@ -121,14 +126,14 @@ struct PanelView: View {
                     canStart: isToday,
                     suggestions: tracker.suggestions(for: panel.newProjectName),
                     start: { project in
-                        start(project)
+                        actions.start(project)
                         panel.showingNewProject = false
-                        close()
+                        actions.close()
                     },
                     log: { project in
-                        if log(project, panel.newProjectDuration, day) { panel.showingNewProject = false }
+                        if actions.log(project, panel.newProjectDuration, day) { panel.showingNewProject = false }
                     },
-                    archive: archive)
+                    archive: actions.archive)
             }
             if rows.isEmpty {
                 Text("No time tracked").foregroundStyle(.secondary)
@@ -139,9 +144,9 @@ struct PanelView: View {
                         RowView(row: row, isRunning: isToday && isRunning,
                                 canStart: isToday, runningColor: preferences.runningColor.color,
                                 panel: panel,
-                                start: { start(row.project) }, pause: pause,
+                                start: { actions.start(row.project) }, pause: actions.pause,
                                 adjust: {
-                                    if adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
+                                    if actions.adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
                                 })
                     }
                 }
