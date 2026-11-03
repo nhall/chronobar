@@ -28,6 +28,8 @@ public final class Tracker {
     }
     /// The clock's time at the last command or `tick()`. Totals of a running timer count up to here.
     public private(set) var now: Date
+    /// Days whose file failed to parse when last read. Writes to them are refused until it parses again.
+    public private(set) var malformedDays: Set<Day> = []
 
     @ObservationIgnored private let clock: TimeSource
     @ObservationIgnored private let store: DayStore
@@ -47,10 +49,12 @@ public final class Tracker {
         reload()
     }
 
-    /// Re-reads today's file. A file that won't parse reads as empty; writes to it are refused.
+    /// Re-reads today's file. A file that won't parse is flagged in `malformedDays` and the last good
+    /// read is kept, so a running timer keeps running.
     public func reload() {
         now = clock.now
-        todayEntries = (try? store.load(today)) ?? []
+        guard let entries = try? read(today) else { return }
+        todayEntries = entries
         running = todayEntries.lazy.compactMap { entry -> Running? in
             if case .timed(let project, let start, nil) = entry { return Running(project: project, start: start) }
             return nil
@@ -59,6 +63,9 @@ public final class Tracker {
     }
 
     public var today: Day { Day(containing: now, in: clock.calendar) }
+
+    /// Whether `day`'s file failed to parse when last read. The Panel warns about it.
+    public func isMalformed(_ day: Day) -> Bool { malformedDays.contains(day) }
 
     /// Starts a timer for `project`, pausing any running one first.
     public func start(_ project: String) throws {
@@ -122,9 +129,21 @@ public final class Tracker {
     /// Re-reads today's file, applies `change` and writes it back.
     private func updateToday(_ change: (inout [Entry]) -> Void) throws {
         let day = today
-        var entries = try store.load(day)
+        var entries = try read(day)
         change(&entries)
         try store.save(day, entries, timeZone: clock.calendar.timeZone)
         todayEntries = entries
+    }
+
+    /// Loads `day`'s file, recording in `malformedDays` whether it parsed.
+    private func read(_ day: Day) throws -> [Entry] {
+        do {
+            let entries = try store.load(day)
+            malformedDays.remove(day)
+            return entries
+        } catch {
+            malformedDays.insert(day)
+            throw error
+        }
     }
 }

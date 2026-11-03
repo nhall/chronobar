@@ -52,6 +52,25 @@ import ChronobarCore
         """)
     }
 
+    @Test func aMalformedFileIsFlaggedAndLeftUntouched() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        #expect(!tracker.isMalformed(today))
+
+        write(Self.malformed)
+        tracker.reload()
+
+        #expect(tracker.isMalformed(today))
+        #expect(throws: (any Error).self) { try tracker.start("Website Redesign") }
+        #expect(tracker.running == nil)
+        #expect(contents(dayFile(root, "2026-11-03")) == Self.malformed)
+
+        write(#"{ "date": "2026-11-03", "entries": [] }"#)
+        tracker.reload()
+        #expect(!tracker.isMalformed(today))
+    }
+
+    private static let malformed = #"{ "date": "2026-11-03", "entries": [ { "project": "Internal", "start": "9am" } ] }"#
+
     private func write(_ text: String, _ date: String = "2026-11-03") {
         let url = dayFile(root, date)
         try! FileManager.default.createDirectory(
