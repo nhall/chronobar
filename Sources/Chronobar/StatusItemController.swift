@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import ChronobarCore
+import KeyboardShortcuts
 import os
 
 /// The Pill's AppKit shell: an `NSStatusItem` hosting `PillView`, split into two click zones.
@@ -44,6 +45,8 @@ final class StatusItemController: NSObject {
         ])
         button.target = self
         button.action = #selector(clicked(_:))
+        // The global shortcut does exactly what a click on the square does.
+        KeyboardShortcuts.onKeyUp(for: .toggleTimer) { [weak self] in self?.toggle() }
         refresh()
     }
 
