@@ -155,7 +155,7 @@ public final class Tracker {
         running = open.first { $0 == known } ?? (reparsed.contains(today) ? nil : open.first)
         // A running Project that was archived keeps running but isn't selected again.
         if let running, projects.contains(where: { ProjectName.matches($0, running.project) }) {
-            selectedProject = running.project
+            selectedProject = storedName(running.project)
         }
         recoverReparsedDays()
     }
@@ -353,19 +353,27 @@ public final class Tracker {
 
     /// The Project's total on `day`, never below zero.
     public func total(_ project: String, on day: Day) -> TimeInterval {
-        let raw = entries(on: day)
-            .filter { $0.project == project }
-            .reduce(0) { $0 + $1.seconds(asOf: now) }
-        return max(0, raw)
+        max(0, Self.sum(of: project, in: entries(on: day), asOf: now))
     }
 
-    /// One Row per Project with Entries on `day`, in the order each first appears in the Day file.
+    /// The raw sum of the Project's Entries, which may be negative after an adjustment.
+    private static func sum(of project: String, in entries: [Entry], asOf now: Date) -> TimeInterval {
+        entries.filter { ProjectName.matches($0.project, project) }.reduce(0) { $0 + $1.seconds(asOf: now) }
+    }
+
+    /// One Row per Project with Entries on `day`, in the order each first appears in the Day file. Names
+    /// that match are one Project, shown as the Project list spells it, else as its first Entry does.
     public func rows(_ day: Day) -> [Row] {
-        var projects: [String] = []
-        for entry in entries(on: day) where !projects.contains(entry.project) {
-            projects.append(entry.project)
+        var names: [String] = []
+        for entry in entries(on: day) where !names.contains(where: { ProjectName.matches($0, entry.project) }) {
+            names.append(storedName(entry.project))
         }
-        return projects.map { Row(project: $0, total: total($0, on: day)) }
+        return names.map { Row(project: $0, total: total($0, on: day)) }
+    }
+
+    /// The Project list's spelling of `name`, else `name` trimmed.
+    private func storedName(_ name: String) -> String {
+        projects.first { ProjectName.matches($0, name) } ?? ProjectName.trimmed(name)
     }
 
     /// The Day's grand total: the sum of its Rows, each already clamped at zero.
@@ -488,9 +496,9 @@ public final class Tracker {
         case .relative(let seconds): max(0, total(project, on: day) + TimeInterval(seconds))
         }
         let now = now
+        let project = rows(day).first { ProjectName.matches($0.project, project) }?.project ?? storedName(project)
         func difference(_ entries: [Entry]) -> Int {
-            let raw = entries.filter { $0.project == project }.reduce(0) { $0 + $1.seconds(asOf: now) }
-            return Int((target - raw).rounded())
+            Int((target - Self.sum(of: project, in: entries, asOf: now)).rounded())
         }
         guard difference(entries(on: day)) != 0 else { return }
         // The difference is taken again from the Entries as re-read, so a hand edit can't skew it.

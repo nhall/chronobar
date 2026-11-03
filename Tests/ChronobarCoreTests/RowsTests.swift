@@ -92,4 +92,32 @@ import ChronobarCore
         ])
         #expect(tracker.dayTotal(tracker.today) == 105 * 60)
     }
+
+    /// Hand edits can spell a Project differently. Names match case-insensitively after trimming, so each
+    /// Project is still one Row, shown with the Project list's spelling (else the first one in the file).
+    @Test func differentlySpelledEntriesShareOneRow() throws {
+        try "Website Redesign\n".write(to: projectsFile(root), atomically: true, encoding: .utf8)
+        try write(root, "2026-11-03", """
+            { "project": "website redesign", "start": "2026-11-03T08:00:00-05:00", "end": "2026-11-03T08:30:00-05:00" },
+            { "project": "Internal", "seconds": 900, "note": "manual" },
+            { "project": " Website Redesign ", "seconds": 600, "note": "manual" },
+            { "project": "INTERNAL", "seconds": 300, "note": "manual" }
+        """)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        #expect(tracker.rows(tracker.today) == [
+            Row(project: "Website Redesign", total: 40 * 60),
+            Row(project: "Internal", total: 20 * 60),
+        ])
+        #expect(tracker.total("WEBSITE REDESIGN", on: tracker.today) == 40 * 60)
+
+        try tracker.start("website redesign")
+        clock.set("2026-11-03T09:30:00")
+        try tracker.pause()
+        #expect(tracker.rows(tracker.today).first == Row(project: "Website Redesign", total: 70 * 60))
+
+        try tracker.adjust("internal", "1:00", on: tracker.today)
+        #expect(tracker.rows(tracker.today).last == Row(project: "Internal", total: 60 * 60))
+        #expect(tracker.dayTotal(tracker.today) == 130 * 60)
+    }
 }

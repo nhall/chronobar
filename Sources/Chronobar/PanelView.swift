@@ -135,7 +135,8 @@ struct PanelView: View {
             } else {
                 VStack(spacing: 2) {
                     ForEach(rows, id: \.project) { row in
-                        RowView(row: row, isRunning: isToday && tracker.running?.project == row.project,
+                        let isRunning = tracker.running.map { ProjectName.matches($0.project, row.project) } ?? false
+                        RowView(row: row, isRunning: isToday && isRunning,
                                 canStart: isToday, runningColor: preferences.runningColor.color,
                                 panel: panel,
                                 start: { start(row.project) }, pause: pause,
@@ -387,7 +388,7 @@ private struct NewProjectForm: View {
         .onAppear { focused = true }
     }
 
-    private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var trimmed: String { ProjectName.trimmed(name) }
     private var hasDuration: Bool { !duration.trimmingCharacters(in: .whitespaces).isEmpty }
     private var logs: Bool { hasDuration || !canStart }
 

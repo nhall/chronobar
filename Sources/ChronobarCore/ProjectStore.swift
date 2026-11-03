@@ -25,12 +25,12 @@ struct ProjectStore {
 }
 
 /// Project names match case-insensitively after trimming whitespace.
-enum ProjectName {
-    static func trimmed(_ name: String) -> String {
+public enum ProjectName {
+    public static func trimmed(_ name: String) -> String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    static func matches(_ a: String, _ b: String) -> Bool {
+    public static func matches(_ a: String, _ b: String) -> Bool {
         trimmed(a).caseInsensitiveCompare(trimmed(b)) == .orderedSame
     }
 }
