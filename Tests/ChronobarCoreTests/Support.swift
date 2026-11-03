@@ -40,6 +40,10 @@ func dayFile(_ root: URL, _ date: String) -> URL {
     root.appendingPathComponent("days/\(date).json")
 }
 
+func projectsFile(_ root: URL) -> URL {
+    root.appendingPathComponent("projects.txt")
+}
+
 func contents(_ url: URL) -> String? {
     try? String(contentsOf: url, encoding: .utf8)
 }

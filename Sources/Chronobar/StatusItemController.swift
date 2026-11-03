@@ -23,6 +23,7 @@ final class StatusItemController: NSObject {
             tracker: tracker, panel: panel, preferences: preferences, loginItem: loginItem,
             start: { [weak self] project in self?.perform { try tracker.start(project) } },
             pause: { [weak self] in self?.perform { try tracker.pause() } },
+            archive: { [weak self] project in self?.perform { try tracker.archiveProject(project) } },
             close: { [weak self] in self?.popover.performClose(nil) },
             quit: { NSApp.terminate(nil) }))
         content.sizingOptions = .preferredContentSize
@@ -68,6 +69,8 @@ final class StatusItemController: NSObject {
         panel.showingNewProject = newProject
         if popover.isShown { return }
         guard let button = statusItem.button else { return }
+        // Picks up hand edits to the Day file and the Project list.
+        tracker.reload()
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
