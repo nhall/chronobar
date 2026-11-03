@@ -154,6 +154,10 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] Repeat with ⌃⌘Q (lock screen) and unlock; repeat with no input past the idle threshold.
 - [ ] Remove & stop leaves the timer stopped; Keep changes nothing.
 - [ ] No alert appears when no timer was running.
+- [ ] Start a timer, break today's day file by hand (delete a brace), sleep and wake, Remove idle time:
+      a second alert names the broken file and the timer keeps counting. Fix the file: within a second
+      the idle alert comes back, from the idle time to when you first answered; Remove idle time keeps
+      the time since that first answer.
 
 **Quit and crash recovery**
 
@@ -163,6 +167,8 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       says you've been idle since about the kill time; Remove idle time ends the entry there.
 - [ ] Repeat, but kill it before midnight and relaunch the next day: the old day's entry is found and
       the alert covers the time since.
+- [ ] Repeat, but break today's day file by hand before relaunching: no alert and no timer. Fix the
+      file and open the Panel: the idle alert appears for the time since the kill.
 
 **Dock**
 

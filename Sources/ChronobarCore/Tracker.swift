@@ -54,6 +54,32 @@ public enum IdleChoice: Sendable {
     case keep
 }
 
+/// Idle time Core is holding for the idle alert: left by a crash, found in a Day file that parsed again
+/// with an Entry still open, or a removal refused because a Day file was malformed.
+public struct PendingIdle: Equatable, Sendable {
+    public let since: Date
+    /// Where the Idle time ends; nil runs up to now. A refused removal ends where it was answered, as the
+    /// time after that was worked.
+    public let until: Date?
+    /// The malformed Day file that refused the removal. Ask again once it's nil (the file parses).
+    public let blockedBy: Day?
+
+    public init(since: Date, until: Date? = nil, blockedBy: Day? = nil) {
+        self.since = since
+        self.until = until
+        self.blockedBy = blockedBy
+    }
+}
+
+/// A Day file that won't parse (or has writes still waiting for it), refusing a change.
+public struct MalformedDayFile: Error, Equatable {
+    public let day: Day
+
+    public init(day: Day) {
+        self.day = day
+    }
+}
+
 /// Core's single entry point: the timer, totals and the Day files behind them.
 @MainActor @Observable
 public final class Tracker {
@@ -68,8 +94,16 @@ public final class Tracker {
     public private(set) var now: Date
     /// Days whose file failed to parse when last read. Writes to them are refused until it parses again.
     public private(set) var malformedDays: Set<Day> = []
+    /// Idle time to ask about with the idle alert; cleared by `resolveIdle`.
+    public private(set) var pendingIdle: PendingIdle?
 
     @ObservationIgnored private let clock: TimeSource
+    /// When this Tracker was made, and the Heartbeat the last run left: an Entry still open from before
+    /// then was left by a crash.
+    @ObservationIgnored private let launched: Date
+    @ObservationIgnored private let lastAlive: Date?
+    /// Days that were malformed and have since parsed, to check for Entries left open.
+    @ObservationIgnored private var reparsed: Set<Day> = []
     @ObservationIgnored private let store: DayStore
     @ObservationIgnored private let projectStore: ProjectStore
     @ObservationIgnored private let defaults: UserDefaults?
@@ -93,6 +127,8 @@ public final class Tracker {
         self.projectStore = ProjectStore(root: storageRoot)
         self.defaults = defaults
         self.now = clock.now
+        self.launched = clock.now
+        self.lastAlive = defaults?.object(forKey: Self.heartbeatKey) as? Date
         self.selectedProject = defaults?.string(forKey: Self.selectedProjectKey)
         self.loadedDay = Day(containing: clock.now, in: clock.calendar)
         reload()
@@ -106,6 +142,7 @@ public final class Tracker {
         projects = (try? projectStore.load()) ?? []
         otherDays = [:]
         retryPending()
+        let known = running
         if let entries = try? read(today) {
             todayEntries = entries
         } else if loadedDay != today {
@@ -113,14 +150,14 @@ public final class Tracker {
             for (day, change) in pending where day == today { change(&todayEntries) }
         }
         loadedDay = today
-        running = todayEntries.lazy.compactMap { entry -> Running? in
-            if case .timed(let project, let start, nil) = entry { return Running(project: project, start: start) }
-            return nil
-        }.first
+        let open = todayEntries.compactMap(\.openTimer)
+        // An open Entry in a file that just parsed again is left for `recoverReparsedDays` to recover.
+        running = open.first { $0 == known } ?? (reparsed.contains(today) ? nil : open.first)
         // A running Project that was archived keeps running but isn't selected again.
         if let running, projects.contains(where: { ProjectName.matches($0, running.project) }) {
             selectedProject = running.project
         }
+        recoverReparsedDays()
     }
 
     public var today: Day { Day(containing: now, in: clock.calendar) }
@@ -164,11 +201,20 @@ public final class Tracker {
     }
 
     /// Called every second by the UI so running totals advance, and on wake. Rolls over to a new Day and
-    /// retries deferred writes.
+    /// retries deferred writes, then recovers any Entry left open in a Day file that parsed again.
     public func tick() {
         now = clock.now
         rollOver()
         retryPending()
+        recoverReparsedDays()
+        unblockPendingIdle()
+    }
+
+    /// Clears `pendingIdle.blockedBy` once that Day's file parses and its deferred writes have landed.
+    private func unblockPendingIdle() {
+        guard let idle = pendingIdle, let day = idle.blockedBy,
+              !pending.contains(where: { $0.day == day }), (try? read(day)) != nil else { return }
+        pendingIdle = PendingIdle(since: idle.since, until: idle.until)
     }
 
     /// Records the clock's time as the last moment Chronobar was alive, while a timer runs. The UI calls
@@ -182,21 +228,58 @@ public final class Tracker {
     /// crashed or the Mac was forced off. Returns when it was last known alive (the later of the Entry's
     /// start and the last Heartbeat) so the UI can ask about the time since with the idle alert; nil if
     /// nothing was left open. An Entry open on a past Day becomes the running timer and is split across
-    /// the Days since, as after waking from sleep, so the idle removal can cut it.
+    /// the Days since, as after waking from sleep, so the idle removal can cut it. The same goes for an
+    /// Entry found open later in a Day file that was malformed at launch, once it parses.
+    @discardableResult
     public func recoverAfterLaunch() -> Date? {
         now = clock.now
-        if running == nil, let (day, entries) = lastTimedDay() {
-            for case .timed(let project, let start, nil) in entries {
-                loadedDay = day
-                todayEntries = entries
-                running = Running(project: project, start: start)
-                break
+        if let running {
+            recover(running, on: loadedDay)
+        } else if let (day, entries) = lastTimedDay(), let open = entries.lazy.compactMap(\.openTimer).first {
+            recover(open, on: day)
+        }
+        return pendingIdle?.since
+    }
+
+    /// Recovers open Entries in Day files that were malformed and now parse. Core's own running Entry is
+    /// left alone; any other one was left by a crash.
+    private func recoverReparsedDays() {
+        let days = reparsed
+        reparsed = []
+        for day in days.sorted() where !pending.contains(where: { $0.day == day }) {
+            for timer in entries(on: day).compactMap(\.openTimer) where !(day == loadedDay && timer == running) {
+                recover(timer, on: day)
             }
         }
-        guard let start = running?.start else { return nil }
-        rollOver()
-        let heartbeat = defaults?.object(forKey: Self.heartbeatKey) as? Date
-        return max(start, heartbeat ?? start)
+    }
+
+    /// Makes an Entry left open by a crash the running timer, split across the Days since, with the time
+    /// since it was last alive pending as Idle time. If another timer runs already, the Entry is closed
+    /// when Chronobar launched (or at the end of its Day) and only the time before that is pending.
+    private func recover(_ timer: Running, on day: Day) {
+        let lastAlive = max(timer.start, lastAlive ?? timer.start)
+        if running == nil || running == timer {
+            if day != loadedDay {
+                todayEntries = entries(on: day)
+                loadedDay = day
+            }
+            running = timer
+            noteIdle(PendingIdle(since: lastAlive))
+            rollOver()
+        } else {
+            let end = max(timer.start, min(launched, calendar.dateInterval(of: .day, for: timer.start)!.end))
+            try? update(day, deferringIfMalformed: true) { entries in
+                entries = entries.map { $0.openTimer == timer ? .timed(project: timer.project, start: timer.start, end: end) : $0 }
+            }
+            noteIdle(PendingIdle(since: min(lastAlive, end), until: end))
+        }
+    }
+
+    /// Adds `idle` to `pendingIdle`, which then covers both.
+    private func noteIdle(_ idle: PendingIdle) {
+        guard let pendingIdle else { return self.pendingIdle = idle }
+        let until = pendingIdle.until.flatMap { a in idle.until.map { max(a, $0) } }
+        self.pendingIdle = PendingIdle(since: min(pendingIdle.since, idle.since), until: until)
     }
 
     /// The newest past Day whose file has a timed Entry, with its Entries. Malformed Days are skipped.
@@ -208,44 +291,63 @@ public final class Tracker {
         return nil
     }
 
-    /// Answers the idle alert. `remove` and `removeAndStop` drop the time since `idleStart` from every Day
-    /// it covers: a timed Entry straddling it ends there, later timed Entries are deleted and manual Entries
-    /// stay. `remove` then restarts the running Project from now. If any of those Day files won't parse,
+    /// Answers the idle alert. `remove` and `removeAndStop` drop the time from `idleStart` to `idleEnd`
+    /// (nil: now) from every Day it covers: a timed Entry straddling either end is cut there, timed Entries
+    /// inside are deleted and manual Entries stay. `remove` then restarts the running Project from now if
+    /// the cut stopped it; `removeAndStop` leaves it stopped. If any of those Day files won't parse,
     /// nothing is changed.
-    public func resolveIdle(since idleStart: Date, choice: IdleChoice) throws {
+    public func resolveIdle(since idleStart: Date, until idleEnd: Date? = nil, choice: IdleChoice) throws {
         now = clock.now
         rollOver()
-        guard choice != .keep else { return }
-        let idleStart = min(idleStart, now)
+        guard choice != .keep else { return pendingIdle = nil }
+        let idleEnd = idleEnd.map { min($0, now) }
+        let idleStart = min(idleStart, idleEnd ?? now)
         let project = running?.project
         let firstDay = Day(containing: idleStart, in: clock.calendar)
-        let days = Set(store.days().filter { $0 >= firstDay } + [today]).sorted()
+        let lastDay = idleEnd.map { Day(containing: $0, in: clock.calendar) } ?? today
+        let days = Set(store.days().filter { $0 >= firstDay && $0 <= lastDay } + [today]).sorted()
         // Read every Day before writing any, so a malformed one (or one with deferred writes still queued)
         // refuses the whole removal.
         retryPending()
-        let loaded = try days.map { day in
-            guard !pending.contains(where: { $0.day == day }) else { throw DayFile.Malformed() }
-            return (day, try read(day))
+        let loaded: [(Day, [Entry])]
+        do {
+            loaded = try days.map { day in
+                guard !pending.contains(where: { $0.day == day }) else { throw MalformedDayFile(day: day) }
+                do { return (day, try read(day)) } catch is DayFile.Malformed { throw MalformedDayFile(day: day) }
+            }
+        } catch let error as MalformedDayFile {
+            let since = min(idleStart, pendingIdle?.since ?? idleStart)
+            pendingIdle = PendingIdle(since: since, until: idleEnd ?? now, blockedBy: error.day)
+            throw error
         }
         for (day, entries) in loaded {
-            let kept = Self.removing(entries, after: idleStart, asOf: now)
+            let kept = Self.removing(entries, from: idleStart, to: idleEnd, asOf: now)
             if kept != entries { try store.save(day, kept, timeZone: clock.calendar.timeZone) }
         }
+        pendingIdle = nil
         reload()
-        if choice == .remove, let project {
+        if choice == .removeAndStop {
+            try pause()
+        } else if running == nil, let project {
             let start = now
             try updateToday { $0.append(.timed(project: project, start: start, end: nil)) }
             running = Running(project: project, start: start)
         }
     }
 
-    /// `entries` without their timed time after `cut`; an open Entry counts up to `now`.
-    private static func removing(_ entries: [Entry], after cut: Date, asOf now: Date) -> [Entry] {
-        entries.compactMap { entry in
-            guard case .timed(let project, let start, let end) = entry else { return entry }
-            if start >= cut { return nil }
-            if (end ?? now) > cut { return .timed(project: project, start: start, end: cut) }
-            return entry
+    /// `entries` without their timed time from `cut` to `resume` (nil: no end); an open Entry counts up to
+    /// `now`. An Entry running on past `resume` carries on from there.
+    private static func removing(_ entries: [Entry], from cut: Date, to resume: Date?, asOf now: Date) -> [Entry] {
+        entries.flatMap { entry -> [Entry] in
+            guard case .timed(let project, let start, let end) = entry else { return [entry] }
+            if (end ?? now) <= cut { return [entry] }
+            if let resume, start >= resume { return [entry] }
+            var pieces: [Entry] = []
+            if start < cut { pieces.append(.timed(project: project, start: start, end: cut)) }
+            if let resume, end.map({ $0 > resume }) ?? true {
+                pieces.append(.timed(project: project, start: resume, end: end))
+            }
+            return pieces
         }
     }
 
@@ -473,7 +575,10 @@ public final class Tracker {
         do {
             let entries = try store.load(day)
             // Only touch the observable set on a change: views read past Days while rendering.
-            if malformedDays.contains(day) { malformedDays.remove(day) }
+            if malformedDays.contains(day) {
+                malformedDays.remove(day)
+                reparsed.insert(day)
+            }
             return entries
         } catch {
             if !malformedDays.contains(day) { malformedDays.insert(day) }

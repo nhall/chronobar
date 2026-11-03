@@ -227,4 +227,39 @@ import ChronobarCore
         #expect(tracker.isMalformed(Day(year: 2026, month: 11, day: 4)))
         #expect(tracker.running?.start == FakeClock("2026-11-05T00:00:00").now)
     }
+
+    /// A refused removal names the malformed Day and keeps the Idle time pending, up to when it was
+    /// answered, so it can be asked about again once the file parses without losing the work since.
+    @Test func aRefusedRemovalStaysPendingUntilTheFileParses() throws {
+        let clock = FakeClock("2026-11-03T22:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-04T08:00:00")
+        tracker.tick()
+        let good = try #require(contents(dayFile(root, "2026-11-03")))
+        try "{ oops".write(to: dayFile(root, "2026-11-03"), atomically: true, encoding: .utf8)
+        let idleStart = FakeClock("2026-11-03T22:30:00").now
+
+        #expect(throws: MalformedDayFile(day: Day("2026-11-03")!)) {
+            try tracker.resolveIdle(since: idleStart, choice: .remove)
+        }
+        let answered = clock.now
+        #expect(tracker.pendingIdle == PendingIdle(since: idleStart, until: answered, blockedBy: Day("2026-11-03")!))
+
+        clock.set("2026-11-04T09:00:00")
+        tracker.tick()
+        #expect(tracker.pendingIdle?.blockedBy == Day("2026-11-03")!)
+
+        try good.write(to: dayFile(root, "2026-11-03"), atomically: true, encoding: .utf8)
+        clock.set("2026-11-04T10:00:00")
+        tracker.tick()
+        #expect(tracker.pendingIdle == PendingIdle(since: idleStart, until: answered))
+
+        try tracker.resolveIdle(since: idleStart, until: answered, choice: .remove)
+        #expect(tracker.pendingIdle == nil)
+        #expect(tracker.total("Website Redesign", on: Day("2026-11-03")!) == 30 * 60)
+        // Worked since the alert was first answered at 08:00, so that time stays.
+        #expect(tracker.total("Website Redesign", on: tracker.today) == 2 * 3600)
+        #expect(tracker.running?.start == answered)
+    }
 }

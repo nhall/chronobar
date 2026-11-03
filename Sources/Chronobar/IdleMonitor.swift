@@ -12,8 +12,10 @@ final class IdleMonitor {
     private let resolved: () -> Void
     /// When the Mac went to sleep or locked with a timer running, until it wakes or unlocks.
     private var awaySince: Date?
-    /// The earliest idle start reported since the alert was scheduled.
+    /// The earliest idle start reported since the alert was scheduled, and where that Idle time ends
+    /// (nil: now).
     private var pendingSince: Date?
+    private var pendingUntil: Date?
     private var showing = false
     private var observers: [NSObjectProtocol] = []
 
@@ -31,18 +33,17 @@ final class IdleMonitor {
         observe(distributed, Notification.Name("com.apple.screenIsUnlocked")) { $0.back() }
     }
 
-    /// Called every second. Polls input idle only while a timer runs.
+    /// Called every second. Asks about Idle time Core is holding (after a crash, or a removal refused
+    /// while a Day file was malformed, once it parses). Polls input idle only while a timer runs.
     func poll() {
+        if let idle = tracker.pendingIdle, idle.blockedBy == nil {
+            prompt(since: idle.since, until: idle.until)
+        }
         guard tracker.running != nil, preferences.detectsInputIdle else { return }
         let anyInput = CGEventType(rawValue: ~0)!
         let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: anyInput)
         guard idle >= TimeInterval(preferences.idleThresholdMinutes * 60) else { return }
         prompt(since: tracker.now - idle)
-    }
-
-    /// Asks about the time since `since`, e.g. since the app was last alive before a crash.
-    func report(since: Date) {
-        prompt(since: since)
     }
 
     private func observe(_ center: NotificationCenter, _ name: Notification.Name,
@@ -65,25 +66,32 @@ final class IdleMonitor {
         prompt(since: since)
     }
 
-    /// Schedules the alert, folding reports that arrive together (wake, unlock, input) into the earliest.
-    private func prompt(since: Date) {
+    /// Schedules the alert, folding reports that arrive together (wake, unlock, input, Core's pending Idle
+    /// time) into the earliest. Idle time up to now wins over one that ends earlier.
+    private func prompt(since: Date, until: Date? = nil) {
         guard tracker.running != nil, !showing else { return }
         let scheduled = pendingSince != nil
+        pendingUntil = scheduled ? pendingUntil.flatMap { a in until.map { max(a, $0) } } : until
         pendingSince = min(pendingSince ?? since, since)
         if !scheduled { Task { @MainActor in self.showAlert() } }
     }
 
     private func showAlert() {
         guard let since = pendingSince else { return }
+        let until = pendingUntil
         pendingSince = nil
+        pendingUntil = nil
         guard let running = tracker.running else { return }
         showing = true
         defer { showing = false }
 
-        let date: Date.FormatStyle.DateStyle = Calendar.current.isDateInToday(since) ? .omitted : .abbreviated
         let alert = NSAlert()
-        alert.messageText = "You've been idle since \(since.formatted(date: date, time: .shortened)). "
-            + "\(running.project) is still running."
+        if let until {
+            alert.messageText = "You were idle from \(Self.time(since)) to \(Self.time(until)). "
+                + "\(running.project) is running."
+        } else {
+            alert.messageText = "You've been idle since \(Self.time(since)). \(running.project) is still running."
+        }
         alert.addButton(withTitle: "Remove idle time")
         alert.addButton(withTitle: "Remove & stop")
         alert.addButton(withTitle: "Keep").keyEquivalent = "\u{1b}"
@@ -95,11 +103,35 @@ final class IdleMonitor {
         default: .keep
         }
         do {
-            try tracker.resolveIdle(since: since, choice: choice)
+            try tracker.resolveIdle(since: since, until: until, choice: choice)
+        } catch let error as MalformedDayFile {
+            // Core keeps the Idle time pending and `poll()` asks again once the file parses.
+            resolved()
+            refused(error.day)
+            return
         } catch {
             Logger(subsystem: "Chronobar", category: "idle").error("\(error, privacy: .public)")
             NSSound.beep()
         }
         resolved()
+    }
+
+    /// Says which Day file stopped the removal.
+    private func refused(_ day: Day) {
+        let date = day.noon(in: tracker.calendar)
+            .formatted(Date.FormatStyle(date: .complete, time: .omitted, calendar: tracker.calendar))
+        let alert = NSAlert()
+        alert.messageText = "The idle time wasn't removed"
+        alert.informativeText = "The file for \(date) (days/\(day).json) can't be read, so it can't be "
+            + "changed. Fix it by hand in the data folder and you'll be asked again. Until then the idle "
+            + "time still counts."
+        NSApp.activate()
+        alert.runModal()
+    }
+
+    /// "2:10 PM" today, with the date on other Days.
+    private static func time(_ date: Date) -> String {
+        let style: Date.FormatStyle.DateStyle = Calendar.current.isDateInToday(date) ? .omitted : .abbreviated
+        return date.formatted(date: style, time: .shortened)
     }
 }

@@ -52,10 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // An Entry left open by a crash or forced shutdown: ask about the time since the app was last alive.
-        if let since = tracker.recoverAfterLaunch() {
-            statusItem.refresh()
-            idleMonitor.report(since: since)
-        }
+        // Core keeps it in `pendingIdle`, which the idle monitor asks about.
+        tracker.recoverAfterLaunch()
+        statusItem.refresh()
+        idleMonitor.poll()
     }
 
     /// Quitting stops the running timer at the quit time.

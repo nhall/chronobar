@@ -13,6 +13,12 @@ public enum Entry: Equatable, Sendable {
         }
     }
 
+    /// The timer this Entry is, if it's still open.
+    var openTimer: Running? {
+        if case .timed(let project, let start, nil) = self { return Running(project: project, start: start) }
+        return nil
+    }
+
     /// Seconds this Entry counts, with a running Entry counted up to `now`.
     func seconds(asOf now: Date) -> TimeInterval {
         switch self {
