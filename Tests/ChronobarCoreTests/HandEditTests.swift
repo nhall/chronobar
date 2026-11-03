@@ -190,6 +190,22 @@ import ChronobarCore
         #expect(tracker.running?.project == "Website Redesign")
     }
 
+    /// The new Day's file is already broken at midnight: the timer runs on into it in memory.
+    @Test func aMidnightSplitIntoABrokenNewDayKeepsTheTimerRunning() throws {
+        clock.set("2026-11-03T23:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        write(Self.malformed, "2026-11-04")
+
+        clock.set("2026-11-04T00:30:00")
+        tracker.tick()
+
+        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.total("Website Redesign", on: Day("2026-11-04")!) == 1800)
+        #expect(tracker.total("Website Redesign", on: Day("2026-11-03")!) == 3600)
+        #expect(tracker.isMalformed(Day("2026-11-04")!))
+    }
+
     @Test func aMalformedPastDayIsFlaggedAndLeftUntouched() throws {
         let past = Day("2026-10-28")!
         let broken = #"{ "date": "2026-10-28", "entries": [ { "project": "Internal", "start": "9am" } ] }"#

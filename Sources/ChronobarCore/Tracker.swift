@@ -423,6 +423,9 @@ public final class Tracker {
             try? update(next, deferringIfMalformed: true) {
                 $0.append(.timed(project: project, start: midnight, end: nil))
             }
+            // Load the new Day as written, or as its deferred writes leave it if its file won't parse.
+            todayEntries = entries(on: next)
+            otherDays[next] = nil
             loadedDay = next
             self.running = Running(project: running.project, start: midnight)
         }
