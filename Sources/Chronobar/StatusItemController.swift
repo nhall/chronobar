@@ -22,6 +22,7 @@ final class StatusItemController: NSObject {
         let content = NSHostingController(rootView: PanelView(
             tracker: tracker, panel: panel,
             start: { [weak self] project in self?.perform { try tracker.start(project) } },
+            archive: { [weak self] project in self?.perform { try tracker.archiveProject(project) } },
             close: { [weak self] in self?.popover.performClose(nil) }))
         content.sizingOptions = .preferredContentSize
         popover.contentViewController = content
@@ -66,6 +67,8 @@ final class StatusItemController: NSObject {
         panel.showingNewProject = newProject
         if popover.isShown { return }
         guard let button = statusItem.button else { return }
+        // Picks up hand edits to the Day file and the Project list.
+        tracker.reload()
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
