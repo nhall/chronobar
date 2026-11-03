@@ -181,11 +181,31 @@ public final class Tracker {
     /// Called once at launch. Quitting closes the running Entry, so an Entry still open means Chronobar
     /// crashed or the Mac was forced off. Returns when it was last known alive (the later of the Entry's
     /// start and the last Heartbeat) so the UI can ask about the time since with the idle alert; nil if
-    /// nothing was left open.
+    /// nothing was left open. An Entry open on a past Day becomes the running timer and is split across
+    /// the Days since, as after waking from sleep, so the idle removal can cut it.
     public func recoverAfterLaunch() -> Date? {
-        guard let running else { return nil }
+        now = clock.now
+        if running == nil, let (day, entries) = lastTimedDay() {
+            for case .timed(let project, let start, nil) in entries {
+                loadedDay = day
+                todayEntries = entries
+                running = Running(project: project, start: start)
+                break
+            }
+        }
+        guard let start = running?.start else { return nil }
+        rollOver()
         let heartbeat = defaults?.object(forKey: Self.heartbeatKey) as? Date
-        return max(running.start, heartbeat ?? running.start)
+        return max(start, heartbeat ?? start)
+    }
+
+    /// The newest past Day whose file has a timed Entry, with its Entries. Malformed Days are skipped.
+    private func lastTimedDay() -> (Day, [Entry])? {
+        for day in store.days() where day < today {
+            guard let entries = try? read(day) else { continue }
+            if entries.contains(where: { if case .timed = $0 { true } else { false } }) { return (day, entries) }
+        }
+        return nil
     }
 
     /// Answers the idle alert. `remove` and `removeAndStop` drop the time since `idleStart` from every Day

@@ -64,6 +64,66 @@ import ChronobarCore
         #expect(relaunched.recoverAfterLaunch() == FakeClock("2026-11-03T11:00:00").now)
     }
 
+    /// Crashed on Tuesday night, relaunched on Thursday morning: the Entry open in Tuesday's file is found,
+    /// split across the Days since like a running timer, and removing cuts it at the last Heartbeat.
+    @Test func anEntryLeftOpenOnAPastDayIsRecovered() throws {
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let clock = FakeClock("2026-11-03T22:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T23:30:00")
+        tracker.heartbeat()
+
+        clock.set("2026-11-05T09:00:00")
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: UserDefaults(suiteName: suite)!)
+        let since = try #require(relaunched.recoverAfterLaunch())
+        #expect(since == FakeClock("2026-11-03T23:30:00").now)
+        // Until the alert is answered the timer runs on in today's file, as after waking from sleep.
+        #expect(relaunched.running?.project == "Website Redesign")
+        #expect(relaunched.today == Day(year: 2026, month: 11, day: 5))
+        #expect(relaunched.total("Website Redesign", on: relaunched.today) == 9 * 3600)
+
+        try relaunched.resolveIdle(since: since, choice: .remove)
+        #expect(contents(dayFile(root, "2026-11-03")) == """
+        {
+          "date": "2026-11-03",
+          "entries": [
+            { "project": "Website Redesign", "start": "2026-11-03T22:00:00-05:00", "end": "2026-11-03T23:30:00-05:00" }
+          ]
+        }
+
+        """)
+        #expect(contents(dayFile(root, "2026-11-04")) == """
+        {
+          "date": "2026-11-04",
+          "entries": []
+        }
+
+        """)
+        #expect(contents(dayFile(root, "2026-11-05")) == """
+        {
+          "date": "2026-11-05",
+          "entries": [
+            { "project": "Website Redesign", "start": "2026-11-05T09:00:00-05:00", "end": null }
+          ]
+        }
+
+        """)
+        #expect(relaunched.running?.start == clock.now)
+    }
+
+    /// Without a Heartbeat the past Day's Entry is reported from its start.
+    @Test func anEntryLeftOpenOnAPastDayWithoutAHeartbeat() throws {
+        let clock = FakeClock("2026-11-03T22:00:00")
+        try Tracker(clock: clock, storageRoot: root).start("Website Redesign")
+
+        clock.set("2026-11-04T08:00:00")
+        let relaunched = Tracker(clock: clock, storageRoot: root)
+        #expect(relaunched.recoverAfterLaunch() == FakeClock("2026-11-03T22:00:00").now)
+        #expect(relaunched.running?.start == FakeClock("2026-11-04T00:00:00").now)
+    }
+
     @Test func nothingLeftOpenMeansNothingToRecover() throws {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
