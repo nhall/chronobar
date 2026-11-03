@@ -67,6 +67,12 @@ final class StatusItemController: NSObject {
         panel.showingNewProject = newProject
         if popover.isShown { return }
         guard let button = statusItem.button else { return }
+        // Each opening starts on today and picks up hand edits to any Day file. Tick first so a timer
+        // running past midnight rolls over before today's file is re-read.
+        tracker.tick()
+        tracker.reload()
+        panel.viewedDay = nil
+        panel.showingSummary = false
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
