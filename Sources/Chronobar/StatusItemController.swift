@@ -23,6 +23,7 @@ final class StatusItemController: NSObject {
             tracker: tracker, panel: panel,
             start: { [weak self] project in self?.perform { try tracker.start(project) } },
             pause: { [weak self] in self?.perform { try tracker.pause() } },
+            archive: { [weak self] project in self?.perform { try tracker.archiveProject(project) } },
             close: { [weak self] in self?.popover.performClose(nil) },
             openDataFolder: { [weak self] in
                 self?.popover.performClose(nil)
@@ -73,7 +74,8 @@ final class StatusItemController: NSObject {
         panel.showingNewProject = newProject
         if popover.isShown { return }
         guard let button = statusItem.button else { return }
-        // Picks up hand edits to the Day files and retries writes deferred while one was malformed.
+        // Picks up hand edits to the Day file and the Project list, and retries writes deferred while
+        // the Day file was malformed.
         tracker.reload()
         refresh()
         NSApp.activate()

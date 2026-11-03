@@ -17,6 +17,7 @@ struct PanelView: View {
     @Bindable var panel: PanelModel
     let start: (String) -> Void
     let pause: () -> Void
+    let archive: (String) -> Void
     let close: () -> Void
     let openDataFolder: () -> Void
 
@@ -55,11 +56,15 @@ struct PanelView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if panel.showingNewProject {
-                NewProjectForm(name: $panel.newProjectName) { project in
-                    start(project)
-                    panel.showingNewProject = false
-                    close()
-                }
+                NewProjectForm(
+                    name: $panel.newProjectName,
+                    suggestions: tracker.suggestions(for: panel.newProjectName),
+                    start: { project in
+                        start(project)
+                        panel.showingNewProject = false
+                        close()
+                    },
+                    archive: archive)
             }
             if rows.isEmpty {
                 Text("No time tracked").foregroundStyle(.secondary)
@@ -106,21 +111,48 @@ private struct RowView: View {
     }
 }
 
-/// The ＋ form: a Project name and Start.
+/// The ＋ form: a Project name and Start, with the matching Projects listed below the field.
+/// Clicking a suggestion starts it; right-clicking offers Archive. A new name creates a Project.
 private struct NewProjectForm: View {
     @Binding var name: String
+    let suggestions: [String]
     let start: (String) -> Void
+    let archive: (String) -> Void
     @FocusState private var focused: Bool
 
     var body: some View {
-        HStack {
-            TextField("Project", text: $name)
-                .textFieldStyle(.roundedBorder)
-                .focused($focused)
-                .onSubmit(submit)
-            Button("Start", action: submit)
-                .keyboardShortcut(.defaultAction)
-                .disabled(trimmed.isEmpty)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                TextField("Project", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($focused)
+                    .onSubmit(submit)
+                Button("Start", action: submit)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(trimmed.isEmpty)
+            }
+            if !suggestions.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(suggestions, id: \.self) { project in
+                            Button {
+                                start(project)
+                            } label: {
+                                Text(project)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 3)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button("Archive") { archive(project) }
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 160)
+                .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .onAppear { focused = true }
     }
