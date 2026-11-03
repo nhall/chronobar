@@ -12,17 +12,21 @@ public struct Running: Equatable, Sendable {
 public final class Tracker {
     public private(set) var running: Running?
     public private(set) var selectedProject: String?
+    /// The active Projects, in `projects.txt` order.
+    public private(set) var projects: [String] = []
     /// The clock's time at the last command or `tick()`. Totals of a running timer count up to here.
     public private(set) var now: Date
 
     @ObservationIgnored private let clock: TimeSource
     @ObservationIgnored private let store: DayStore
+    @ObservationIgnored private let projectStore: ProjectStore
     private var todayEntries: [Entry] = []
 
     /// Reads today's file. An open Entry there is the running timer, so a timer survives a relaunch.
     public init(clock: TimeSource, storageRoot: URL) {
         self.clock = clock
         self.store = DayStore(root: storageRoot)
+        self.projectStore = ProjectStore(root: storageRoot)
         self.now = clock.now
         reload()
     }
@@ -40,8 +44,9 @@ public final class Tracker {
 
     public var today: Day { Day(containing: now, in: clock.calendar) }
 
-    /// Starts a timer for `project`, pausing any running one first.
-    public func start(_ project: String) throws {
+    /// Starts a timer for `project`, pausing any running one first. A new name creates a Project.
+    public func start(_ name: String) throws {
+        let project = try addProject(name)
         try pause()
         try updateToday { $0.append(.timed(project: project, start: now, end: nil)) }
         running = Running(project: project, start: now)
@@ -83,6 +88,23 @@ public final class Tracker {
             .filter { $0.project == project }
             .reduce(0) { $0 + $1.seconds(asOf: now) }
         return max(0, raw)
+    }
+
+    /// Adds `name` to the Project list and returns the Project's name. A name matching an active Project
+    /// returns its stored spelling and changes nothing.
+    @discardableResult
+    public func addProject(_ name: String) throws -> String {
+        let name = ProjectName.trimmed(name)
+        guard !name.isEmpty else { throw EmptyProjectName() }
+        var list = try projectStore.load()
+        if let existing = list.first(where: { ProjectName.matches($0, name) }) {
+            projects = list
+            return existing
+        }
+        list.append(name)
+        try projectStore.save(list)
+        projects = list
+        return name
     }
 
     /// Re-reads today's file, applies `change` and writes it back.
