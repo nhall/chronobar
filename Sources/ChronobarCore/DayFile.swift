@@ -77,6 +77,15 @@ enum DayFile {
     }
 }
 
+/// A Day file that won't parse (or has writes still waiting for it), refusing a change.
+public struct MalformedDayFile: Error, Equatable {
+    public let day: Day
+
+    public init(day: Day) {
+        self.day = day
+    }
+}
+
 /// Day files under `<root>/days/`, one per Day, named `YYYY-MM-DD.json`.
 struct DayStore {
     let root: URL
