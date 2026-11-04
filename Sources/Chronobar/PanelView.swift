@@ -36,7 +36,6 @@ struct PanelActions {
     let log: (_ project: String, _ duration: String, _ day: Day) -> Bool
     let adjust: (_ project: String, _ input: String, _ day: Day) -> Bool
     let archive: (String) -> Void
-    let close: () -> Void
     let openDataFolder: () -> Void
     let quit: () -> Void
 }
@@ -125,10 +124,10 @@ struct PanelView: View {
                     duration: $panel.newProjectDuration,
                     canStart: isToday,
                     suggestions: tracker.suggestions(for: panel.newProjectName),
+                    // Start and Log go back to the rows and leave the Panel open.
                     start: { project in
                         actions.start(project)
                         panel.showingNewProject = false
-                        actions.close()
                     },
                     log: { project in
                         if actions.log(project, panel.newProjectDuration, day) { panel.showingNewProject = false }

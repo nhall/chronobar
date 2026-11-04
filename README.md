@@ -129,6 +129,8 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 
 - [ ] With no project selected, ▶ opens the ＋ form.
 - [ ] ＋, type a new project name, Start: the square turns colored with ⏸ and the time starts at `0:00`.
+      The form closes back to the rows, the new project's row is highlighted, and the Panel stays open.
+- [ ] Click outside the Panel: it closes.
 - [ ] After a minute the time reads `0:01`; the day file has one entry with `"end": null`.
 - [ ] Click ⏸: the square goes gray with ▶, the time stays, the entry now has an `end`.
 - [ ] Click ▶: the same project resumes and its total keeps counting from where it was.
@@ -151,6 +153,7 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 **Logging and adjusting time**
 
 - [ ] ＋, pick a project, type `1:30`: the button reads Log; Log adds 1:30 without starting a timer.
+      The form closes back to the rows, the row shows the new total, and the Panel stays open.
 - [ ] On a past Day, ＋ reads Log and stays disabled until a duration is typed.
 - [ ] Click a row's time, type `1:15`, Return: the row reads `1:15`. Try `+15` and `-10` too.
 - [ ] `-9:00` on a short row stops at `0:00`; a typo like `1:7x` beeps and changes nothing.
