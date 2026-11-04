@@ -127,6 +127,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         refresh()
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        // AppKit would focus the first control, the date header, and draw its ring on every opening. With
+        // nothing focused, Tab still moves focus to the header and on through the Panel, with its ring. The ＋
+        // form, opened from the Pill, focuses its Project field itself.
+        if !newProject { popover.contentViewController?.view.window?.makeFirstResponder(nil) }
     }
 
     /// Runs a Core command; on an error (a typo in a duration, a malformed Day file) logs it, beeps and
