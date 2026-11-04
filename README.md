@@ -22,7 +22,8 @@ can read and edit. There are no accounts, no sync and no integrations.
   timer to that project; the running row is highlighted and shows ⏸ to pause it. Use ＋ to start a new
   project or to log time you forgot to track. ‹ › move a week back or forward without limit; on any
   day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
-  vacation ahead.
+  vacation ahead. While you view another day, a Today button under the strip brings you back, as
+  does clicking the date.
 - Only one timer runs at a time. Starting a project pauses whichever one was running.
 - If you come back to a running timer after the Mac slept, locked, or sat with no input, Chronobar asks
   whether to remove the time you were away.
@@ -173,6 +174,12 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       in the data folder's `days` folder, and the (i) week and month totals include it when that Day
       falls in them. Click its row's time and adjust it, as on a past Day.
 - [ ] Keep clicking ›: it goes on into later weeks without stopping; ‹ comes back to any past week.
+- [ ] On today there is no Today button. Click a past Day, then a Day weeks ahead: a Today button
+      shows at the right under the strip each time, and ‹ › stay where they were. Click it: today's
+      rows and the week containing today show, and the button is gone.
+- [ ] From a past or future Day, click the date header instead: it also returns to today.
+- [ ] Repeat with the longest weekday (Wednesday) and a two-digit total: the header, strip and Today
+      button fit without truncating or overlapping.
 - [ ] Click a row's time, type `1:15`, Return: the row reads `1:15`. Try `+15` and `-10` too.
 - [ ] `-9:00` on a short row stops at `0:00`; a typo like `1:7x` beeps and changes nothing.
 - [ ] Adjusting the running row keeps the timer running from the new total.

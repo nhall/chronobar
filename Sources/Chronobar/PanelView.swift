@@ -56,9 +56,7 @@ struct PanelView: View {
         let rows = tracker.rows(day)
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Button {
-                    panel.viewedDay = nil
-                } label: {
+                Button(action: showToday) {
                     Text(title(day, isToday: isToday)).font(.headline)
                 }
                 .buttonStyle(.plain)
@@ -119,6 +117,16 @@ struct PanelView: View {
                       calendar: tracker.calendar, runningColor: preferences.runningColor.color,
                       view: { show($0, today: today) },
                       move: { show(day.adding(days: 7 * $0, in: tracker.calendar), today: today) })
+            // Under the strip, as the title row has no room for it at the Panel's width and above the
+            // strip it would push ‹ › away from the pointer.
+            if !isToday {
+                HStack {
+                    Spacer()
+                    Button("Today", action: showToday)
+                        .controlSize(.small)
+                        .help("Back to today")
+                }
+            }
             if panel.showingNewProject {
                 NewProjectForm(
                     name: $panel.newProjectName,
@@ -165,6 +173,11 @@ struct PanelView: View {
             return "Today, " + date.formatted(style.day(.twoDigits).month(.abbreviated))
         }
         return date.formatted(style.weekday(.wide).day(.twoDigits).month(.abbreviated))
+    }
+
+    /// Today's rows and the week containing it, for the date header and the Today button alike.
+    private func showToday() {
+        panel.viewedDay = nil
     }
 
     /// Views `day`, past or future; today itself goes back to following the clock.
