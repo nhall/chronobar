@@ -36,6 +36,31 @@ func temporaryRoot() -> URL {
     return url
 }
 
+/// A settings store kept as a plist in its own temp folder, never in ~/Library/Preferences.
+/// A suite named by an absolute path is stored at that path plus `.plist`. Call `remove()` when done.
+struct TestSettings {
+    let directory: URL
+    private let suite: String
+
+    init() {
+        directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ChronobarCoreTests-\(UUID().uuidString)", isDirectory: true)
+        suite = directory.appendingPathComponent("settings").path
+    }
+
+    /// A new store over the same file, as the app gets on its next launch.
+    /// The folder is made on first use, so a suite whose test never asks for one leaves nothing.
+    func fresh() -> UserDefaults {
+        try! FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return UserDefaults(suiteName: suite)!
+    }
+
+    func remove() {
+        fresh().removePersistentDomain(forName: suite)
+        try? FileManager.default.removeItem(at: directory)
+    }
+}
+
 func dayFile(_ root: URL, _ date: String) -> URL {
     root.appendingPathComponent("days/\(date).json")
 }
