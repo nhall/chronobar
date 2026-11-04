@@ -100,6 +100,9 @@ public final class Tracker {
         running = nil
     }
 
+    /// Whether `toggle()` has a timer to pause or a Selected Project to start.
+    public var canToggle: Bool { running != nil || selectedProject != nil }
+
     /// Pauses the running timer, or starts the Selected Project. Does nothing with no Selected Project;
     /// the UI opens the ＋ form instead.
     public func toggle() throws {

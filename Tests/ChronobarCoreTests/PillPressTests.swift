@@ -1,0 +1,110 @@
+import Foundation
+import Testing
+import ChronobarCore
+
+/// A click on the Pill is decided where its mouse-down was, with the Panel open or closed.
+@MainActor @Suite struct PillPressTests {
+    let clock = FakeClock("2026-11-03T09:00:00")
+    let root = temporaryRoot()
+    let square = PillPointer.at(x: 12)
+    let timeSegment = PillPointer.at(x: 40)
+
+    func trackerWithASelectedProject() throws -> Tracker {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        try tracker.pause()
+        return tracker
+    }
+
+    // MARK: Panel closed: the button's action comes after the mouse-down
+
+    @Test func aPressOnTheSquareThatDriftsOntoTheTimeSegmentStillToggles() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+
+        #expect(press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker) == nil)
+        // The pointer is over the time segment by the mouse-up; only the mouse-down counts.
+        #expect(press.buttonAction(byMouse: true, tracker: tracker) == .toggleTimer)
+    }
+
+    @Test func aPressOnTheTimeSegmentThatDriftsOntoTheSquareOpensThePanel() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+
+        _ = press.mouseDown(onStatusItem: true, at: timeSegment, panelOpen: false, tracker: tracker)
+
+        #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
+    }
+
+    /// VoiceOver or the keyboard press the button with no mouse-down, whatever an earlier click left.
+    @Test func aPressNotByTheMouseOpensThePanel() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+
+        #expect(press.buttonAction(byMouse: false, tracker: tracker) == .openPanel)
+    }
+
+    @Test func eachMouseDownIsUsedOnce() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+        _ = press.buttonAction(byMouse: true, tracker: tracker)
+
+        #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
+    }
+
+    @Test func aMouseDownElsewhereIsNotAPressOnThePill() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+
+        #expect(press.mouseDown(onStatusItem: false, at: square, panelOpen: false, tracker: tracker) == nil)
+        #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
+    }
+
+    // MARK: Panel open: the button sends no action, so the mouse-down decides at once
+
+    @Test func withThePanelOpenTheSquareActsOnItsMouseDownAndKeepsThePanel() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+
+        #expect(!PillPress.closesPanel(onStatusItem: true, at: square, tracker: tracker))
+        #expect(press.mouseDown(onStatusItem: true, at: square, panelOpen: true, tracker: tracker) == .toggleTimer)
+    }
+
+    @Test func withThePanelOpenTheSquareOpensTheNewProjectFormWithNothingToStart() {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        var press = PillPress()
+
+        #expect(press.mouseDown(onStatusItem: true, at: square, panelOpen: true, tracker: tracker)
+            == .openNewProjectForm)
+    }
+
+    @Test func withThePanelOpenTheTimeSegmentClosesIt() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+
+        #expect(PillPress.closesPanel(onStatusItem: true, at: timeSegment, tracker: tracker))
+        #expect(press.mouseDown(onStatusItem: true, at: timeSegment, panelOpen: true, tracker: tracker) == nil)
+    }
+
+    @Test func withThePanelOpenAMouseDownElsewhereClosesIt() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+
+        #expect(PillPress.closesPanel(onStatusItem: false, at: square, tracker: tracker))
+        #expect(press.mouseDown(onStatusItem: false, at: square, panelOpen: true, tracker: tracker) == nil)
+    }
+
+    /// A mouse-down with the Panel open never reaches the button's action, so it isn't kept for one.
+    @Test func aMouseDownWithThePanelOpenIsNotKeptForALaterAction() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+
+        _ = press.mouseDown(onStatusItem: true, at: timeSegment, panelOpen: true, tracker: tracker)
+
+        #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
+    }
+}

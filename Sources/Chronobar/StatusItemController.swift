@@ -12,6 +12,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
     private let pill: NSHostingView<PillView>
+    private var press = PillPress()
+    private var focusObserver: NSObjectProtocol?
 
     init(tracker: Tracker, storageRoot: URL, preferences: Preferences, loginItem: LoginItem) {
         self.tracker = tracker
@@ -51,12 +53,16 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         ])
         button.target = self
         button.action = #selector(clicked(_:))
-        // While the Panel is open the button sends no action for a click on the Pill, so the square's
-        // mouse-downs are run here instead, and dropped before they reach the button.
+        // Every left mouse-down in the app passes through here, before the status item's button or the
+        // Panel's own handling. With the Panel open, one on the square runs at once and is dropped before it
+        // reaches the button.
         NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
             let window = event.window
             let taken = MainActor.assumeIsolated {
-                guard let self, let action = self.squareClickWithPanelOpen(in: window) else { return false }
+                guard let self, let button = self.statusItem.button else { return false }
+                guard let action = self.press.mouseDown(
+                    onStatusItem: window === button.window, at: Self.pointer(over: button),
+                    panelOpen: self.popover.isShown, tracker: self.tracker) else { return false }
                 self.run(action)
                 return true
             }
@@ -75,34 +81,32 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         if statusItem.length != width { statusItem.length = width }
     }
 
-    /// Every click on the Pill lands here, square or time segment. The menu bar hands the app a mouse-down
-    /// at the status item's centre wherever the click was, so neither the event's position nor a subview
-    /// over the square can tell the zones apart. The pointer's own position can.
+    /// The status item's button action: a click on the Pill with the Panel closed, or a press from VoiceOver
+    /// or the keyboard. The menu bar hands the app its mouse events at the status item's
+    /// centre wherever the click was, so the zone comes from the pointer's position at the mouse-down.
     @objc private func clicked(_ button: NSStatusBarButton) {
-        run(PillClick.action(atX: pointerX(in: button), tracker: tracker))
+        let event = NSApp.currentEvent
+        let byMouse = event.map { [.leftMouseDown, .leftMouseUp].contains($0.type) && $0.window === button.window }
+        run(press.buttonAction(byMouse: byMouse ?? false, tracker: tracker))
     }
 
     /// The transient Panel would close on the mouse-down of a click on the square, before that mouse-down
-    /// reaches the event monitor. A click on the time segment still closes it.
+    /// reaches the event monitor. A click on the time segment or anywhere else still closes it.
     func popoverShouldClose(_ popover: NSPopover) -> Bool {
-        guard let event = NSApp.currentEvent, event.type == .leftMouseDown else { return true }
-        return squareClickWithPanelOpen(in: event.window) == nil
+        guard let event = NSApp.currentEvent, event.type == .leftMouseDown,
+              let button = statusItem.button else { return true }
+        return PillPress.closesPanel(
+            onStatusItem: event.window === button.window, at: Self.pointer(over: button), tracker: tracker)
     }
 
-    /// For a mouse-down in the status item's window while the Panel is open: the square's action, or nil
-    /// when the click is on the time segment or elsewhere.
-    private func squareClickWithPanelOpen(in window: NSWindow?) -> PillClick? {
-        guard popover.isShown, let button = statusItem.button, window === button.window else { return nil }
-        let action = PillClick.action(atX: pointerX(in: button), tracker: tracker)
-        return action == .openPanel ? nil : action
-    }
-
-    /// The pointer's x from the button's leading edge, or nil when it is off the button (a press from
-    /// VoiceOver or the keyboard).
-    private func pointerX(in button: NSStatusBarButton) -> Double? {
-        guard let window = button.window else { return nil }
-        let point = button.convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
-        return button.bounds.contains(point) ? point.x : nil
+    /// The pointer's x from the button's leading edge, over the status item when it is within the status
+    /// item's window, padding included. Read from the pointer's screen position rather than an event's,
+    /// which the menu bar places at the status item's centre.
+    private static func pointer(over button: NSStatusBarButton) -> PillPointer {
+        guard let window = button.window else { return .away }
+        let x = button.convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil).x
+        let leading = button.convert(NSPoint.zero, from: nil).x
+        return PillPointer(x: x, within: leading...(leading + window.frame.width))
     }
 
     private func run(_ action: PillClick) {
@@ -127,10 +131,31 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         refresh()
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        // AppKit would focus the first control, the date header, and draw its ring on every opening. With
-        // nothing focused, Tab still moves focus to the header and on through the Panel, with its ring. The ＋
-        // form, opened from the Pill, focuses its Project field itself.
-        if !newProject { popover.contentViewController?.view.window?.makeFirstResponder(nil) }
+        if let window = popover.contentViewController?.view.window { settleFocus(in: window, newProject: newProject) }
+    }
+
+    /// AppKit focuses the first control, the date header, and draws its ring, when the Panel's window
+    /// becomes key, which from an inactive app can be after `show` returns. So once the window is key, focus
+    /// moves to the ＋ form's Project field, or with the form closed to nothing. With nothing focused, Tab
+    /// still moves focus to the header and on through the Panel, with its ring.
+    private func settleFocus(in window: NSWindow, newProject: Bool) {
+        if let focusObserver { NotificationCenter.default.removeObserver(focusObserver) }
+        focusObserver = nil
+        if window.isKeyWindow { return settle(window, newProject: newProject) }
+        focusObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let window = self.popover.contentViewController?.view.window else { return }
+                self.settle(window, newProject: newProject)
+                if let observer = self.focusObserver { NotificationCenter.default.removeObserver(observer) }
+                self.focusObserver = nil
+            }
+        }
+    }
+
+    private func settle(_ window: NSWindow, newProject: Bool) {
+        if newProject { panel.newProjectFocusRequests += 1 } else { window.makeFirstResponder(nil) }
     }
 
     /// Runs a Core command; on an error (a typo in a duration, a malformed Day file) logs it, beeps and

@@ -33,4 +33,17 @@ import ChronobarCore
         let relaunched = Tracker(clock: clock, storageRoot: root, defaults: defaults)
         #expect(relaunched.selectedProject == "Website Redesign")
     }
+
+    @Test func toggleHasSomethingToDoOnceAProjectIsSelected() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        #expect(!tracker.canToggle)
+
+        try tracker.start("Website Redesign")
+        #expect(tracker.canToggle)
+        try tracker.pause()
+        #expect(tracker.canToggle)
+
+        try tracker.archiveProject("Website Redesign")
+        #expect(!tracker.canToggle)
+    }
 }

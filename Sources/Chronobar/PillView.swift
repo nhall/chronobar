@@ -1,6 +1,12 @@
 import SwiftUI
 import ChronobarCore
 
+/// The sizes only the Pill's drawing needs; its horizontal layout is in Core, shared with the click zones.
+extension PillMetrics {
+    static let height: CGFloat = 18
+    static let cornerRadius: CGFloat = 4
+}
+
 /// The two-segment menu bar item: the ▶/⏸ square and the Selected Project's time today.
 struct PillView: View {
     let tracker: Tracker
