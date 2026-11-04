@@ -172,6 +172,9 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] In Settings, open Running color in light and in dark mode: each option's dot is the color it
       names, and Accent color's dot matches the accent in System Settings › Appearance, changing
       when you pick another accent there.
+- [ ] With a timer running, pick yellow, mint, blue and Accent color in turn, in light and dark mode
+      and with Increase Contrast on and off: the Pill's ⏸, the running row's name, total and ⏸, and
+      today's date in the Week strip read clearly on each (white on dark colors, black on light ones).
 
 **Logging and adjusting time**
 

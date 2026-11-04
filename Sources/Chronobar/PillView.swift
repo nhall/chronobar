@@ -11,13 +11,17 @@ extension PillMetrics {
 struct PillView: View {
     let tracker: Tracker
     let preferences: Preferences
+    /// For the running color's light, dark or Increase Contrast variant, as the menu bar draws it.
+    @Environment(\.self) private var environment
 
     var body: some View {
         let isRunning = tracker.running != nil
         HStack(spacing: PillMetrics.gap) {
             Image(systemName: isRunning ? "pause.fill" : "play.fill")
                 .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(.white)
+                // White on stopped gray; on the running color, whichever of white and black reads.
+                .foregroundStyle(isRunning
+                    ? preferences.runningColor.foregroundColor(for: .glyph, in: environment) : .white)
                 .frame(width: PillMetrics.squareWidth, height: PillMetrics.height)
                 .background(
                     RoundedRectangle(cornerRadius: PillMetrics.cornerRadius)
