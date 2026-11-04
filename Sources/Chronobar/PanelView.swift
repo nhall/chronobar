@@ -10,7 +10,7 @@ final class PanelModel {
             if !showingNewProject {
                 newProjectName = ""
                 newProjectDuration = ""
-                suggestionVisibility = SuggestionVisibility()
+                newProjectListOpen = false
             }
         }
     }
@@ -18,7 +18,8 @@ final class PanelModel {
     /// Bumped to put focus in the ＋ form's Project field once the Panel's window can take it: the form's
     /// own focus on appearing is lost when the Panel opens straight into it.
     var newProjectFocusRequests = 0
-    var suggestionVisibility = SuggestionVisibility()
+    /// Whether the ＋ form's Project list is showing, which takes Return from the Start/Log button.
+    var newProjectListOpen = false
     /// The ＋ form's duration; empty starts a timer, anything else logs that much time.
     var newProjectDuration = ""
     /// The Day the Panel shows; nil follows today, including across midnight.
@@ -143,10 +144,11 @@ struct PanelView: View {
                 NewProjectForm(
                     name: $panel.newProjectName,
                     duration: $panel.newProjectDuration,
-                    suggestionVisibility: $panel.suggestionVisibility,
+                    isListOpen: $panel.newProjectListOpen,
                     focusRequests: panel.newProjectFocusRequests,
                     canStart: isToday,
-                    suggestions: tracker.suggestions(for: panel.newProjectName),
+                    suggestions: tracker.suggestions(for:),
+                    match: tracker.match(panel.newProjectName),
                     // Start and Log go back to the rows and leave the Panel open.
                     start: { project in
                         actions.start(project)
@@ -155,7 +157,12 @@ struct PanelView: View {
                     log: { project in
                         if actions.log(project, panel.newProjectDuration, day) { panel.showingNewProject = false }
                     },
-                    archive: actions.archive)
+                    // The field empties, so Return can't bring the Project straight back.
+                    archive: { project in
+                        actions.archive(project)
+                        panel.newProjectName = ""
+                        panel.newProjectFocusRequests += 1
+                    })
             }
             if rows.isEmpty {
                 Text("No time tracked").foregroundStyle(.secondary)
@@ -356,31 +363,30 @@ private struct LoginHint: View {
     }
 }
 
-/// The ＋ form: a Project name, a duration and Start, with the matching Projects listed below the field.
+/// The ＋ form: a Project combo box, a duration and Start. The combo box lists the Project list, most
+/// recently used first, narrowed to what is typed; picking from it fills the name for Start or Log to act on.
 /// With a duration typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without
-/// starting a timer; on any Day other than today it always reads Log and needs a duration. Clicking a
-/// suggestion fills the name, for Start or Log to act on, and hides the suggestions until the name is edited
-/// again; right-clicking offers Archive. A new name creates a Project.
+/// starting a timer; on any Day other than today it always reads Log and needs a duration. The line under
+/// the field says whether the name is a New Project or an Existing Project, with Archive for one on the
+/// Project list.
 private struct NewProjectForm: View {
     @Binding var name: String
     @Binding var duration: String
-    @Binding var suggestionVisibility: SuggestionVisibility
+    @Binding var isListOpen: Bool
     let focusRequests: Int
     let canStart: Bool
-    let suggestions: [String]
+    let suggestions: (String) -> [String]
+    let match: ProjectMatch?
     let start: (String) -> Void
     let log: (String) -> Void
     let archive: (String) -> Void
-    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                TextField("Project", text: $name)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($focused)
-                    .onSubmit(submit)
-                    .onChange(of: name) { _, text in suggestionVisibility.nameChanged(to: text) }
+                ProjectComboBox(name: $name, isListOpen: $isListOpen, suggestions: suggestions,
+                                focusRequests: focusRequests,
+                                submit: submit)
                 TextField("h:mm", text: $duration)
                     .textFieldStyle(.roundedBorder)
                     .monospacedDigit()
@@ -388,36 +394,30 @@ private struct NewProjectForm: View {
                     .onSubmit(submit)
                     .help("Time to log, such as 1:30 or 45 minutes. Leave empty to start a timer.")
                 Button(logs ? "Log" : "Start", action: submit)
-                    .keyboardShortcut(.defaultAction)
+                    .keyboardShortcut(isListOpen ? nil : .defaultAction)
                     .disabled(trimmed.isEmpty || (!canStart && !hasDuration))
             }
-            if suggestionVisibility.isShown && !suggestions.isEmpty {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(suggestions, id: \.self) { project in
-                            Button {
-                                suggestionVisibility.pick(project)
-                                name = project
-                                focused = true
-                            } label: {
-                                Text(project)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.vertical, 3)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button("Archive") { archive(project) }
-                            }
-                        }
+            if let match {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(match == .new ? "New Project" : "Existing Project")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if case .active(let project) = match {
+                        Button("Archive") { archive(project) }
+                            .controlSize(.small)
+                            .help("Remove \(project) from the Project list. Its time stays.")
+                            .accessibilityLabel("Archive \(project)")
                     }
                 }
-                .frame(maxHeight: 160)
-                .fixedSize(horizontal: false, vertical: true)
+                .onChange(of: match == .new, initial: false) { _, isNew in
+                    NSAccessibility.post(
+                        element: NSApp.keyWindow ?? NSApp as Any, notification: .announcementRequested,
+                        userInfo: [.announcement: isNew ? "New Project" : "Existing Project",
+                                   .priority: NSAccessibilityPriorityLevel.low.rawValue])
+                }
             }
         }
-        .onAppear { focused = true }
-        .onChange(of: focusRequests) { focused = true }
     }
 
     private var trimmed: String { ProjectName.trimmed(name) }
@@ -425,10 +425,10 @@ private struct NewProjectForm: View {
     private var logs: Bool { hasDuration || !canStart }
 
     private func submit() {
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, canStart || hasDuration else { return }
         if hasDuration {
             log(trimmed)
-        } else if canStart {
+        } else {
             start(trimmed)
         }
     }
