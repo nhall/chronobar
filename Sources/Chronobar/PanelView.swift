@@ -126,7 +126,7 @@ struct PanelView: View {
                     dismiss: { preferences.loginHintDismissed = true })
             }
             WeekStrip(week: tracker.weekTotals(containing: day), today: today, viewed: day,
-                      calendar: tracker.calendar, runningColor: preferences.runningColor.color,
+                      calendar: tracker.calendar, runningColor: preferences.runningColor,
                       view: { show($0, today: today) },
                       move: { show(day.adding(days: 7 * $0, in: tracker.calendar), today: today) })
             // Under the strip, as the title row has no room for it at the Panel's width and above the
@@ -164,7 +164,7 @@ struct PanelView: View {
                     ForEach(rows, id: \.project) { row in
                         // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
                         RowView(row: row, isRunning: isToday && tracker.isRunning(row.project),
-                                canStart: isToday, runningColor: preferences.runningColor.color,
+                                canStart: isToday, runningColor: preferences.runningColor,
                                 panel: panel,
                                 toggle: { actions.toggle(row.project) },
                                 adjust: {
@@ -207,7 +207,8 @@ private struct WeekStrip: View {
     let today: Day
     let viewed: Day
     let calendar: Calendar
-    let runningColor: Color
+    let runningColor: RunningColor
+    @Environment(\.self) private var environment
     let view: (Day) -> Void
     let move: (Int) -> Void
 
@@ -238,10 +239,11 @@ private struct WeekStrip: View {
                 .foregroundStyle(.secondary)
             Text(date.formatted(style.day()))
                 .font(.callout.monospacedDigit())
-                .foregroundStyle(isToday ? Color.white : Color.primary)
+                .foregroundStyle(isToday
+                    ? runningColor.foregroundColor(for: .text, in: environment) : Color.primary)
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(
-                    isToday ? runningColor : isViewed ? Color.gray.opacity(0.35) : Color.clear))
+                    isToday ? runningColor.color : isViewed ? Color.gray.opacity(0.35) : Color.clear))
             Text(DurationFormat.hoursMinutes(item.total))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -281,7 +283,8 @@ private struct RowView: View {
     let row: Row
     let isRunning: Bool
     let canStart: Bool
-    let runningColor: Color
+    let runningColor: RunningColor
+    @Environment(\.self) private var environment
     @Bindable var panel: PanelModel
     let toggle: () -> Void
     let adjust: () -> Void
@@ -317,18 +320,21 @@ private struct RowView: View {
                         .frame(width: 16)
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(isRunning ? Color.white : Color.secondary)
+                .foregroundStyle(isRunning ? onRunningColor : Color.secondary)
                 .help(label)
                 .accessibilityLabel(label)
             }
         }
-        .foregroundStyle(isRunning ? Color.white : Color.primary)
+        .foregroundStyle(isRunning ? onRunningColor : Color.primary)
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 5)
-                .fill(isRunning ? runningColor : Color.clear))
+                .fill(isRunning ? runningColor.color : Color.clear))
     }
+
+    /// The name, total and ⏸ on the running color: text, so it needs 4.5:1.
+    private var onRunningColor: Color { runningColor.foregroundColor(for: .text, in: environment) }
 
     private var label: String { (isRunning ? "Pause " : "Start ") + row.project }
 }

@@ -23,7 +23,8 @@ let package = Package(
         ),
         .testTarget(
             name: "ChronobarCoreTests",
-            dependencies: ["ChronobarCore"]
+            // The app target too, for the running colors as AppKit resolves them in each appearance.
+            dependencies: ["ChronobarCore", "Chronobar"]
         ),
     ]
 )
