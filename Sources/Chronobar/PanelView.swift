@@ -100,7 +100,9 @@ struct PanelView: View {
                         .keyboardShortcut(",", modifiers: .command)
                     Button("Open data folder", action: actions.openDataFolder)
                     Divider()
-                    Button("Quit Chronobar", action: actions.quit)
+                    // The bundle's name, so a development copy's menu reads "Quit Chronobar Dev".
+                    Button("Quit \(Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Chronobar")",
+                           action: actions.quit)
                         .keyboardShortcut("q", modifiers: .command)
                 } label: {
                     Image(systemName: "gearshape")

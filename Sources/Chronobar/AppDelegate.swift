@@ -10,18 +10,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var idleMonitor: IdleMonitor!
     private var timer: Timer?
     private var heartbeat: Timer?
+    /// `nil` when the Info.plist names a bad data folder; the app then refuses to start.
+    private var variant: BuildVariant?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        do {
+            variant = try BuildVariant(info: Bundle.main.infoDictionary)
+        } catch {
+            reportFailure(error, category: "launch", beep: false)
+        }
         // Before launch finishes, so with Show in Dock off the app starts silently in the menu bar.
         applyDockPolicy()
         observeShowInDock()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard let variant else {
+            refuseToStart()
+            return
+        }
+        let storageRoot = variant.storageRoot(
+            in: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0])
+        // Not in applicationWillFinishLaunching: the Dock tile doesn't keep a badge set before launch finishes.
+        showDockBadge()
         loginItem.renew()
-        tracker = Tracker(clock: SystemTimeSource(), storageRoot: Self.storageRoot, defaults: .standard)
+        tracker = Tracker(clock: SystemTimeSource(), storageRoot: storageRoot, defaults: .standard)
         statusItem = StatusItemController(
-            tracker: tracker, storageRoot: Self.storageRoot, preferences: preferences, loginItem: loginItem)
+            tracker: tracker, storageRoot: storageRoot, preferences: preferences, loginItem: loginItem)
         idleMonitor = IdleMonitor(tracker: tracker, preferences: preferences) { [weak self] in
             self?.statusItem.refresh()
         }
@@ -83,6 +98,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let policy: NSApplication.ActivationPolicy = preferences.showInDock ? .regular : .accessory
         guard NSApp.activationPolicy() != policy else { return }
         NSApp.setActivationPolicy(policy)
+        // The Dock tile is new each time the app enters the Dock, so its badge goes back on.
+        if policy == .regular && NSApp.isRunning { showDockBadge() }
         // Leaving the Dock deactivates the app, which would drop the Settings window behind other apps.
         if policy == .accessory && NSApp.isRunning { NSApp.activate() }
     }
@@ -98,9 +115,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// `~/Library/Application Support/Chronobar`.
-    private static var storageRoot: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Chronobar", isDirectory: true)
+    /// A development copy labels its Dock icon so manual testing clicks the right copy.
+    private func showDockBadge() {
+        NSApp.dockTile.badgeLabel = variant?.dockBadge
+    }
+
+    /// A bundle whose Info.plist names a bad data folder stops rather than guess at a folder.
+    private func refuseToStart() {
+        let alert = NSAlert()
+        alert.messageText = "Chronobar can't start"
+        alert.informativeText =
+            "This copy's Info.plist doesn't name a usable data folder (\(BuildVariant.dataFolderKey))."
+        alert.runModal()
+        NSApp.terminate(nil)
     }
 }
