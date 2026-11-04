@@ -109,6 +109,20 @@ public final class Tracker {
         }
     }
 
+    /// Whether `name`'s timer is the one running.
+    public func isRunning(_ name: String) -> Bool {
+        running.map { ProjectName.matches($0.project, name) } ?? false
+    }
+
+    /// A Panel row's ▶/⏸: pauses `name` if it is running, otherwise starts it, pausing any other timer.
+    public func toggle(_ name: String) throws {
+        if isRunning(name) {
+            try pause()
+        } else {
+            try start(name)
+        }
+    }
+
     /// Called every second by the UI so running totals advance, and on wake. Rolls over to a new Day and
     /// retries deferred writes, then recovers any Entry left open in a Day file that parsed again.
     public func tick() {

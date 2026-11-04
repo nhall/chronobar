@@ -18,8 +18,8 @@ can read and edit. There are no accounts, no sync and no integrations.
   background while a timer runs. Click it to start or pause. The right side shows today's time for the
   selected project (`1:23`); click it to open the Panel.
 - **The Panel** shows the day you are viewing, a strip with the week's daily totals, and one row per
-  project with its total for that day. Each of today's rows has a ▶ button that switches the timer to
-  that project. Use ＋ to start a new project or to log time you forgot to track.
+  project with its total for that day. Each of today's rows ends with a ▶ button that switches the
+  timer to that project; the running row is highlighted and shows ⏸ to pause it. Use ＋ to start a new project or to log time you forgot to track.
 - Only one timer runs at a time. Starting a project pauses whichever one was running.
 - If you come back to a running timer after the Mac slept, locked, or sat with no input, Chronobar asks
   whether to remove the time you were away.
@@ -140,8 +140,14 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] Click the time segment: the Panel opens.
 - [ ] Start a second project from ＋: the first entry closes, only one entry is open, and the Panel
       highlights the new project's row.
+- [ ] Each of today's rows shows its time, then ▶ at the far right; the running row shows ⏸ instead
+      and is highlighted. Rows on any other Day have no button.
 - [ ] Click the first project's ▶ in the Panel: it resumes on its existing row, and the second pauses.
-- [ ] Click the running row's clock icon: the timer pauses.
+- [ ] Click the running row's ⏸: the timer pauses, the row loses its highlight and shows ▶, and the
+      Pill's square goes gray with ▶.
+- [ ] With the Panel open, click the Pill's square or press the global shortcut: the row's ⏸ and ▶
+      follow it.
+- [ ] Clicking a row's time still opens the field to change its total; ▶/⏸ does not.
 - [ ] ＋, type part of a project name: matching projects are listed. Clicking one fills the field and
       starts nothing; Start (or Return) then starts it. Right-click › Archive removes it from the list.
 - [ ] Type a project name in different case with extra spaces: it starts on the existing row.

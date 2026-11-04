@@ -31,7 +31,8 @@ final class PanelModel {
 /// What the Panel asks the app to do.
 struct PanelActions {
     let start: (String) -> Void
-    let pause: () -> Void
+    /// A row's ▶/⏸: starts the Project, or pauses it while it runs.
+    let toggle: (String) -> Void
     /// Log and adjust return false when the input was refused, so the field keeps what was typed.
     let log: (_ project: String, _ duration: String, _ day: Day) -> Bool
     let adjust: (_ project: String, _ input: String, _ day: Day) -> Bool
@@ -139,11 +140,11 @@ struct PanelView: View {
             } else {
                 VStack(spacing: 2) {
                     ForEach(rows, id: \.project) { row in
-                        let isRunning = tracker.running.map { ProjectName.matches($0.project, row.project) } ?? false
-                        RowView(row: row, isRunning: isToday && isRunning,
+                        // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
+                        RowView(row: row, isRunning: isToday && tracker.isRunning(row.project),
                                 canStart: isToday, runningColor: preferences.runningColor.color,
                                 panel: panel,
-                                start: { actions.start(row.project) }, pause: actions.pause,
+                                toggle: { actions.toggle(row.project) },
                                 adjust: {
                                     if actions.adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
                                 })
@@ -248,8 +249,8 @@ private struct SummaryView: View {
     }
 }
 
-/// One Project's total on the viewed Day. Today's rows have ▶ to switch to the Project, or a clock that
-/// pauses it while it runs; past Days' rows have neither. Clicking the time types over it: a new total
+/// One Project's total on the viewed Day. Today's rows end with ▶ to switch to the Project, or ⏸ to pause
+/// it while it runs; rows on any other Day have neither. Clicking the time types over it: a new total
 /// (`1:15`) or a change (`+15`, `-10`). Return applies it, Escape cancels.
 private struct RowView: View {
     let row: Row
@@ -257,22 +258,12 @@ private struct RowView: View {
     let canStart: Bool
     let runningColor: Color
     @Bindable var panel: PanelModel
-    let start: () -> Void
-    let pause: () -> Void
+    let toggle: () -> Void
     let adjust: () -> Void
     @FocusState private var focused: Bool
 
     var body: some View {
         HStack {
-            if canStart {
-                Button(action: isRunning ? pause : start) {
-                    Image(systemName: isRunning ? "clock.fill" : "play.fill")
-                        .frame(width: 16)
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(isRunning ? Color.white : Color.secondary)
-                .help(isRunning ? "Pause" : "Start \(row.project)")
-            }
             Text(row.project).lineLimit(1)
             Spacer()
             if panel.adjusting == row.project {
@@ -295,6 +286,16 @@ private struct RowView: View {
                 .buttonStyle(.plain)
                 .help("Change this total")
             }
+            if canStart {
+                Button(action: toggle) {
+                    Image(systemName: isRunning ? "pause.fill" : "play.fill")
+                        .frame(width: 16)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(isRunning ? Color.white : Color.secondary)
+                .help(label)
+                .accessibilityLabel(label)
+            }
         }
         .foregroundStyle(isRunning ? Color.white : Color.primary)
         .padding(.horizontal, 6)
@@ -303,6 +304,8 @@ private struct RowView: View {
             RoundedRectangle(cornerRadius: 5)
                 .fill(isRunning ? runningColor : Color.clear))
     }
+
+    private var label: String { (isRunning ? "Pause " : "Start ") + row.project }
 }
 
 /// The one-time suggestion to turn on Start at login. Either button hides it for good.

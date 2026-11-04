@@ -50,4 +50,35 @@ import ChronobarCore
         #expect(tracker.running == nil)
         #expect(tracker.selectedProject == nil)
     }
+
+    @Test func togglingAStoppedRowsProjectStartsItAndPausesTheOther() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T10:00:00")
+        try tracker.toggle("Internal")
+
+        #expect(tracker.running?.project == "Internal")
+        #expect(!tracker.isRunning("Website Redesign"))
+        #expect(tracker.total("Website Redesign", on: tracker.today) == 60 * 60)
+    }
+
+    @Test func togglingTheRunningRowsProjectPausesIt() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T09:45:00")
+        try tracker.toggle("  website redesign ")
+
+        #expect(tracker.running == nil)
+        #expect(tracker.selectedProject == "Website Redesign")
+        #expect(tracker.total("Website Redesign", on: tracker.today) == 45 * 60)
+    }
+
+    @Test func isRunningMatchesTheProjectWhateverItsCase() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        #expect(!tracker.isRunning("Website Redesign"))
+        try tracker.start("Website Redesign")
+
+        #expect(tracker.isRunning("WEBSITE REDESIGN"))
+        #expect(!tracker.isRunning("Internal"))
+    }
 }

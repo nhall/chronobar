@@ -23,7 +23,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         popover.delegate = self
         let actions = PanelActions(
             start: { [weak self] project in self?.perform { try tracker.start(project) } },
-            pause: { [weak self] in self?.perform { try tracker.pause() } },
+            toggle: { [weak self] project in self?.perform { try tracker.toggle(project) } },
             log: { [weak self] project, duration, day in
                 self?.perform { try tracker.log(project, duration, on: day) } ?? false
             },
