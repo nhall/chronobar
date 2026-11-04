@@ -42,30 +42,72 @@ import ChronobarCore
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        let preferences = Preferences(defaults: defaults)
-        #expect(preferences.detectsInputIdle)
-        #expect(preferences.idleThresholdMinutes == 15)
+        #expect(Preferences(defaults: defaults).idleThreshold == .minutes(15))
     }
 
-    @Test func idleSettingsSurviveARelaunch() {
+    @Test func theIdleChoicesAreOffThenFiveToSixtyMinutes() {
+        #expect(IdleThreshold.presets == [.off] + [5, 10, 15, 20, 30, 45, 60].map(IdleThreshold.minutes))
+    }
+
+    @Test func theIdleThresholdSurvivesARelaunch() {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
 
         let preferences = Preferences(defaults: defaults)
-        preferences.detectsInputIdle = false
-        preferences.idleThresholdMinutes = 30
+        preferences.idleThreshold = .minutes(45)
+        #expect(Preferences(defaults: UserDefaults(suiteName: suite)!).idleThreshold == .minutes(45))
 
-        let relaunched = Preferences(defaults: UserDefaults(suiteName: suite)!)
-        #expect(!relaunched.detectsInputIdle)
-        #expect(relaunched.idleThresholdMinutes == 30)
+        preferences.idleThreshold = .off
+        #expect(Preferences(defaults: UserDefaults(suiteName: suite)!).idleThreshold == .off)
     }
 
-    @Test func aStoredIdleThresholdBelowOneMinuteFallsBackToFifteen() {
+    @Test(arguments: [
+        (5, 5), (60, 60),
+        // Between two choices: the nearer one, a tie going to the longer.
+        (7, 5), (8, 10), (12, 10), (13, 15), (25, 30), (37, 30), (38, 45), (52, 45), (53, 60),
+        // Outside the range.
+        (1, 5), (480, 60),
+    ])
+    func aStoredIdleThresholdSnapsToTheNearestChoice(stored: Int, snapped: Int) {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set(0, forKey: "idleThresholdMinutes")
+        defaults.set(stored, forKey: "idleThresholdMinutes")
 
-        #expect(Preferences(defaults: defaults).idleThresholdMinutes == 15)
+        #expect(Preferences(defaults: defaults).idleThreshold == .minutes(snapped))
+    }
+
+    @Test(arguments: [0, -5])
+    func aStoredIdleThresholdOfZeroOrLessIsOff(stored: Int) {
+        #expect(IdleThreshold(snapping: stored) == .off)
+    }
+
+    /// Earlier builds had a separate toggle next to a 1 to 480 minute stepper.
+    @Test func theOldDetectionToggleTurnedOffMeansOff() {
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(false, forKey: "detectsInputIdle")
+        defaults.set(30, forKey: "idleThresholdMinutes")
+
+        #expect(Preferences(defaults: defaults).idleThreshold == .off)
+    }
+
+    @Test func theOldDetectionToggleTurnedOnKeepsTheSnappedThreshold() {
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "detectsInputIdle")
+        defaults.set(90, forKey: "idleThresholdMinutes")
+
+        #expect(Preferences(defaults: defaults).idleThreshold == .minutes(60))
+    }
+
+    /// Otherwise the old toggle, still stored as off, would win over the new choice at the next launch.
+    @Test func choosingAThresholdAfterTheOldToggleWasOffSticks() {
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(false, forKey: "detectsInputIdle")
+
+        Preferences(defaults: defaults).idleThreshold = .minutes(20)
+        #expect(Preferences(defaults: UserDefaults(suiteName: suite)!).idleThreshold == .minutes(20))
     }
 
     @Test func theChoicesAreTheAccentColorThenTheNamedSystemColors() {

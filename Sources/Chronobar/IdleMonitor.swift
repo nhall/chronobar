@@ -38,10 +38,10 @@ final class IdleMonitor {
         if let idle = tracker.pendingIdle, idle.blockedBy == nil {
             prompt(since: idle.since, until: idle.until)
         }
-        guard tracker.running != nil, preferences.detectsInputIdle else { return }
+        guard tracker.running != nil, let minutes = preferences.idleThreshold.minutes else { return }
         let anyInput = CGEventType(rawValue: ~0)!
         let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: anyInput)
-        guard idle >= TimeInterval(preferences.idleThresholdMinutes * 60) else { return }
+        guard idle >= TimeInterval(minutes * 60) else { return }
         prompt(since: tracker.now - idle)
     }
 

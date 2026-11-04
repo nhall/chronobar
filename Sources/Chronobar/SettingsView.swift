@@ -33,10 +33,11 @@ struct SettingsView: View {
                         .controlSize(.small)
                 }
             }
-            Toggle("Detect idle keyboard and mouse", isOn: $preferences.detectsInputIdle)
-            Stepper("Idle after \(preferences.idleThresholdMinutes) min without input",
-                    value: $preferences.idleThresholdMinutes, in: 1...480)
-                .disabled(!preferences.detectsInputIdle)
+            Picker("Idle after no input for", selection: $preferences.idleThreshold) {
+                ForEach(IdleThreshold.presets, id: \.self) { threshold in
+                    Text(threshold.minutes.map { "\($0) minutes" } ?? "Off").tag(threshold)
+                }
+            }
         }
         .formStyle(.grouped)
         .frame(width: 400)

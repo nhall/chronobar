@@ -162,6 +162,10 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       which project is running.
 - [ ] Remove idle time: the entry ends at the idle time and the timer continues from now.
 - [ ] Repeat with ⌃⌘Q (lock screen) and unlock; repeat with no input past the idle threshold.
+- [ ] In Settings, Idle after no input for is a pop-up of Off, 5, 10, 15, 20, 30, 45 and 60 minutes,
+      15 on a first launch. Pick 5 minutes with a timer running and leave the keyboard and mouse
+      alone: the alert comes after about 5 minutes, without relaunching.
+- [ ] Pick Off: no alert after an hour without input, but sleep and lock still bring it up.
 - [ ] Remove & stop leaves the timer stopped; Keep changes nothing.
 - [ ] No alert appears when no timer was running.
 - [ ] Start a timer, break today's day file by hand (delete a brace), sleep and wake, Remove idle time:
