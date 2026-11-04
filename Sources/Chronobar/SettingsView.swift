@@ -15,7 +15,7 @@ struct SettingsView: View {
                     Label {
                         Text(color.title)
                     } icon: {
-                        Image(systemName: "circle.fill").foregroundStyle(color.color)
+                        Image(nsImage: color.swatch)
                     }
                     .tag(color)
                 }

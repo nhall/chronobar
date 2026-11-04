@@ -144,6 +144,9 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       starts nothing; Start (or Return) then starts it. Right-click › Archive removes it from the list.
 - [ ] Type a project name in different case with extra spaces: it starts on the existing row.
 - [ ] The Pill reads clearly in light and dark menu bars and on a notched display.
+- [ ] In Settings, open Running color in light and in dark mode: each option's dot is the color it
+      names, and Accent color's dot matches the accent in System Settings › Appearance, changing
+      when you pick another accent there.
 
 **Logging and adjusting time**
 
