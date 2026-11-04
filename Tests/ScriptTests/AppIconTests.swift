@@ -12,24 +12,31 @@ import Testing
     static let repo = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
 
-    /// One render shared by every test; the script takes a few seconds to compile.
-    static let rendered: URL = {
-        let out = temporaryRoot().appendingPathComponent("AppIcon.iconset", isDirectory: true)
+    /// One render shared by every test; the script takes a few seconds to compile. A failed render fails
+    /// each test that asks for it, rather than crashing the test run.
+    private static let render = Result { () throws -> URL in
+        let out = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ScriptTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("AppIcon.iconset", isDirectory: true)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = ["swift", repo.appendingPathComponent("scripts/make-icon.swift").path, out.path]
-        try! process.run()
+        try process.run()
         process.waitUntilExit()
-        precondition(process.terminationStatus == 0, "make-icon.swift failed")
+        guard process.terminationStatus == 0 else { throw ScriptFailed(status: process.terminationStatus) }
         return out
-    }()
+    }
 
-    static let ink = Pixel(r: 46, g: 107, b: 230)  // sRGB (0.18, 0.42, 0.90)
-    static let white = Pixel(r: 255, g: 255, b: 255)
+    private static func rendered(_ name: String) throws -> URL {
+        try render.get().appendingPathComponent(name)
+    }
+
+    private static let ink = Pixel(r: 46, g: 107, b: 230)  // sRGB (0.18, 0.42, 0.90)
+    private static let white = Pixel(r: 255, g: 255, b: 255)
 
     @Test func theLargestRenderDrawsTheChronosSymbolOnAWhiteDisc() throws {
-        let icon = try Bitmap(Self.rendered.appendingPathComponent("icon_512x512@2x.png"))
-        #expect(icon.width == 1024 && icon.height == 1024)
+        let icon = try Bitmap(Self.rendered("icon_512x512@2x.png"))
+        try #require(icon.width == 1024 && icon.height == 1024)
 
         // Outside the tile: transparent.
         #expect(icon[20, 20].a == 0)
@@ -62,7 +69,7 @@ import Testing
     /// 16 pt strokes are 1.65× and 32 pt strokes 1.3× the 64-unit stroke used from 64 pt up, so
     /// at the same pixel size the smaller point size carries more ink rather than being a scaled copy.
     @Test func smallPointSizesAreDrawnWithBolderStrokes() throws {
-        let file = { (name: String) in try Bitmap(Self.rendered.appendingPathComponent(name)) }
+        let file = { (name: String) in try Bitmap(Self.rendered(name)) }
         // Each pair shares a pixel size but not a point size.
         let at16pt = try file("icon_16x16@2x.png").inkCoverage
         let at32pt = try file("icon_32x32.png").inkCoverage
@@ -78,22 +85,29 @@ import Testing
         #expect(abs(at128ptRetina / at512ptRetina - 1) < 0.03)
     }
 
-    /// The bundle is built from packaging/icon/AppIcon.iconset, so it must be exactly what the
-    /// generator writes: regenerate with `swift scripts/make-icon.swift packaging/icon/AppIcon.iconset`.
+    /// The bundle is built from packaging/icon/AppIcon.iconset, so it must draw what the generator draws:
+    /// regenerate with `swift scripts/make-icon.swift packaging/icon/AppIcon.iconset`. Pixels are compared
+    /// rather than bytes, so a PNG encoder that writes the same image differently doesn't fail this.
     @Test func theCommittedIconsetIsWhatTheGeneratorWrites() throws {
         let committed = Self.repo.appendingPathComponent("packaging/icon/AppIcon.iconset")
         let names = [16, 32, 128, 256, 512].flatMap { ["icon_\($0)x\($0).png", "icon_\($0)x\($0)@2x.png"] }
-        #expect(try FileManager.default.contentsOfDirectory(atPath: Self.rendered.path).sorted() == names.sorted())
+        let renderedFolder = try Self.render.get()
+        #expect(try FileManager.default.contentsOfDirectory(atPath: renderedFolder.path).sorted() == names.sorted())
         #expect(try FileManager.default.contentsOfDirectory(atPath: committed.path).sorted() == names.sorted())
         for name in names {
-            let fresh = try Data(contentsOf: Self.rendered.appendingPathComponent(name))
-            let stored = try Data(contentsOf: committed.appendingPathComponent(name))
-            #expect(fresh == stored, "\(name) is stale")
+            let fresh = try Bitmap(renderedFolder.appendingPathComponent(name))
+            let stored = try Bitmap(committed.appendingPathComponent(name))
+            #expect(fresh.isClose(to: stored), "\(name) is stale")
         }
     }
 }
 
-struct Pixel {
+private struct ScriptFailed: Error, CustomStringConvertible {
+    let status: Int32
+    var description: String { "scripts/make-icon.swift exited with status \(status)" }
+}
+
+private struct Pixel {
     var r, g, b: Int
     var a = 255
 
@@ -105,23 +119,29 @@ struct Pixel {
 
 /// A PNG decoded to premultiplied RGBA8. The pixels the tests sample are opaque or fully clear,
 /// so premultiplication doesn't change their colour.
-struct Bitmap {
+private struct Bitmap {
     let width: Int
     let height: Int
     private let bytes: [UInt8]
 
     init(_ url: URL) throws {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-        else { throw CocoaError(.fileReadCorruptFile) }
-        width = image.width
-        height = image.height
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              let space = CGColorSpace(name: CGColorSpace.sRGB)
+        else { throw CocoaError(.fileReadCorruptFile, userInfo: [NSFilePathErrorKey: url.path]) }
+        let (width, height) = (image.width, image.height)
+        self.width = width
+        self.height = height
         var bytes = [UInt8](repeating: 0, count: width * height * 4)
-        let ctx = CGContext(
-            data: &bytes, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-            space: CGColorSpace(name: CGColorSpace.sRGB)!,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-        ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let drawn = bytes.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                bytesPerRow: width * 4, space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { throw CocoaError(.fileReadCorruptFile, userInfo: [NSFilePathErrorKey: url.path]) }
         self.bytes = bytes
     }
 
@@ -129,6 +149,12 @@ struct Bitmap {
     subscript(x: Int, y: Int) -> Pixel {
         let i = (y * width + x) * 4
         return Pixel(r: Int(bytes[i]), g: Int(bytes[i + 1]), b: Int(bytes[i + 2]), a: Int(bytes[i + 3]))
+    }
+
+    /// The same size, with every channel of every pixel within `tolerance` of `other`'s.
+    func isClose(to other: Bitmap, tolerance: Int = 1) -> Bool {
+        width == other.width && height == other.height
+            && zip(bytes, other.bytes).allSatisfy { abs(Int($0) - Int($1)) <= tolerance }
     }
 
     /// How much of the disc's middle is ink, from 0 (all white) to 1, read off the red channel
