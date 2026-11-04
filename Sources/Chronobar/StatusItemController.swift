@@ -15,6 +15,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let pill: NSHostingView<PillView>
     private var press = PillPress()
     private var focusObserver: NSObjectProtocol?
+    /// What VoiceOver was last given for the Pill.
+    private var described: PillAccessibility?
 
     init(tracker: Tracker, storageRoot: URL, preferences: Preferences, loginItem: LoginItem) {
         self.tracker = tracker
@@ -82,6 +84,29 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let width = ceil(pill.fittingSize.width)
         if statusItem.length != width { statusItem.length = width }
         if popover.isShown, let button = statusItem.button { anchor.place(over: button) }
+        describe()
+    }
+
+    /// VoiceOver lands on the status item's button, so the button carries what the Pill shows and the
+    /// actions a click on each segment takes. Its own press opens the Panel. The actions are only replaced
+    /// when their names change, so VoiceOver's actions menu isn't rebuilt every second.
+    private func describe() {
+        guard let button = statusItem.button else { return }
+        let description = PillAccessibility(tracker: tracker)
+        if button.accessibilityLabel() != description.label { button.setAccessibilityLabel(description.label) }
+        guard description.squareAction != described?.squareAction else { return }
+        described = description
+        button.setAccessibilityCustomActions([
+            NSAccessibilityCustomAction(name: description.squareAction) { [weak self] in
+                guard let self else { return false }
+                run(PillClick.square(tracker: tracker))
+                return true
+            },
+            NSAccessibilityCustomAction(name: PillAccessibility.openPanelAction) { [weak self] in
+                self?.showPanel()
+                return self != nil
+            },
+        ])
     }
 
     /// The status item's button action: a click on the Pill with the Panel closed, or a press from VoiceOver
