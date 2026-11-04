@@ -11,6 +11,9 @@ extension PillMetrics {
 struct PillView: View {
     let tracker: Tracker
     let preferences: Preferences
+    /// A development copy's mark (`BuildVariant.badge`), drawn after the time so two Pills side by side
+    /// can be told apart. Nil for the everyday copy, whose Pill is unchanged.
+    let badge: String?
     /// For the running color's light, dark or Increase Contrast variant, as the menu bar draws it.
     @Environment(\.self) private var environment
 
@@ -32,6 +35,17 @@ struct PillView: View {
                 .padding(.horizontal, 5)
                 .frame(height: PillMetrics.height)
                 .background(timeBackground)
+            if let badge {
+                // Black on orange reads on a light or dark menu bar. It falls in the time segment's click
+                // zone, which runs to the Pill's trailing edge, so a click on it opens the Panel.
+                Text(badge)
+                    .font(.system(size: 8, weight: .heavy))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 3)
+                    .frame(height: PillMetrics.height)
+                    .background(RoundedRectangle(cornerRadius: PillMetrics.cornerRadius)
+                        .fill(Color(nsColor: .systemOrange)))
+            }
         }
         .padding(.horizontal, PillMetrics.inset)
         .fixedSize()

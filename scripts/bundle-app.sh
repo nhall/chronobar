@@ -8,7 +8,7 @@
 # without sharing anything with it. It has its own bundle ID (io.github.nhall.chronobar.dev), so its
 # own settings, Selected Project, heartbeat and login item; its own data folder
 # (~/Library/Application Support/Chronobar Dev); its own executable name (ChronobarDev, for
-# `killall`); and a DEV badge on its Dock icon.
+# `killall`); and a DEV mark on its Pill and its Dock icon. scripts/info-plist.sh spells all of these.
 #
 # VERSION sets the bundle version (default 0.1.0). SWIFT_BUILD_FLAGS is passed to
 # `swift build`, e.g. SWIFT_BUILD_FLAGS=--disable-sandbox inside a Homebrew build.
@@ -16,6 +16,7 @@ set -eu
 
 cd "$(dirname "$0")/.."
 VERSION="${VERSION:-0.1.0}"
+export VERSION
 
 DEV=0
 if [ "${1:-}" = "--dev" ]; then
@@ -24,22 +25,17 @@ if [ "${1:-}" = "--dev" ]; then
 fi
 OUT="${1:-build}"
 
+# The Info.plist names the copy; the bundle's name and executable are read back from it.
 if [ "$DEV" = 1 ]; then
-    NAME="Chronobar Dev"
-    EXECUTABLE="ChronobarDev"
-    BUNDLE_ID="io.github.nhall.chronobar.dev"
-    # Read by BuildVariant in ChronobarCore.
-    VARIANT_KEYS="    <key>ChronobarDataFolder</key>
-    <string>Chronobar Dev</string>
-    <key>ChronobarDockBadge</key>
-    <string>DEV</string>
-"
+    INFO="$(scripts/info-plist.sh --dev)"
 else
-    NAME="Chronobar"
-    EXECUTABLE="Chronobar"
-    BUNDLE_ID="io.github.nhall.chronobar"
-    VARIANT_KEYS=""
+    INFO="$(scripts/info-plist.sh)"
 fi
+info_value() {
+    printf '%s\n' "$INFO" | plutil -extract "$1" raw -o - -
+}
+NAME="$(info_value CFBundleName)"
+EXECUTABLE="$(info_value CFBundleExecutable)"
 APP="$OUT/$NAME.app"
 
 # shellcheck disable=SC2086
@@ -59,44 +55,7 @@ done
 # App icon, from the committed PNGs. scripts/make-icon.swift regenerates them.
 iconutil --convert icns --output "$APP/Contents/Resources/Chronobar.icns" packaging/icon/AppIcon.iconset
 
-cat > "$APP/Contents/Info.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
-    <key>CFBundleDisplayName</key>
-    <string>$NAME</string>
-    <key>CFBundleExecutable</key>
-    <string>$EXECUTABLE</string>
-    <key>CFBundleIconFile</key>
-    <string>Chronobar</string>
-    <key>CFBundleIdentifier</key>
-    <string>$BUNDLE_ID</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>$NAME</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>$VERSION</string>
-    <key>CFBundleVersion</key>
-    <string>$VERSION</string>
-${VARIANT_KEYS}    <key>LSApplicationCategoryType</key>
-    <string>public.app-category.productivity</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2026 Nick Hall. MIT License.</string>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
-</dict>
-</plist>
-EOF
+printf '%s\n' "$INFO" > "$APP/Contents/Info.plist"
 
 codesign --force --sign - "$APP"
 echo "$APP"

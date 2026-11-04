@@ -18,9 +18,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// What VoiceOver was last given for the Pill.
     private var described: PillAccessibility?
 
-    init(tracker: Tracker, storageRoot: URL, preferences: Preferences, loginItem: LoginItem) {
+    init(tracker: Tracker, variant: BuildVariant, storageRoot: URL, preferences: Preferences,
+         loginItem: LoginItem) {
         self.tracker = tracker
-        pill = ClickThroughHostingView(rootView: PillView(tracker: tracker, preferences: preferences))
+        pill = ClickThroughHostingView(
+            rootView: PillView(tracker: tracker, preferences: preferences, badge: variant.badge))
         super.init()
 
         popover.behavior = .transient
@@ -43,7 +45,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             },
             quit: { NSApp.terminate(nil) })
         let content = NSHostingController(rootView: PanelView(
-            tracker: tracker, panel: panel, preferences: preferences, loginItem: loginItem, actions: actions))
+            tracker: tracker, panel: panel, preferences: preferences, loginItem: loginItem,
+            appName: variant.appName, actions: actions))
         content.sizingOptions = .preferredContentSize
         popover.contentViewController = content
 

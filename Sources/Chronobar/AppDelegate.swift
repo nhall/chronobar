@@ -36,7 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         loginItem.renew()
         tracker = Tracker(clock: SystemTimeSource(), storageRoot: storageRoot, defaults: .standard)
         statusItem = StatusItemController(
-            tracker: tracker, storageRoot: storageRoot, preferences: preferences, loginItem: loginItem)
+            tracker: tracker, variant: variant, storageRoot: storageRoot, preferences: preferences,
+            loginItem: loginItem)
         idleMonitor = IdleMonitor(tracker: tracker, preferences: preferences) { [weak self] in
             self?.statusItem.refresh()
         }
@@ -117,7 +118,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// A development copy labels its Dock icon so manual testing clicks the right copy.
     private func showDockBadge() {
-        NSApp.dockTile.badgeLabel = variant?.dockBadge
+        NSApp.dockTile.badgeLabel = variant?.badge
     }
 
     /// A bundle whose Info.plist names a bad data folder stops rather than guess at a folder.
