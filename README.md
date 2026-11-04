@@ -132,6 +132,10 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] After a minute the time reads `0:01`; the day file has one entry with `"end": null`.
 - [ ] Click ⏸: the square goes gray with ▶, the time stays, the entry now has an `end`.
 - [ ] Click ▶: the same project resumes and its total keeps counting from where it was.
+- [ ] With the Panel closed, click the square several times, on its edges as well as its middle: each
+      click toggles ⏸ and ▶, and the Panel stays closed.
+- [ ] With the Panel open, do the same: each click toggles, and the Panel stays open.
+- [ ] Click the time segment: the Panel opens.
 - [ ] Start a second project from ＋: the first entry closes, only one entry is open, and the Panel
       highlights the new project's row.
 - [ ] Click the first project's ▶ in the Panel: it resumes on its existing row, and the second pauses.

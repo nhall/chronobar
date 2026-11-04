@@ -6,12 +6,13 @@ import KeyboardShortcuts
 /// The Pill's AppKit shell: an `NSStatusItem` hosting `PillView`, split into two click zones.
 /// The square toggles the timer; the time segment opens the Panel.
 @MainActor
-final class StatusItemController: NSObject {
+final class StatusItemController: NSObject, NSPopoverDelegate {
     private let tracker: Tracker
     private let panel = PanelModel()
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
     private let pill: NSHostingView<PillView>
+    private let square = SquareClickView()
 
     init(tracker: Tracker, storageRoot: URL, preferences: Preferences, loginItem: LoginItem) {
         self.tracker = tracker
@@ -19,6 +20,7 @@ final class StatusItemController: NSObject {
         super.init()
 
         popover.behavior = .transient
+        popover.delegate = self
         let actions = PanelActions(
             start: { [weak self] project in self?.perform { try tracker.start(project) } },
             pause: { [weak self] in self?.perform { try tracker.pause() } },
@@ -45,9 +47,18 @@ final class StatusItemController: NSObject {
         guard let button = statusItem.button else { return }
         pill.translatesAutoresizingMaskIntoConstraints = false
         button.addSubview(pill)
+        // The square takes its own clicks, so they never reach the button and its Panel action.
+        square.translatesAutoresizingMaskIntoConstraints = false
+        square.onClick = { [weak self] in self?.toggle() }
+        button.addSubview(square)
         NSLayoutConstraint.activate([
             pill.leadingAnchor.constraint(equalTo: button.leadingAnchor),
             pill.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            square.leadingAnchor.constraint(equalTo: button.leadingAnchor),
+            square.widthAnchor.constraint(
+                equalToConstant: PillMetrics.inset + PillMetrics.squareWidth + PillMetrics.gap / 2),
+            square.topAnchor.constraint(equalTo: button.topAnchor),
+            square.bottomAnchor.constraint(equalTo: button.bottomAnchor),
         ])
         button.target = self
         button.action = #selector(clicked(_:))
@@ -62,14 +73,14 @@ final class StatusItemController: NSObject {
         if statusItem.length != width { statusItem.length = width }
     }
 
+    /// A click on the time segment; the square's clicks never get here.
     @objc private func clicked(_ button: NSStatusBarButton) {
-        let x = NSApp.currentEvent.map { button.convert($0.locationInWindow, from: nil).x } ?? .infinity
-        let squareEnd = PillMetrics.inset + PillMetrics.squareWidth + PillMetrics.gap / 2
-        if x < squareEnd {
-            toggle()
-        } else {
-            showPanel(newProject: false)
-        }
+        showPanel(newProject: false)
+    }
+
+    /// The open Panel is transient and would close on the mouse-down of a click on the square.
+    func popoverShouldClose(_ popover: NSPopover) -> Bool {
+        !(square.containsMouse && NSEvent.pressedMouseButtons & 1 != 0)
     }
 
     private func toggle() {
@@ -108,6 +119,26 @@ final class StatusItemController: NSObject {
             reportFailure(error, category: "tracker")
             return false
         }
+    }
+}
+
+/// The Pill's square as a click target. It handles the click itself rather than passing it on to the
+/// status bar button, whose action opens the Panel.
+private final class SquareClickView: NSView {
+    var onClick: () -> Void = {}
+
+    /// Read from the pointer's screen position rather than an event's, which may belong to another window.
+    var containsMouse: Bool {
+        guard let window else { return false }
+        let point = convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
+        return bounds.contains(point)
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    // Overridden so the mouse-down isn't passed up the responder chain to the button.
+    override func mouseDown(with event: NSEvent) {}
+    override func mouseUp(with event: NSEvent) {
+        if containsMouse { onClick() }
     }
 }
 
