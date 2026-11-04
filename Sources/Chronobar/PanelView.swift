@@ -10,10 +10,12 @@ final class PanelModel {
             if !showingNewProject {
                 newProjectName = ""
                 newProjectDuration = ""
+                suggestionList = SuggestionList()
             }
         }
     }
     var newProjectName = ""
+    var suggestionList = SuggestionList()
     /// The ＋ form's duration; empty starts a timer, anything else logs that much time.
     var newProjectDuration = ""
     /// The Day the Panel shows; nil follows today, including across midnight.
@@ -131,6 +133,7 @@ struct PanelView: View {
                 NewProjectForm(
                     name: $panel.newProjectName,
                     duration: $panel.newProjectDuration,
+                    list: $panel.suggestionList,
                     canStart: isToday,
                     suggestions: tracker.suggestions(for: panel.newProjectName),
                     // Start and Log go back to the rows and leave the Panel open.
@@ -345,11 +348,12 @@ private struct LoginHint: View {
 /// The ＋ form: a Project name, a duration and Start, with the matching Projects listed below the field.
 /// With a duration typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without
 /// starting a timer; on any Day other than today it always reads Log and needs a duration. Clicking a
-/// suggestion fills the name, for Start or Log to act on; right-clicking offers Archive.
-/// A new name creates a Project.
+/// suggestion fills the name, for Start or Log to act on, and closes the list until the name is typed in
+/// again; right-clicking offers Archive. A new name creates a Project.
 private struct NewProjectForm: View {
     @Binding var name: String
     @Binding var duration: String
+    @Binding var list: SuggestionList
     let canStart: Bool
     let suggestions: [String]
     let start: (String) -> Void
@@ -364,6 +368,7 @@ private struct NewProjectForm: View {
                     .textFieldStyle(.roundedBorder)
                     .focused($focused)
                     .onSubmit(submit)
+                    .onChange(of: name) { _, text in list.typed(text) }
                 TextField("h:mm", text: $duration)
                     .textFieldStyle(.roundedBorder)
                     .monospacedDigit()
@@ -374,11 +379,12 @@ private struct NewProjectForm: View {
                     .keyboardShortcut(.defaultAction)
                     .disabled(trimmed.isEmpty || (!canStart && !hasDuration))
             }
-            if !suggestions.isEmpty {
+            if list.isOpen && !suggestions.isEmpty {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         ForEach(suggestions, id: \.self) { project in
                             Button {
+                                list.pick(project)
                                 name = project
                                 focused = true
                             } label: {
