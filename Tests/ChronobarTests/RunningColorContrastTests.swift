@@ -15,6 +15,10 @@ struct Appearance: CustomTestStringConvertible, Sendable {
     var environment: EnvironmentValues {
         var environment = EnvironmentValues()
         environment.colorScheme = scheme
+        // `colorSchemeContrast` has no public setter, and the app resolves its colors from the view's
+        // environment (`RunningColor.background(in:)`), not from an `NSAppearance`. Resolving an `NSColor`
+        // in a high-contrast appearance would measure a different path from the one the Pill draws, so
+        // this sets the underlying value SwiftUI reads.
         environment._colorSchemeContrast = contrast
         return environment
     }

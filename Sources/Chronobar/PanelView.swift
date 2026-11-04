@@ -53,6 +53,8 @@ struct PanelView: View {
     @Bindable var panel: PanelModel
     let preferences: Preferences
     let loginItem: LoginItem
+    /// `BuildVariant.appName`, so a development copy's menu reads "Quit Chronobar Dev".
+    let appName: String
     let actions: PanelActions
 
     var body: some View {
@@ -105,9 +107,7 @@ struct PanelView: View {
                         .keyboardShortcut(",", modifiers: .command)
                     Button("Open data folder", action: actions.openDataFolder)
                     Divider()
-                    // The bundle's name, so a development copy's menu reads "Quit Chronobar Dev".
-                    Button("Quit \(Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Chronobar")",
-                           action: actions.quit)
+                    Button("Quit \(appName)", action: actions.quit)
                         .keyboardShortcut("q", modifiers: .command)
                 } label: {
                     // On the image: a menu takes its VoiceOver description from its label's image.
@@ -373,7 +373,7 @@ private struct RowView: View {
     /// The name, total and ⏸ on the running color: text, so it needs 4.5:1.
     private var onRunningColor: Color { runningColor.foregroundColor(for: .text, in: environment) }
 
-    private var label: String { (isRunning ? "Pause " : "Start ") + row.project }
+    private var label: String { "\(TimerToggle.name(isRunning: isRunning)) \(row.project)" }
 }
 
 /// The one-time suggestion to turn on Start at login. Either button hides it for good.

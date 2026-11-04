@@ -10,7 +10,8 @@ import ChronobarCore
         let variant = try BuildVariant(info: release)
         #expect(variant.storageRoot(in: applicationSupport).path
             == "/Users/someone/Library/Application Support/Chronobar")
-        #expect(variant.dockBadge == nil)
+        #expect(variant.badge == nil)
+        #expect(variant.appName == "Chronobar")
     }
 
     /// `swift run` has no Info.plist of its own.
@@ -18,18 +19,22 @@ import ChronobarCore
         let variant = try BuildVariant(info: nil)
         #expect(variant.storageRoot(in: applicationSupport).path
             == "/Users/someone/Library/Application Support/Chronobar")
+        #expect(variant.badge == nil)
+        #expect(variant.appName == "Chronobar")
     }
 
-    @Test func aDevelopmentCopyKeepsItsDataInItsOwnFolderAndBadgesItsDockIcon() throws {
+    @Test func aDevelopmentCopyKeepsItsDataInItsOwnFolderAndCarriesABadgeAndItsOwnName() throws {
         let development: [String: Any] = [
             "CFBundleIdentifier": "io.github.nhall.chronobar.dev",
+            "CFBundleName": "Chronobar Dev",
             "ChronobarDataFolder": "Chronobar Dev",
-            "ChronobarDockBadge": "DEV",
+            "ChronobarBadge": "DEV",
         ]
         let variant = try BuildVariant(info: development)
         #expect(variant.storageRoot(in: applicationSupport).path
             == "/Users/someone/Library/Application Support/Chronobar Dev")
-        #expect(variant.dockBadge == "DEV")
+        #expect(variant.badge == "DEV")
+        #expect(variant.appName == "Chronobar Dev")
     }
 
     /// A copy that asks for its own folder and names it wrongly must not fall back to the everyday folder.

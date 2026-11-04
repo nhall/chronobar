@@ -21,10 +21,10 @@ let package = Package(
                 .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
             ]
         ),
-        .testTarget(
-            name: "ChronobarCoreTests",
-            // The app target too, for the running colors as AppKit resolves them in each appearance.
-            dependencies: ["ChronobarCore", "Chronobar"]
-        ),
+        .testTarget(name: "ChronobarCoreTests", dependencies: ["ChronobarCore"]),
+        // What only the app target knows, such as the running colors as SwiftUI draws them.
+        .testTarget(name: "ChronobarTests", dependencies: ["ChronobarCore", "Chronobar"]),
+        // The scripts under scripts/, run as a developer or the bundling script runs them.
+        .testTarget(name: "ScriptTests", dependencies: ["ChronobarCore"]),
     ]
 )

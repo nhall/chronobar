@@ -5,9 +5,9 @@ import ChronobarCore
 /// The ＋ form's Project field: a native `NSComboBox`, so VoiceOver, Full Keyboard Access and larger text
 /// come with it. ▾ or ↓ opens the list of `suggestions(typed)`, where `typed` is what was last typed rather
 /// than a name filled in from the list, so moving through the list doesn't narrow it. Typing narrows the
-/// list and opens it while anything matches. There is no inline completion, so what was typed is never
-/// replaced by a longer name. Return on an item highlighted in the open list picks it and closes the list;
-/// otherwise Return submits.
+/// list and opens it while anything matches, and closes it when nothing does. There is no inline
+/// completion, so what was typed is never replaced by a longer name. Return on an item highlighted in the
+/// open list picks it, fills the field and closes the list; otherwise Return submits.
 struct ProjectComboBox: NSViewRepresentable {
     @Binding var name: String
     /// Whether the list is showing. The form's default button gives up Return meanwhile, so Return can
@@ -62,6 +62,7 @@ struct ProjectComboBox: NSViewRepresentable {
         var typed = ""
         var focusRequests = 0
         private var items: [String] = []
+        /// Whether the list is showing, from the combo box's will-pop-up and will-dismiss notifications.
         private var isOpen = false
 
         /// Reloads the list for `typed` if it changed, and opens or closes it when `open` says so.
@@ -76,6 +77,9 @@ struct ProjectComboBox: NSViewRepresentable {
             if let open { setOpen(open && !items.isEmpty) }
         }
 
+        /// `NSComboBox` has no public call to show or hide its list. Setting its cell's accessibility
+        /// expanded state is what VoiceOver does to open it, and it pops the real list up or down, with the
+        /// will-pop-up and will-dismiss notifications that keep `isOpen` and `isListOpen` in step.
         private func setOpen(_ open: Bool) {
             guard let box, open != isOpen else { return }
             box.cell?.setAccessibilityExpanded(open)
@@ -113,28 +117,20 @@ struct ProjectComboBox: NSViewRepresentable {
             guard let box else { return }
             typed = box.stringValue
             parent?.name = typed
+            // The highlight from moving through the list goes, so Return then acts on what was typed.
             if box.indexOfSelectedItem >= 0 { box.deselectItem(at: box.indexOfSelectedItem) }
             refresh(open: !ProjectName.trimmed(typed).isEmpty)
         }
 
+        /// Every other key, ↓ and ↑ included, is the combo box's own: ↓ opens the list, then moves through it.
         func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
-            guard let box else { return false }
-            switch selector {
-            case #selector(NSResponder.moveDown(_:)) where !isOpen:
-                refresh(open: true)
-                return true
-            case #selector(NSResponder.insertNewline(_:)):
-                if isOpen && box.indexOfSelectedItem >= 0 {
-                    setOpen(false)
-                    return true
-                }
-                setOpen(false)
-                parent?.name = box.stringValue
-                parent?.submit()
-                return true
-            default:
-                return false
-            }
+            guard let box, selector == #selector(NSResponder.insertNewline(_:)) else { return false }
+            // The combo box's own Return picks the highlighted item, fills the field and closes the list.
+            if isOpen && box.indexOfSelectedItem >= 0 { return false }
+            setOpen(false)
+            parent?.name = box.stringValue
+            parent?.submit()
+            return true
         }
     }
 }

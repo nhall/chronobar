@@ -17,6 +17,8 @@ final class DayFiles {
     @ObservationIgnored private let clock: TimeSource
     /// Other Days' Entries, read on first use and dropped on `load` so hand edits show up.
     @ObservationIgnored private var otherDays: [Day: [Entry]] = [:]
+    /// The Days with a file, listed on first use and dropped on `load` like `otherDays`.
+    @ObservationIgnored private var listedDays: [Day]?
     /// Writes deferred because their Day's file was malformed, oldest first. Retried before every write and
     /// on `retryPending()`; lost on quit, which leaves the open Entry for crash recovery.
     @ObservationIgnored private var pending: [(day: Day, change: (inout [Entry]) -> Void)] = []
@@ -29,8 +31,14 @@ final class DayFiles {
         self.loadedDay = Day(containing: clock.now, in: clock.calendar)
     }
 
-    /// Every Day with a file, newest first.
-    func days() -> [Day] { store.days() }
+    /// Every Day with a file, newest first. The folder is listed once until the next `load`, so views can
+    /// ask while rendering; Days this writes to are added as they are written.
+    func days() -> [Day] {
+        if let listedDays { return listedDays }
+        let days = store.days()
+        listedDays = days
+        return days
+    }
 
     /// Whether writes to `day` are still waiting for its file to parse.
     func hasPending(_ day: Day) -> Bool { pending.contains { $0.day == day } }
@@ -45,6 +53,7 @@ final class DayFiles {
     /// its last good read is kept (for a Day not loaded before, just its deferred writes).
     func load(_ day: Day) {
         otherDays = [:]
+        listedDays = nil
         retryPending()
         if let entries = try? read(day) {
             loadedEntries = entries
@@ -126,6 +135,7 @@ final class DayFiles {
         var entries = try read(day)
         change(&entries)
         try store.save(day, entries, timeZone: clock.calendar.timeZone)
+        if let listed = listedDays, !listed.contains(day) { listedDays = (listed + [day]).sorted(by: >) }
         if day == loadedDay { loadedEntries = entries } else { otherDays[day] = entries }
     }
 

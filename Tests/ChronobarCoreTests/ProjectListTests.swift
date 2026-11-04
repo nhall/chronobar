@@ -173,6 +173,31 @@ import ChronobarCore
         #expect(tracker.match("internal") == .archived("Internal"))
     }
 
+    /// The ＋ form asks on every keystroke and redraw, so the data folder is listed once until the next
+    /// reload: a Day file added by hand shows up when the Panel next opens.
+    @Test func aDayFileAddedByHandIsFoundAfterTheNextReload() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        #expect(tracker.match("Garden Shed") == .new)
+
+        try write(root, "2026-10-28", #"    { "project": "Garden Shed", "seconds": 600, "note": "manual" }"#)
+        #expect(tracker.match("Garden Shed") == .new)
+
+        tracker.reload()
+        #expect(tracker.match("Garden Shed") == .archived("Garden Shed"))
+    }
+
+    /// Chronobar's own writes to a Day with no file yet count at once, without a reload.
+    @Test func aDayFirstWrittenByLoggingCountsStraightAway() throws {
+        try "Print Shop\nInternal\n".write(to: projectsFile(root), atomically: true, encoding: .utf8)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        #expect(tracker.suggestions(for: "") == ["Print Shop", "Internal"])
+
+        try tracker.log("Internal", "15", on: Day("2026-10-30")!)
+        #expect(tracker.suggestions(for: "") == ["Internal", "Print Shop"])
+        try tracker.archiveProject("Internal")
+        #expect(tracker.match("internal") == .archived("Internal"))
+    }
+
     @Test func aBlankNameIsRefused() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         #expect(throws: EmptyProjectName.self) { try tracker.start("   ") }

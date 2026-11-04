@@ -86,9 +86,9 @@ It runs next to the everyday copy and shares nothing with it:
 | Data folder | `~/Library/Application Support/Chronobar` | `~/Library/Application Support/Chronobar Dev` |
 | Process (for `killall`) | `Chronobar` | `ChronobarDev` |
 
-Its Dock icon carries a **DEV** badge, and its ⚙ menu reads **Quit Chronobar Dev**. The two Pills look
-the same in the menu bar, so with both running, check the ⚙ menu or the Dock icon before testing. To start
-the development copy fresh, quit it, then delete its data folder and run
+Its Pill ends in an orange **DEV** mark, its Dock icon carries a **DEV** badge, and its ⚙ menu reads
+**Quit Chronobar Dev**, so with both running you can tell which Pill to click. The everyday copy's Pill
+has no mark. To start the development copy fresh, quit it, then delete its data folder and run
 `defaults delete io.github.nhall.chronobar.dev`.
 
 Without `--dev`, the script builds exactly what the Homebrew formula installs.
