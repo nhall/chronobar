@@ -82,15 +82,15 @@ import ChronobarCore
     }
 
     @Test func anArchivedSelectionStaysClearedAfterARelaunch() throws {
-        let suite = "ChronobarCoreTests-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = TestSettings()
+        let defaults = settings.fresh()
+        defer { settings.remove() }
 
         let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
         try tracker.start("Website Redesign")
         try tracker.archiveProject("Website Redesign")
 
-        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: UserDefaults(suiteName: suite)!)
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         #expect(relaunched.running?.project == "Website Redesign")
         #expect(relaunched.selectedProject == nil)
     }
@@ -126,6 +126,51 @@ import ChronobarCore
         #expect(tracker.suggestions(for: " in") == ["Internal", "Print Shop"])
         #expect(tracker.suggestions(for: "APP") == ["Mobile App"])
         #expect(tracker.suggestions(for: "report") == [])
+    }
+
+    @Test func suggestionsListTheMostRecentlyUsedProjectsFirst() throws {
+        try "Print Shop\nMobile App\nInternal\nAnnual Report\nGarden Shed\n"
+            .write(to: projectsFile(root), atomically: true, encoding: .utf8)
+        try write(root, "2026-10-27", #"    { "project": "annual report", "seconds": 600, "note": "manual" }"#)
+        try write(root, "2026-11-02", """
+            { "project": "Internal", "seconds": 600, "note": "manual" },
+            { "project": "Mobile App", "seconds": 600, "note": "manual" }
+        """)
+        // Time logged ahead isn't a recent use.
+        try write(root, "2026-11-20", #"    { "project": "Garden Shed", "seconds": 600, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.log("Annual Report", "15", on: tracker.today)
+
+        #expect(tracker.suggestions(for: "") == ["Annual Report", "Mobile App", "Internal", "Print Shop", "Garden Shed"])
+        #expect(tracker.suggestions(for: "p") == ["Print Shop", "Annual Report", "Mobile App"])
+    }
+
+    @Test func anExactMatchRanksFirstAheadOfMoreRecentLongerNames() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("test")
+        clock.set("2026-11-03T09:10:00")
+        try tracker.start("test 2")
+        clock.set("2026-11-03T09:20:00")
+        try tracker.start("test 3")
+
+        #expect(tracker.suggestions(for: "") == ["test 3", "test 2", "test"])
+        #expect(tracker.suggestions(for: " TEST") == ["test", "test 3", "test 2"])
+        #expect(tracker.suggestions(for: "est") == ["test 3", "test 2", "test"])
+    }
+
+    @Test func aTypedNameIsNewActiveOrArchivedWithItsStoredSpelling() throws {
+        try write(root, "2026-10-28", #"    { "project": "Garden Shed", "seconds": 600, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Internal")
+        try tracker.start("test 3")
+
+        #expect(tracker.match("  ") == nil)
+        #expect(tracker.match("test") == .new)
+        #expect(tracker.match(" INTERNAL") == .active("Internal"))
+        #expect(tracker.match("garden shed") == .archived("Garden Shed"))
+
+        try tracker.archiveProject("Internal")
+        #expect(tracker.match("internal") == .archived("Internal"))
     }
 
     @Test func aBlankNameIsRefused() throws {

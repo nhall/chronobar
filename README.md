@@ -181,13 +181,25 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] With the Panel open, click the Pill's square or press the global shortcut: the row's ⏸ and ▶
       follow it.
 - [ ] Clicking a row's time still opens the field to change its total; ▶/⏸ does not.
-- [ ] ＋, type part of a project name: matching projects are listed. Clicking one fills the field and
-      starts nothing; Start (or Return) then starts it. Right-click › Archive removes it from the list.
+- [ ] ＋, click ▾ in the Project field (or press ↓): every project is listed, most recently used first,
+      and the list scrolls when long. Type part of a name: the list narrows to names containing it, those
+      starting with it first. Clicking one, or ↓ to it and Return, fills the field, closes the list and
+      starts nothing; Start (or Return) then starts it.
+- [ ] With `test`, `test 2` and `test 3` (started in that order), type `test`: `test` is listed first and
+      the field keeps `test`; Return starts `test`.
+- [ ] The line under the field reads New Project for a new name and Existing Project for a listed or
+      archived one. Archive, shown for a listed project, removes it from the list and empties the field.
+- [ ] With VoiceOver on, the Project field is announced as a combo box, with whether its list is open and
+      each item as you move through it; New Project / Existing Project is read when it changes; Tab
+      reaches Archive with keyboard navigation on.
 - [ ] Type a project name in different case with extra spaces: it starts on the existing row.
 - [ ] The Pill reads clearly in light and dark menu bars and on a notched display.
 - [ ] In Settings, open Running color in light and in dark mode: each option's dot is the color it
       names, and Accent color's dot matches the accent in System Settings › Appearance, changing
       when you pick another accent there.
+- [ ] With a timer running, pick yellow, mint, blue and Accent color in turn, in light and dark mode
+      and with Increase Contrast on and off: the Pill's ⏸, the running row's name, total and ⏸, and
+      today's date in the Week strip read clearly on each (white on dark colors, black on light ones).
 
 **Logging and adjusting time**
 
