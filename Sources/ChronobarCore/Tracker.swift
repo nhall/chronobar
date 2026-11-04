@@ -324,14 +324,48 @@ public final class Tracker {
         return project
     }
 
-    /// Active Projects containing `text`, ignoring case and surrounding spaces. Names starting with it
-    /// come first; otherwise the Project list's order is kept.
+    /// Active Projects containing `text` anywhere, ignoring case and surrounding spaces. A name matching
+    /// `text` exactly comes first, then names starting with it, then the rest; within each, the most
+    /// recently used first.
     public func suggestions(for text: String) -> [String] {
         let text = ProjectName.trimmed(text)
-        guard !text.isEmpty else { return projects }
-        let matching = projects.filter { $0.range(of: text, options: .caseInsensitive) != nil }
-        let prefixed = matching.filter { $0.range(of: text, options: [.caseInsensitive, .anchored]) != nil }
-        return prefixed + matching.filter { !prefixed.contains($0) }
+        let recent = projectsByRecentUse()
+        guard !text.isEmpty else { return recent }
+        let matching = recent.filter { $0.range(of: text, options: .caseInsensitive) != nil }
+        let exact = matching.filter { ProjectName.matches($0, text) }
+        let prefixed = matching.filter { !exact.contains($0) && $0.range(of: text, options: [.caseInsensitive, .anchored]) != nil }
+        return exact + prefixed + matching.filter { !exact.contains($0) && !prefixed.contains($0) }
+    }
+
+    /// What a typed name would start or log: an active Project, an archived one with time in the Day
+    /// files (each with the spelling `addProject` would use), or a new one. Nil for a blank name.
+    /// Reads other Days' files once until the next `reload`, so it can be asked on every keystroke.
+    public func match(_ name: String) -> ProjectMatch? {
+        let name = ProjectName.trimmed(name)
+        guard !name.isEmpty else { return nil }
+        if let active = projects.first(where: { ProjectName.matches($0, name) }) { return .active(active) }
+        for day in files.days() {
+            if let entry = files.entries(on: day).last(where: { ProjectName.matches($0.project, name) }) {
+                return .archived(entry.project)
+            }
+        }
+        return .new
+    }
+
+    /// The active Projects, the one with the latest Entry on today or a past Day first. Projects with no
+    /// such Entry (new by hand, or with time only on future Days) follow in the Project list's order.
+    private func projectsByRecentUse() -> [String] {
+        var used: [String] = []
+        let days = [today] + files.days().filter { $0 < today }
+        for day in days where used.count < projects.count {
+            for entry in files.entries(on: day).reversed() {
+                if let project = projects.first(where: { ProjectName.matches($0, entry.project) }),
+                   !used.contains(project) {
+                    used.append(project)
+                }
+            }
+        }
+        return used + projects.filter { !used.contains($0) }
     }
 
     /// The name a past Entry used for this Project, newest Day first. Malformed Days are skipped.
