@@ -144,6 +144,7 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] With the Panel closed, click the square several times, on its edges as well as its middle: each
       click toggles ⏸ and ▶, and the Panel stays closed.
 - [ ] With the Panel open, do the same: each click toggles, and the Panel stays open.
+- [ ] Repeat both with a trackpad (tap to click and a full press) as well as a mouse.
 - [ ] Click the time segment: the Panel opens.
 - [ ] Start a second project from ＋: the first entry closes, only one entry is open, and the Panel
       highlights the new project's row.

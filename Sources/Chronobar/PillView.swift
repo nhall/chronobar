@@ -1,15 +1,6 @@
 import SwiftUI
 import ChronobarCore
 
-enum PillMetrics {
-    static let height: CGFloat = 18
-    static let squareWidth: CGFloat = 22
-    static let gap: CGFloat = 2
-    static let cornerRadius: CGFloat = 4
-    /// Space between the Pill and the edges of the status item.
-    static let inset: CGFloat = 3
-}
-
 /// The two-segment menu bar item: the ▶/⏸ square and the Selected Project's time today.
 struct PillView: View {
     let tracker: Tracker
