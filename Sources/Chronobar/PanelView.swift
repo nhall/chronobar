@@ -334,23 +334,33 @@ private struct RowView: View {
 }
 
 /// The one-time suggestion to turn on Start at login. Either button hides it for good.
+/// The question and ✕ share the first row, so the text has the full width to wrap in; Turn On sits under
+/// the text, on its leading edge. VoiceOver reads the question, then Turn On, then Dismiss.
 private struct LoginHint: View {
     let turnOn: () -> Void
     let dismiss: () -> Void
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Start Chronobar when you log in?")
-                .font(.callout)
-            Spacer()
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("Start Chronobar when you log in?")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilitySortPriority(3)
+                Button(action: dismiss) {
+                    Image(systemName: "xmark")
+                }
+                .buttonStyle(.borderless)
+                .help("Dismiss")
+                .accessibilityLabel("Dismiss")
+                .accessibilitySortPriority(1)
+            }
             Button("Turn On", action: turnOn)
                 .controlSize(.small)
-            Button(action: dismiss) {
-                Image(systemName: "xmark")
-            }
-            .buttonStyle(.borderless)
-            .help("Dismiss")
+                .accessibilitySortPriority(2)
         }
+        .accessibilityElement(children: .contain)
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
     }
