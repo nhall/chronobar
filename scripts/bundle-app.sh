@@ -27,6 +27,9 @@ for bundle in "$BIN"/*.bundle; do
     [ -e "$bundle" ] && cp -R "$bundle" "$APP/Contents/Resources/"
 done
 
+# App icon, from the committed PNGs. scripts/make-icon.swift regenerates them.
+iconutil --convert icns --output "$APP/Contents/Resources/Chronobar.icns" packaging/icon/AppIcon.iconset
+
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -37,6 +40,8 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>CFBundleDisplayName</key>
     <string>Chronobar</string>
     <key>CFBundleExecutable</key>
+    <string>Chronobar</string>
+    <key>CFBundleIconFile</key>
     <string>Chronobar</string>
     <key>CFBundleIdentifier</key>
     <string>io.github.nhall.chronobar</string>
