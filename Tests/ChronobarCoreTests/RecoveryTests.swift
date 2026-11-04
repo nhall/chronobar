@@ -4,12 +4,12 @@ import ChronobarCore
 
 @MainActor @Suite struct RecoveryTests {
     let root = temporaryRoot()
-    let suite = "ChronobarCoreTests-\(UUID().uuidString)"
+    let settings = TestSettings()
 
     /// Crashed at about 11:00 with Heartbeats every minute: idle since the last one, not since 09:00.
     @Test func recoveryReportsIdleSinceTheLastHeartbeat() throws {
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let defaults = settings.fresh()
+        defer { settings.remove() }
         let clock = FakeClock("2026-11-03T09:00:00")
         let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
         try tracker.start("Website Redesign")
@@ -18,7 +18,7 @@ import ChronobarCore
         tracker.heartbeat()
 
         clock.set("2026-11-03T13:00:00")
-        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: UserDefaults(suiteName: suite)!)
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         #expect(relaunched.recoverAfterLaunch() == FakeClock("2026-11-03T10:59:00").now)
         #expect(relaunched.pendingIdle == PendingIdle(since: FakeClock("2026-11-03T10:59:00").now))
         #expect(relaunched.running?.project == "Website Redesign")
@@ -26,13 +26,13 @@ import ChronobarCore
 
     /// Crashed before the first Heartbeat: idle since the Entry's start, so removing drops all of it.
     @Test func withoutAHeartbeatRecoveryReportsIdleSinceTheEntrysStart() throws {
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let defaults = settings.fresh()
+        defer { settings.remove() }
         let clock = FakeClock("2026-11-03T09:00:00")
         try Tracker(clock: clock, storageRoot: root, defaults: defaults).start("Website Redesign")
 
         clock.set("2026-11-03T13:00:00")
-        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: UserDefaults(suiteName: suite)!)
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         let since = try #require(relaunched.recoverAfterLaunch())
         #expect(since == FakeClock("2026-11-03T09:00:00").now)
         try relaunched.resolveIdle(since: since, choice: .removeAndStop)
@@ -49,8 +49,8 @@ import ChronobarCore
 
     /// A Heartbeat left by an earlier timer is older than the open Entry, so the Entry's start wins.
     @Test func aHeartbeatFromAnEarlierTimerIsIgnored() throws {
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let defaults = settings.fresh()
+        defer { settings.remove() }
         let clock = FakeClock("2026-11-03T09:00:00")
         let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
         try tracker.start("Internal")
@@ -61,15 +61,15 @@ import ChronobarCore
         try tracker.start("Website Redesign")
 
         clock.set("2026-11-03T13:00:00")
-        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: UserDefaults(suiteName: suite)!)
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         #expect(relaunched.recoverAfterLaunch() == FakeClock("2026-11-03T11:00:00").now)
     }
 
     /// Crashed on Tuesday night, relaunched on Thursday morning: the Entry open in Tuesday's file is found,
     /// split across the Days since like a running timer, and removing cuts it at the last Heartbeat.
     @Test func anEntryLeftOpenOnAPastDayIsRecovered() throws {
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let defaults = settings.fresh()
+        defer { settings.remove() }
         let clock = FakeClock("2026-11-03T22:00:00")
         let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
         try tracker.start("Website Redesign")
@@ -77,7 +77,7 @@ import ChronobarCore
         tracker.heartbeat()
 
         clock.set("2026-11-05T09:00:00")
-        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: UserDefaults(suiteName: suite)!)
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         let since = try #require(relaunched.recoverAfterLaunch())
         #expect(since == FakeClock("2026-11-03T23:30:00").now)
         // Until the alert is answered the timer runs on in today's file, as after waking from sleep.
@@ -128,8 +128,8 @@ import ChronobarCore
     /// Crashed at about 10:00, and today's file had a typo at relaunch. Once it's fixed the open Entry is
     /// recovered like any crash: idle since the last Heartbeat, not counted on until the alert is answered.
     @Test func anEntryLeftOpenInTodaysMalformedFileIsRecoveredOnceItParses() throws {
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let defaults = settings.fresh()
+        defer { settings.remove() }
         let clock = FakeClock("2026-11-03T09:00:00")
         let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
         try tracker.start("Website Redesign")
@@ -139,7 +139,7 @@ import ChronobarCore
         try "{ oops".write(to: dayFile(root, "2026-11-03"), atomically: true, encoding: .utf8)
 
         clock.set("2026-11-03T13:00:00")
-        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: UserDefaults(suiteName: suite)!)
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         #expect(relaunched.recoverAfterLaunch() == nil)
         #expect(relaunched.running == nil)
 
@@ -158,8 +158,8 @@ import ChronobarCore
     /// Crashed on Tuesday night, and Tuesday's file had a typo at relaunch on Thursday. Once it's fixed and
     /// read, its open Entry is recovered as if found at launch, instead of counting on forever.
     @Test func anEntryLeftOpenInAMalformedPastDayIsRecoveredOnceItParses() throws {
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let defaults = settings.fresh()
+        defer { settings.remove() }
         let clock = FakeClock("2026-11-03T22:00:00")
         let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
         try tracker.start("Website Redesign")
@@ -169,7 +169,7 @@ import ChronobarCore
         try "{ oops".write(to: dayFile(root, "2026-11-03"), atomically: true, encoding: .utf8)
 
         clock.set("2026-11-05T09:00:00")
-        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: UserDefaults(suiteName: suite)!)
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         #expect(relaunched.recoverAfterLaunch() == nil)
 
         try good.write(to: dayFile(root, "2026-11-03"), atomically: true, encoding: .utf8)
@@ -198,8 +198,8 @@ import ChronobarCore
     /// As above, but a timer was started after relaunching. The old Entry can't be the timer as well, so it
     /// ends at the end of its Day (before Chronobar launched), and only the time up to there is idle.
     @Test func anEntryFoundOpenWhileAnotherTimerRunsIsClosed() throws {
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let defaults = settings.fresh()
+        defer { settings.remove() }
         let clock = FakeClock("2026-11-03T22:00:00")
         let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
         try tracker.start("Website Redesign")
@@ -209,7 +209,7 @@ import ChronobarCore
         try "{ oops".write(to: dayFile(root, "2026-11-03"), atomically: true, encoding: .utf8)
 
         clock.set("2026-11-05T09:00:00")
-        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: UserDefaults(suiteName: suite)!)
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         relaunched.recoverAfterLaunch()
         try relaunched.start("Internal")
 
@@ -232,8 +232,8 @@ import ChronobarCore
     }
 
     @Test func nothingLeftOpenMeansNothingToRecover() throws {
-        let defaults = UserDefaults(suiteName: suite)!
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let defaults = settings.fresh()
+        defer { settings.remove() }
         let clock = FakeClock("2026-11-03T09:00:00")
         let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
         try tracker.start("Website Redesign")
@@ -242,7 +242,7 @@ import ChronobarCore
         try tracker.pause()
 
         clock.set("2026-11-03T13:00:00")
-        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: UserDefaults(suiteName: suite)!)
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         #expect(relaunched.recoverAfterLaunch() == nil)
     }
 }
