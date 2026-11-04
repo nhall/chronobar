@@ -11,6 +11,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let panel = PanelModel()
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
+    private let anchor = PanelAnchor()
     private let pill: NSHostingView<PillView>
     private var press = PillPress()
     private var focusObserver: NSObjectProtocol?
@@ -75,10 +76,12 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         refresh()
     }
 
-    /// Resizes the status item to fit the Pill, whose time segment widens past `9:59`.
+    /// Resizes the status item to fit the Pill, whose time segment widens past `9:59`, and keeps an open
+    /// Panel's anchor over it.
     func refresh() {
         let width = ceil(pill.fittingSize.width)
         if statusItem.length != width { statusItem.length = width }
+        if popover.isShown, let button = statusItem.button { anchor.place(over: button) }
     }
 
     /// The status item's button action: a click on the Pill with the Panel closed, or a press from VoiceOver
@@ -130,8 +133,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         panel.showingSummary = false
         refresh()
         NSApp.activate()
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        anchor.place(over: button)
+        popover.show(relativeTo: anchor.view.bounds, of: anchor.view, preferredEdge: .minY)
         if let window = popover.contentViewController?.view.window { settleFocus(in: window, newProject: newProject) }
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        anchor.orderOut(nil)
     }
 
     /// AppKit focuses the first control, the date header, and draws its ring, when the Panel's window
@@ -176,4 +184,34 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 /// Lets clicks fall through to the status bar button, which owns click handling and highlighting.
 private final class ClickThroughHostingView<Content: View>: NSHostingView<Content> {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+/// An invisible window over the status item that the Panel hangs from. The menu bar draws its highlight
+/// behind a status item for as long as a popover is shown from a view in the item's own window, so the
+/// Panel is shown from this window instead, which puts it in the same place.
+private final class PanelAnchor: NSPanel {
+    init() {
+        super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
+                   defer: true)
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = false
+        // Clicks go through to the Pill underneath.
+        ignoresMouseEvents = true
+        level = .statusBar
+        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+    }
+
+    var view: NSView { contentView! }
+
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+
+    /// Covers `button` on screen, and shows.
+    func place(over button: NSStatusBarButton) {
+        guard let window = button.window else { return }
+        let frame = window.convertToScreen(button.convert(button.bounds, to: nil))
+        if self.frame != frame { setFrame(frame, display: false) }
+        orderFrontRegardless()
+    }
 }
