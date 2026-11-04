@@ -218,9 +218,13 @@ private final class ClickThroughHostingView<Content: View>: NSHostingView<Conten
 /// behind a status item for as long as a popover is shown from a view in the item's own window, so the
 /// Panel is shown from this window instead, which puts it in the same place.
 private final class PanelAnchor: NSPanel {
+    /// The view the Panel is shown from, filling the window.
+    let view = NSView()
+
     init() {
         super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
                    defer: true)
+        contentView = view
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
@@ -230,16 +234,16 @@ private final class PanelAnchor: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
     }
 
-    var view: NSView { contentView! }
-
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
-    /// Covers `button` on screen, and shows.
+    /// Covers `button` on screen, and shows. Called every second while the Panel is open, so it does
+    /// nothing unless the status item moved or resized, or the anchor was hidden.
     func place(over button: NSStatusBarButton) {
         guard let window = button.window else { return }
         let frame = window.convertToScreen(button.convert(button.bounds, to: nil))
-        if self.frame != frame { setFrame(frame, display: false) }
+        guard frame != self.frame || !isVisible else { return }
+        setFrame(frame, display: false)
         orderFrontRegardless()
     }
 }
