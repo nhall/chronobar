@@ -74,11 +74,13 @@ struct PanelView: View {
                 .fixedSize()
                 .padding(.horizontal, -4)
                 .help(isToday ? "" : "Back to today")
+                .accessibilityHint(isToday ? "" : "Back to today")
                 Spacer()
                 Text(DurationFormat.hoursMinutes(tracker.dayTotal(day)))
                     .monospacedDigit()
                     .foregroundStyle(.secondary)
                     .help("Total for the day")
+                    .accessibilityLabel("Total for the day, \(DurationFormat.spoken(tracker.dayTotal(day)))")
                 Button {
                     panel.showingSummary.toggle()
                 } label: {
@@ -86,6 +88,7 @@ struct PanelView: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Time Summary")
+                .accessibilityLabel("Time Summary")
                 .popover(isPresented: $panel.showingSummary, arrowEdge: .bottom) {
                     SummaryView(summary: tracker.summary())
                 }
@@ -96,6 +99,7 @@ struct PanelView: View {
                 }
                 .buttonStyle(.borderless)
                 .help(isToday ? "Start or log time" : "Log time")
+                .accessibilityLabel(isToday ? "Start or log time" : "Log time")
                 Menu {
                     SettingsLink { Text("Settings…") }
                         .keyboardShortcut(",", modifiers: .command)
@@ -106,12 +110,15 @@ struct PanelView: View {
                            action: actions.quit)
                         .keyboardShortcut("q", modifiers: .command)
                 } label: {
+                    // On the image: a menu takes its VoiceOver description from its label's image.
                     Image(systemName: "gearshape")
+                        .accessibilityLabel("Menu")
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .fixedSize()
                 .help("Settings, data folder and Quit")
+                .accessibilityHint("Settings, data folder and Quit")
             }
             if tracker.isMalformed(day) {
                 Label("This Day's file can't be read, so changes to it are refused. Fix it by hand in the data folder.",
@@ -226,14 +233,19 @@ private struct WeekStrip: View {
             Button { move(-1) } label: { Image(systemName: "chevron.left") }
                 .buttonStyle(.borderless)
                 .help("Previous week")
+                .accessibilityLabel("Previous week")
             ForEach(week, id: \.day) { item in
                 Button { view(item.day) } label: { column(item) }
                     .buttonStyle(.plain)
                     .frame(maxWidth: .infinity)
+                    .accessibilityLabel(WeekStripAccessibility.label(
+                        item, today: today, viewed: viewed, calendar: calendar, locale: .autoupdatingCurrent))
+                    .accessibilityAddTraits(item.day == viewed ? .isSelected : [])
             }
             Button { move(1) } label: { Image(systemName: "chevron.right") }
                 .buttonStyle(.borderless)
                 .help("Next week")
+                .accessibilityLabel("Next week")
         }
     }
 
@@ -242,17 +254,23 @@ private struct WeekStrip: View {
         let style = Date.FormatStyle(locale: .autoupdatingCurrent, calendar: calendar, timeZone: calendar.timeZone)
         let isToday = item.day == today
         let isViewed = item.day == viewed
+        // With Differentiate Without Color, or Increase Contrast, the viewed Day also has a ring, so it
+        // differs from today's filled circle in shape as well as color, and today's date is bold.
+        let marksShape = environment.accessibilityDifferentiateWithoutColor
+            || environment.colorSchemeContrast == .increased
         return VStack(spacing: 2) {
             Text(date.formatted(style.weekday(.narrow)))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Text(date.formatted(style.day()))
-                .font(.callout.monospacedDigit())
+                .font(.callout.monospacedDigit().weight(isToday && marksShape ? .bold : .regular))
                 .foregroundStyle(isToday
                     ? runningColor.foregroundColor(for: .text, in: environment) : Color.primary)
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(
                     isToday ? runningColor.color : isViewed ? Color.gray.opacity(0.35) : Color.clear))
+                .overlay(Circle().strokeBorder(
+                    Color.primary.opacity(isViewed && !isToday && marksShape ? 1 : 0), lineWidth: 1.5))
             Text(DurationFormat.hoursMinutes(item.total))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -276,11 +294,14 @@ private struct SummaryView: View {
     }
 
     private func line(_ label: String, _ total: TimeInterval) -> some View {
+        // VoiceOver reads each line as one element: "This week, 12 hours 5 minutes".
         GridRow {
             Text(label)
+                .accessibilityLabel("\(label), \(DurationFormat.spoken(total))")
             Text(DurationFormat.hoursMinutes(total))
                 .monospacedDigit()
                 .gridColumnAlignment(.trailing)
+                .accessibilityHidden(true)
         }
     }
 }
@@ -302,6 +323,8 @@ private struct RowView: View {
     var body: some View {
         HStack {
             Text(row.project).lineLimit(1)
+                // The highlight says which row runs; VoiceOver says it in words.
+                .accessibilityLabel(isRunning ? "\(row.project), running" : row.project)
             Spacer()
             if panel.adjusting == row.project {
                 TextField(DurationFormat.hoursMinutes(row.total), text: $panel.adjustment)
@@ -314,6 +337,9 @@ private struct RowView: View {
                     .onExitCommand { panel.adjusting = nil }
                     .onAppear { focused = true }
                     .help("A new total (1:15) or a change (+15, -10)")
+                    .accessibilityLabel("New total for \(row.project)")
+                    .accessibilityHint("A new total such as 1:15, or a change such as +15 or -10. "
+                        + "Return applies it, Escape cancels.")
             } else {
                 Button {
                     panel.adjusting = row.project
@@ -322,6 +348,8 @@ private struct RowView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Change this total")
+                .accessibilityLabel("\(row.project) total, \(DurationFormat.spoken(row.total))")
+                .accessibilityHint("Change this total")
             }
             if canStart {
                 Button(action: toggle) {
@@ -411,6 +439,10 @@ private struct NewProjectForm: View {
                     .frame(width: 52)
                     .onSubmit(submit)
                     .help("Time to log, such as 1:30 or 45 minutes. Leave empty to start a timer.")
+                    .accessibilityLabel("Duration")
+                    .accessibilityHint(canStart
+                        ? "Time to log, such as 1:30 or 45 minutes. Leave empty to start a timer."
+                        : "Time to log, such as 1:30 or 45 minutes.")
                 Button(logs ? "Log" : "Start", action: submit)
                     .keyboardShortcut(isListOpen ? nil : .defaultAction)
                     .disabled(trimmed.isEmpty || (!canStart && !hasDuration))

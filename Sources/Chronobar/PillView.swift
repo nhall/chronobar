@@ -31,14 +31,23 @@ struct PillView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 5)
                 .frame(height: PillMetrics.height)
-                .background(
-                    RoundedRectangle(cornerRadius: PillMetrics.cornerRadius)
-                        .fill(Color(white: 0.18, opacity: 0.85)))
+                .background(timeBackground)
         }
         .padding(.horizontal, PillMetrics.inset)
         .fixedSize()
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(isRunning ? "Running, \(time)" : "Stopped, \(time)")
+        // The status item's button carries the Pill's label and actions (`PillAccessibility`).
+        .accessibilityHidden(true)
+    }
+
+    /// Follows Increase Contrast and Reduce Transparency (`PillTimeFill`).
+    private var timeBackground: some View {
+        let fill = PillTimeFill(increaseContrast: environment.colorSchemeContrast == .increased,
+                                reduceTransparency: environment.accessibilityReduceTransparency)
+        let shape = RoundedRectangle(cornerRadius: PillMetrics.cornerRadius)
+        return shape
+            .fill(Color(.sRGB, red: fill.color.red, green: fill.color.green, blue: fill.color.blue,
+                        opacity: fill.opacity))
+            .overlay(shape.strokeBorder(Color.white.opacity(fill.outlined ? 0.6 : 0), lineWidth: 1))
     }
 
     private var time: String {

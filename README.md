@@ -201,6 +201,26 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       and with Increase Contrast on and off: the Pill's ⏸, the running row's name, total and ⏸, and
       today's date in the Week strip read clearly on each (white on dark colors, black on light ones).
 
+**Accessibility**
+
+- [ ] With VoiceOver on, move to the Pill (⌃F8 or the VoiceOver menu bar commands): it reads the Selected
+      Project, its time today in words and whether it is running, or No Project selected. VO-Space opens
+      the Panel. VO-⌘-Space lists Start or Pause (New Project with nothing selected) and Open Panel;
+      Start and Pause work without opening the Panel, and the label follows.
+- [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day, Time
+      Summary, Start or log time, Menu, Previous week and Next week, each Day in the Week strip with its
+      date, total, and "today" or "viewed" (the viewed Day also reads as selected), each row's name
+      (with "running" on the running row), its total and Start or Pause, and Duration in the ＋ form.
+      Each Time Summary line reads as one: "This week, 12 hours 5 minutes".
+- [ ] With Differentiate Without Color on, view a Day other than today: the viewed Day has a ring and
+      today's date is bold, so they differ without color.
+- [ ] With Increase Contrast on, the Pill's time segment is opaque, darker, and outlined; with Reduce
+      Transparency on it is opaque. Check both in light and dark menu bars.
+- [ ] With Keyboard navigation on (System Settings › Keyboard), open the Panel from the Pill with ⌃F8 and
+      Space, then use Tab, Space and Return alone to: view another Day, move a week each way, go back to
+      today, start and pause a row, change a row's total (Escape cancels), open (i) and ＋, Log time,
+      open the ⚙ menu and each of its items. Escape closes the Panel.
+
 **Logging and adjusting time**
 
 - [ ] ＋, pick a project, type `1:30`: the button reads Log; Log adds 1:30 without starting a timer.
