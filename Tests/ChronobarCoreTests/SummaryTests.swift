@@ -64,4 +64,18 @@ import ChronobarCore
         #expect(tracker.summary().yesterday == 20 * 60)
         #expect(tracker.summary().month == 0)
     }
+
+    @Test func timeLoggedAheadCountsInTheWeekAndTheMonthButNotToday() throws {
+        let clock = FakeClock("2026-11-03T09:00:00")
+        clock.calendar.firstWeekday = 2
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        try tracker.log("Vacation", "8:00", on: Day(year: 2026, month: 11, day: 6))
+        try tracker.log("Vacation", "8:00", on: Day(year: 2026, month: 11, day: 30))
+        try tracker.log("Vacation", "8:00", on: Day(year: 2026, month: 12, day: 1))
+
+        // Week Mon 2 - Sun 8 Nov: 15 min yesterday and 8 h on Friday. The month adds 30 Nov but not 1 Dec.
+        #expect(tracker.summary() == Summary(
+            today: 0, yesterday: 15 * 60, week: (8 * 60 + 15) * 60, month: (16 * 60 + 45) * 60))
+    }
 }

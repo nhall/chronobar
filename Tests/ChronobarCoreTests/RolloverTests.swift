@@ -185,4 +185,19 @@ import ChronobarCore
         #expect(tracker.selectedProject == "Website Redesign")
         #expect(tracker.total("Website Redesign", on: tracker.today) == 0)
     }
+
+    @Test func rollingIntoADayLoggedAheadKeepsItsTime() throws {
+        let clock = FakeClock("2026-11-03T23:30:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.log("Vacation", "1:00", on: Day(year: 2026, month: 11, day: 4))
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-04T00:15:00")
+        tracker.tick()
+
+        #expect(tracker.rows(tracker.today) == [
+            Row(project: "Vacation", total: 60 * 60),
+            Row(project: "Website Redesign", total: 15 * 60),
+        ])
+        #expect(tracker.running?.project == "Website Redesign")
+    }
 }

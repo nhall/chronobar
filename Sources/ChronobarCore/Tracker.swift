@@ -76,7 +76,8 @@ public final class Tracker {
     public func isMalformed(_ day: Day) -> Bool { malformedDays.contains(day) }
 
     /// Starts a timer for `project`, pausing any running one first. A new name creates a Project.
-    /// Refused, leaving any running timer alone, while today's file is malformed.
+    /// Refused, leaving any running timer alone, while today's file is malformed. Timers run only today:
+    /// unlike `log` and `adjust` this takes no Day, so no Day other than today ever gets a timer.
     public func start(_ name: String) throws {
         now = clock.now
         files.retryPending()
@@ -348,8 +349,9 @@ public final class Tracker {
         if let selectedProject, ProjectName.matches(selectedProject, name) { self.selectedProject = nil }
     }
 
-    /// Adds a typed duration (`1:30`, `45`) to the Project on `day` as a manual Entry, without starting a
-    /// timer. A new name creates a Project. Throws `InvalidDuration` for anything but a positive total.
+    /// Adds a typed duration (`1:30`, `45`) to the Project on `day`, past, today or future, as a manual
+    /// Entry, without starting a timer. A new name creates a Project. Throws `InvalidDuration` for
+    /// anything but a positive total.
     public func log(_ name: String, _ duration: String, on day: Day) throws {
         guard case .absolute(let seconds) = try DurationInput(parsing: duration), seconds > 0 else {
             throw InvalidDuration(text: duration)
@@ -359,8 +361,8 @@ public final class Tracker {
         try files.update(day) { $0.append(.manual(project: project, seconds: seconds, note: .manual)) }
     }
 
-    /// Sets the Project's total on `day` to a typed total (`1:15`) or changes it (`+15`, `-10`), starting
-    /// from the total shown and never going below zero. Writes one adjustment Entry of the new total minus
+    /// Sets the Project's total on `day`, past, today or future, to a typed total (`1:15`) or changes it
+    /// (`+15`, `-10`), starting from the total shown and never going below zero. Writes one adjustment Entry of the new total minus
     /// the stored sum; a running timer keeps running. Throws `InvalidDuration` for a typo.
     public func adjust(_ project: String, _ input: String, on day: Day) throws {
         let input = try DurationInput(parsing: input)

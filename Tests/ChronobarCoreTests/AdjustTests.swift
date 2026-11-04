@@ -6,6 +6,7 @@ import ChronobarCore
     let clock = FakeClock("2026-11-03T09:00:00")
     let root = temporaryRoot()
     let past = Day(year: 2026, month: 10, day: 28)
+    let future = Day(year: 2026, month: 11, day: 16)
 
     /// A Tracker with an hour of Website Redesign today, from 7:00 to 8:00.
     func trackerWithAnHour() throws -> Tracker {
@@ -159,5 +160,21 @@ import ChronobarCore
 
         #expect(tracker.total("Website Redesign", on: tracker.today) == 60 * 60)
         #expect(contents(dayFile(root, "2026-11-03")) == before)
+    }
+
+    @Test func adjustingADayAheadWorksLikeAPastDay() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.log("Vacation", "8:00", on: future)
+
+        try tracker.adjust("Vacation", "-2:00", on: future)
+        #expect(tracker.rows(future) == [Row(project: "Vacation", total: 6 * 60 * 60)])
+        try tracker.adjust("Vacation", "7:30", on: future)
+
+        #expect(tracker.rows(future) == [Row(project: "Vacation", total: 7.5 * 60 * 60)])
+        #expect(tracker.rows(tracker.today).isEmpty)
+        #expect(contents(dayFile(root, "2026-11-16"))?
+            .contains(#"{ "project": "Vacation", "seconds": -7200, "note": "adjustment" }"#) == true)
+        #expect(contents(dayFile(root, "2026-11-16"))?
+            .contains(#"{ "project": "Vacation", "seconds": 5400, "note": "adjustment" }"#) == true)
     }
 }

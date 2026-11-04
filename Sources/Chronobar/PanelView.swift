@@ -167,14 +167,14 @@ struct PanelView: View {
         return date.formatted(style.weekday(.wide).day(.twoDigits).month(.abbreviated))
     }
 
-    /// Views `day`, never past today; today itself goes back to following the clock.
+    /// Views `day`, past or future; today itself goes back to following the clock.
     private func show(_ day: Day, today: Day) {
-        panel.viewedDay = day < today ? day : nil
+        panel.viewedDay = day == today ? nil : day
     }
 }
 
-/// Seven Days with their totals, ‹ › to move a week. Today has a filled running-color circle,
-/// the viewed Day a gray one.
+/// Seven Days with their totals, ‹ › to move a week back or forward without limit. Today has a filled
+/// running-color circle, the viewed Day a gray one.
 private struct WeekStrip: View {
     let week: [DayTotal]
     let today: Day
@@ -192,12 +192,10 @@ private struct WeekStrip: View {
             ForEach(week, id: \.day) { item in
                 Button { view(item.day) } label: { column(item) }
                     .buttonStyle(.plain)
-                    .disabled(item.day > today)
                     .frame(maxWidth: .infinity)
             }
             Button { move(1) } label: { Image(systemName: "chevron.right") }
                 .buttonStyle(.borderless)
-                .disabled(week.contains { $0.day == today })
                 .help("Next week")
         }
     }
@@ -213,7 +211,7 @@ private struct WeekStrip: View {
                 .foregroundStyle(.secondary)
             Text(date.formatted(style.day()))
                 .font(.callout.monospacedDigit())
-                .foregroundStyle(isToday ? Color.white : item.day > today ? Color.secondary : Color.primary)
+                .foregroundStyle(isToday ? Color.white : Color.primary)
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(
                     isToday ? runningColor : isViewed ? Color.gray.opacity(0.35) : Color.clear))
@@ -333,8 +331,8 @@ private struct LoginHint: View {
 
 /// The ＋ form: a Project name, a duration and Start, with the matching Projects listed below the field.
 /// With a duration typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without
-/// starting a timer; on a past Day it always reads Log and needs a duration. Clicking a suggestion fills
-/// the name, for Start or Log to act on; right-clicking offers Archive.
+/// starting a timer; on any Day other than today it always reads Log and needs a duration. Clicking a
+/// suggestion fills the name, for Start or Log to act on; right-clicking offers Archive.
 /// A new name creates a Project.
 private struct NewProjectForm: View {
     @Binding var name: String

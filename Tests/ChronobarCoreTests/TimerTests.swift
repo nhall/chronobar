@@ -81,4 +81,20 @@ import ChronobarCore
         #expect(tracker.isRunning("WEBSITE REDESIGN"))
         #expect(!tracker.isRunning("Internal"))
     }
+
+    @Test func startingAProjectLoggedAheadRunsItToday() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        let future = Day(year: 2026, month: 11, day: 16)
+        try tracker.log("Vacation", "8:00", on: future)
+
+        // Timers run only today: start and toggle take no Day, so a Day other than today never gets a timer.
+        try tracker.toggle("Vacation")
+        clock.set("2026-11-03T09:30:00")
+        tracker.tick()
+
+        #expect(tracker.running?.project == "Vacation")
+        #expect(tracker.rows(tracker.today) == [Row(project: "Vacation", total: 30 * 60)])
+        #expect(tracker.rows(future) == [Row(project: "Vacation", total: 8 * 60 * 60)])
+        #expect(contents(dayFile(root, "2026-11-16"))?.contains(#""start""#) == false)
+    }
 }

@@ -77,6 +77,22 @@ import ChronobarCore
         ])
     }
 
+    @Test func aWeekAheadShowsTimeLoggedOnItsDays() throws {
+        clock.calendar.firstWeekday = 2
+        let tracker = try trackerRunningAnHour()
+        try tracker.log("Vacation", "8:00", on: Day(year: 2026, month: 11, day: 16))
+        try tracker.log("Vacation", "4:00", on: Day(year: 2026, month: 11, day: 20))
+
+        let week = tracker.weekTotals(containing: tracker.today.adding(days: 14, in: tracker.calendar))
+
+        #expect(week.map(\.day.description) == [
+            "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20", "2026-11-21", "2026-11-22",
+        ])
+        #expect(week.map(\.total) == [8 * 3600, 0, 0, 0, 4 * 3600, 0, 0] as [TimeInterval])
+        let thisWeek = tracker.weekTotals(containing: tracker.today)
+        #expect(thisWeek.map(\.total) == [0, 3600, 0, 0, 0, 0, 600] as [TimeInterval])
+    }
+
     /// Today from 09:00 to 10:00 on Internal, still running.
     private func trackerRunningAnHour() throws -> Tracker {
         let tracker = Tracker(clock: clock, storageRoot: root)

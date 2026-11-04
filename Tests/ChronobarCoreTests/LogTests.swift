@@ -6,6 +6,7 @@ import ChronobarCore
     let clock = FakeClock("2026-11-03T09:00:00")
     let root = temporaryRoot()
     let past = Day(year: 2026, month: 10, day: 28)
+    let future = Day(year: 2026, month: 11, day: 16)
 
     @Test func loggingToAPastDayLeavesTodaysTotalsAlone() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
@@ -71,5 +72,26 @@ import ChronobarCore
 
         #expect(tracker.projects.isEmpty)
         #expect(contents(dayFile(root, "2026-11-03")) == nil)
+    }
+
+    @Test func loggingAheadWritesThatDaysFileInTheSameFormat() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Internal")
+
+        try tracker.log("Vacation", "8:00", on: future)
+
+        #expect(tracker.rows(future) == [Row(project: "Vacation", total: 8 * 60 * 60)])
+        #expect(tracker.rows(tracker.today) == [Row(project: "Internal", total: 0)])
+        #expect(tracker.running?.project == "Internal")
+        #expect(tracker.selectedProject == "Internal")
+        #expect(contents(dayFile(root, "2026-11-16")) == """
+        {
+          "date": "2026-11-16",
+          "entries": [
+            { "project": "Vacation", "seconds": 28800, "note": "manual" }
+          ]
+        }
+
+        """)
     }
 }

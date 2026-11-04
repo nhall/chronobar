@@ -19,7 +19,10 @@ can read and edit. There are no accounts, no sync and no integrations.
   selected project (`1:23`); click it to open the Panel.
 - **The Panel** shows the day you are viewing, a strip with the week's daily totals, and one row per
   project with its total for that day. Each of today's rows ends with a ▶ button that switches the
-  timer to that project; the running row is highlighted and shows ⏸ to pause it. Use ＋ to start a new project or to log time you forgot to track.
+  timer to that project; the running row is highlighted and shows ⏸ to pause it. Use ＋ to start a new
+  project or to log time you forgot to track. ‹ › move a week back or forward without limit; on any
+  day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
+  vacation ahead.
 - Only one timer runs at a time. Starting a project pauses whichever one was running.
 - If you come back to a running timer after the Mac slept, locked, or sat with no input, Chronobar asks
   whether to remove the time you were away.
@@ -99,6 +102,9 @@ Each day is one JSON file with one entry per line:
   for time logged with ＋ and `adjustment` for a corrected total; it is a marker, not free text.
 - A project's total for the day is the sum of its timed durations and manual seconds, never shown
   below `0:00`, and displayed as hours and minutes rounded down.
+- Any Day can have a file, past or future: time logged ahead, such as a vacation, goes in that Day's
+  file in the same format. Timers run only today, so a day ahead holds only manual entries until it
+  arrives.
 - A timer running past midnight is split: the old day's entry ends at the start of the new day and a
   new entry starts in the new day's file.
 
@@ -160,7 +166,13 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 
 - [ ] ＋, pick a project, type `1:30`: the button reads Log; Log adds 1:30 without starting a timer.
       The form closes back to the rows, the row shows the new total, and the Panel stays open.
-- [ ] On a past Day, ＋ reads Log and stays disabled until a duration is typed.
+- [ ] On a past or future Day, ＋ reads Log and stays disabled until a duration is typed; it never
+      starts a timer.
+- [ ] Click › past the current week, then a Day there: its rows and totals show, with no ▶/⏸. Log
+      `8:00` there: the Day's total and its column in the strip read `8:00`, a new file appears for it
+      in the data folder's `days` folder, and the (i) week and month totals include it when that Day
+      falls in them. Click its row's time and adjust it, as on a past Day.
+- [ ] Keep clicking ›: it goes on into later weeks without stopping; ‹ comes back to any past week.
 - [ ] Click a row's time, type `1:15`, Return: the row reads `1:15`. Try `+15` and `-10` too.
 - [ ] `-9:00` on a short row stops at `0:00`; a typo like `1:7x` beeps and changes nothing.
 - [ ] Adjusting the running row keeps the timer running from the new total.
