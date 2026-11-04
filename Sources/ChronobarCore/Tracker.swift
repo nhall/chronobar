@@ -331,10 +331,13 @@ public final class Tracker {
         let text = ProjectName.trimmed(text)
         let recent = projectsByRecentUse()
         guard !text.isEmpty else { return recent }
-        let matching = recent.filter { $0.range(of: text, options: .caseInsensitive) != nil }
-        let exact = matching.filter { ProjectName.matches($0, text) }
-        let prefixed = matching.filter { !exact.contains($0) && $0.range(of: text, options: [.caseInsensitive, .anchored]) != nil }
-        return exact + prefixed + matching.filter { !exact.contains($0) && !prefixed.contains($0) }
+        // Rank 0 is an exact match, 1 starts with `text`, 2 contains it; `recency` keeps recent use within each.
+        let ranked = recent.enumerated().compactMap { recency, name -> (rank: Int, recency: Int, name: String)? in
+            guard let found = name.range(of: text, options: .caseInsensitive) else { return nil }
+            let rank = ProjectName.matches(name, text) ? 0 : found.lowerBound == name.startIndex ? 1 : 2
+            return (rank, recency, name)
+        }
+        return ranked.sorted { ($0.rank, $0.recency) < ($1.rank, $1.recency) }.map(\.name)
     }
 
     /// What a typed name would start or log: an active Project, an archived one with time in the Day

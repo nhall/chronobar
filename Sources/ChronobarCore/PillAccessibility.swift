@@ -21,8 +21,15 @@ public struct PillAccessibility: Equatable, Sendable {
             label = tracker.running == nil ? "No Project selected" : "No Project selected, running"
         }
         squareAction = switch PillClick.square(tracker: tracker) {
-        case .toggleTimer: tracker.running == nil ? "Start" : "Pause"
-        default: "New Project"
+        case .toggleTimer: TimerToggle.name(isRunning: tracker.running != nil)
+        case .openNewProjectForm: "New Project"
+        // The square never opens the Panel; named for what it would do, should that change.
+        case .openPanel: Self.openPanelAction
         }
     }
+}
+
+/// The name of a ▶/⏸ press, for the Pill's square and a Panel row's button alike.
+public enum TimerToggle {
+    public static func name(isRunning: Bool) -> String { isRunning ? "Pause" : "Start" }
 }
