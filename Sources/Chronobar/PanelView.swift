@@ -10,7 +10,7 @@ final class PanelModel {
             if !showingNewProject {
                 newProjectName = ""
                 newProjectDuration = ""
-                suggestionVisibility = SuggestionVisibility()
+                newProjectListOpen = false
             }
         }
     }
@@ -18,7 +18,8 @@ final class PanelModel {
     /// Bumped to put focus in the ＋ form's Project field once the Panel's window can take it: the form's
     /// own focus on appearing is lost when the Panel opens straight into it.
     var newProjectFocusRequests = 0
-    var suggestionVisibility = SuggestionVisibility()
+    /// Whether the ＋ form's Project list is showing, which takes Return from the Start/Log button.
+    var newProjectListOpen = false
     /// The ＋ form's duration; empty starts a timer, anything else logs that much time.
     var newProjectDuration = ""
     /// The Day the Panel shows; nil follows today, including across midnight.
@@ -100,7 +101,9 @@ struct PanelView: View {
                         .keyboardShortcut(",", modifiers: .command)
                     Button("Open data folder", action: actions.openDataFolder)
                     Divider()
-                    Button("Quit Chronobar", action: actions.quit)
+                    // The bundle's name, so a development copy's menu reads "Quit Chronobar Dev".
+                    Button("Quit \(Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Chronobar")",
+                           action: actions.quit)
                         .keyboardShortcut("q", modifiers: .command)
                 } label: {
                     Image(systemName: "gearshape")
@@ -126,7 +129,7 @@ struct PanelView: View {
                     dismiss: { preferences.loginHintDismissed = true })
             }
             WeekStrip(week: tracker.weekTotals(containing: day), today: today, viewed: day,
-                      calendar: tracker.calendar, runningColor: preferences.runningColor.color,
+                      calendar: tracker.calendar, runningColor: preferences.runningColor,
                       view: { show($0, today: today) },
                       move: { show(day.adding(days: 7 * $0, in: tracker.calendar), today: today) })
             // Under the strip, as the title row has no room for it at the Panel's width and above the
@@ -143,10 +146,11 @@ struct PanelView: View {
                 NewProjectForm(
                     name: $panel.newProjectName,
                     duration: $panel.newProjectDuration,
-                    suggestionVisibility: $panel.suggestionVisibility,
+                    isListOpen: $panel.newProjectListOpen,
                     focusRequests: panel.newProjectFocusRequests,
                     canStart: isToday,
-                    suggestions: tracker.suggestions(for: panel.newProjectName),
+                    suggestions: tracker.suggestions(for:),
+                    match: tracker.match(panel.newProjectName),
                     // Start and Log go back to the rows and leave the Panel open.
                     start: { project in
                         actions.start(project)
@@ -155,7 +159,12 @@ struct PanelView: View {
                     log: { project in
                         if actions.log(project, panel.newProjectDuration, day) { panel.showingNewProject = false }
                     },
-                    archive: actions.archive)
+                    // The field empties, so Return can't bring the Project straight back.
+                    archive: { project in
+                        actions.archive(project)
+                        panel.newProjectName = ""
+                        panel.newProjectFocusRequests += 1
+                    })
             }
             if rows.isEmpty {
                 Text("No time tracked").foregroundStyle(.secondary)
@@ -164,7 +173,7 @@ struct PanelView: View {
                     ForEach(rows, id: \.project) { row in
                         // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
                         RowView(row: row, isRunning: isToday && tracker.isRunning(row.project),
-                                canStart: isToday, runningColor: preferences.runningColor.color,
+                                canStart: isToday, runningColor: preferences.runningColor,
                                 panel: panel,
                                 toggle: { actions.toggle(row.project) },
                                 adjust: {
@@ -207,7 +216,8 @@ private struct WeekStrip: View {
     let today: Day
     let viewed: Day
     let calendar: Calendar
-    let runningColor: Color
+    let runningColor: RunningColor
+    @Environment(\.self) private var environment
     let view: (Day) -> Void
     let move: (Int) -> Void
 
@@ -238,10 +248,11 @@ private struct WeekStrip: View {
                 .foregroundStyle(.secondary)
             Text(date.formatted(style.day()))
                 .font(.callout.monospacedDigit())
-                .foregroundStyle(isToday ? Color.white : Color.primary)
+                .foregroundStyle(isToday
+                    ? runningColor.foregroundColor(for: .text, in: environment) : Color.primary)
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(
-                    isToday ? runningColor : isViewed ? Color.gray.opacity(0.35) : Color.clear))
+                    isToday ? runningColor.color : isViewed ? Color.gray.opacity(0.35) : Color.clear))
             Text(DurationFormat.hoursMinutes(item.total))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -281,7 +292,8 @@ private struct RowView: View {
     let row: Row
     let isRunning: Bool
     let canStart: Bool
-    let runningColor: Color
+    let runningColor: RunningColor
+    @Environment(\.self) private var environment
     @Bindable var panel: PanelModel
     let toggle: () -> Void
     let adjust: () -> Void
@@ -317,70 +329,82 @@ private struct RowView: View {
                         .frame(width: 16)
                 }
                 .buttonStyle(.borderless)
-                .foregroundStyle(isRunning ? Color.white : Color.secondary)
+                .foregroundStyle(isRunning ? onRunningColor : Color.secondary)
                 .help(label)
                 .accessibilityLabel(label)
             }
         }
-        .foregroundStyle(isRunning ? Color.white : Color.primary)
+        .foregroundStyle(isRunning ? onRunningColor : Color.primary)
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 5)
-                .fill(isRunning ? runningColor : Color.clear))
+                .fill(isRunning ? runningColor.color : Color.clear))
     }
+
+    /// The name, total and ⏸ on the running color: text, so it needs 4.5:1.
+    private var onRunningColor: Color { runningColor.foregroundColor(for: .text, in: environment) }
 
     private var label: String { (isRunning ? "Pause " : "Start ") + row.project }
 }
 
 /// The one-time suggestion to turn on Start at login. Either button hides it for good.
+/// The question and ✕ share the first row, so the text has the full width to wrap in; Turn On sits under
+/// the text, on its leading edge. VoiceOver reads the question, then Turn On, then Dismiss.
 private struct LoginHint: View {
     let turnOn: () -> Void
     let dismiss: () -> Void
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Start Chronobar when you log in?")
-                .font(.callout)
-            Spacer()
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("Start Chronobar when you log in?")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilitySortPriority(3)
+                Button(action: dismiss) {
+                    Image(systemName: "xmark")
+                }
+                .buttonStyle(.borderless)
+                .help("Dismiss")
+                .accessibilityLabel("Dismiss")
+                .accessibilitySortPriority(1)
+            }
             Button("Turn On", action: turnOn)
                 .controlSize(.small)
-            Button(action: dismiss) {
-                Image(systemName: "xmark")
-            }
-            .buttonStyle(.borderless)
-            .help("Dismiss")
+                .accessibilitySortPriority(2)
         }
+        .accessibilityElement(children: .contain)
         .padding(8)
         .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
     }
 }
 
-/// The ＋ form: a Project name, a duration and Start, with the matching Projects listed below the field.
+/// The ＋ form: a Project combo box, a duration and Start. The combo box lists the Project list, most
+/// recently used first, narrowed to what is typed; picking from it fills the name for Start or Log to act on.
 /// With a duration typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without
-/// starting a timer; on any Day other than today it always reads Log and needs a duration. Clicking a
-/// suggestion fills the name, for Start or Log to act on, and hides the suggestions until the name is edited
-/// again; right-clicking offers Archive. A new name creates a Project.
+/// starting a timer; on any Day other than today it always reads Log and needs a duration. The line under
+/// the field says whether the name is a New Project or an Existing Project, with Archive for one on the
+/// Project list.
 private struct NewProjectForm: View {
     @Binding var name: String
     @Binding var duration: String
-    @Binding var suggestionVisibility: SuggestionVisibility
+    @Binding var isListOpen: Bool
     let focusRequests: Int
     let canStart: Bool
-    let suggestions: [String]
+    let suggestions: (String) -> [String]
+    let match: ProjectMatch?
     let start: (String) -> Void
     let log: (String) -> Void
     let archive: (String) -> Void
-    @FocusState private var focused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                TextField("Project", text: $name)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($focused)
-                    .onSubmit(submit)
-                    .onChange(of: name) { _, text in suggestionVisibility.nameChanged(to: text) }
+                ProjectComboBox(name: $name, isListOpen: $isListOpen, suggestions: suggestions,
+                                focusRequests: focusRequests,
+                                submit: submit)
                 TextField("h:mm", text: $duration)
                     .textFieldStyle(.roundedBorder)
                     .monospacedDigit()
@@ -388,36 +412,30 @@ private struct NewProjectForm: View {
                     .onSubmit(submit)
                     .help("Time to log, such as 1:30 or 45 minutes. Leave empty to start a timer.")
                 Button(logs ? "Log" : "Start", action: submit)
-                    .keyboardShortcut(.defaultAction)
+                    .keyboardShortcut(isListOpen ? nil : .defaultAction)
                     .disabled(trimmed.isEmpty || (!canStart && !hasDuration))
             }
-            if suggestionVisibility.isShown && !suggestions.isEmpty {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(suggestions, id: \.self) { project in
-                            Button {
-                                suggestionVisibility.pick(project)
-                                name = project
-                                focused = true
-                            } label: {
-                                Text(project)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.vertical, 3)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button("Archive") { archive(project) }
-                            }
-                        }
+            if let match {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(match == .new ? "New Project" : "Existing Project")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if case .active(let project) = match {
+                        Button("Archive") { archive(project) }
+                            .controlSize(.small)
+                            .help("Remove \(project) from the Project list. Its time stays.")
+                            .accessibilityLabel("Archive \(project)")
                     }
                 }
-                .frame(maxHeight: 160)
-                .fixedSize(horizontal: false, vertical: true)
+                .onChange(of: match == .new, initial: false) { _, isNew in
+                    NSAccessibility.post(
+                        element: NSApp.keyWindow ?? NSApp as Any, notification: .announcementRequested,
+                        userInfo: [.announcement: isNew ? "New Project" : "Existing Project",
+                                   .priority: NSAccessibilityPriorityLevel.low.rawValue])
+                }
             }
         }
-        .onAppear { focused = true }
-        .onChange(of: focusRequests) { focused = true }
     }
 
     private var trimmed: String { ProjectName.trimmed(name) }
@@ -425,10 +443,10 @@ private struct NewProjectForm: View {
     private var logs: Bool { hasDuration || !canStart }
 
     private func submit() {
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, canStart || hasDuration else { return }
         if hasDuration {
             log(trimmed)
-        } else if canStart {
+        } else {
             start(trimmed)
         }
     }

@@ -35,5 +35,15 @@ public enum ProjectName {
     }
 }
 
+/// What a typed Project name refers to.
+public enum ProjectMatch: Equatable, Sendable {
+    /// Nothing yet: starting or logging it creates a Project.
+    case new
+    /// A Project on the Project list, as the list spells it.
+    case active(String)
+    /// An archived Project with time in the Day files, as its most recent Entry spells it.
+    case archived(String)
+}
+
 /// A Project name that is empty after trimming whitespace.
 public struct EmptyProjectName: Error {}
