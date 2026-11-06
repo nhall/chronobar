@@ -1,9 +1,11 @@
 import AppKit
+import ChronobarCore
 
 /// An invisible window over the Pill that takes a press on it before the menu bar can. The menu bar hosts
 /// status items itself and draws its highlight behind one on the mouse-down, before the app sees the press,
 /// so nothing in the app can stop it; a window of the app's own in front of the menu bar means the menu bar
-/// never gets the press. It is only shown while the pointer is on the Pill (`PillCoverArea`).
+/// never gets the press. It is only shown while the pointer is on the Pill and the menu bar is shown there
+/// (`PillCoverArea`).
 final class PillCover: NSPanel {
     /// The press's mouse-up, and whether it was over the Pill. Its mouse-down went through the app's event
     /// monitor, as one on the status item does.
@@ -19,8 +21,9 @@ final class PillCover: NSPanel {
         // Takes clicks although it draws nothing.
         ignoresMouseEvents = false
         level = .statusBar
-        // Not in other apps' full-screen spaces, where the menu bar comes and goes: a press there reaches
-        // the status item as before.
+        // Not `.fullScreenAuxiliary`. Even so, on macOS 27 the cover still comes up in another app's
+        // full-screen space on a built-in display with a camera housing, over the black band the menu bar
+        // slides into; there the window list reports the menu bar on screen even while it is away.
         collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         setAccessibilityElement(false)
     }
@@ -63,7 +66,9 @@ final class PillCover: NSPanel {
         override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
         override func mouseDown(with event: NSEvent) {}
         override func mouseUp(with event: NSEvent) {
-            cover.onMouseUp?(bounds.contains(convert(event.locationInWindow, from: nil)))
+            // In window coordinates: a release at the very top of the screen is on the cover's top edge.
+            cover.onMouseUp?(PillCoverArea.isOn(NSRect(origin: .zero, size: cover.frame.size),
+                                                event.locationInWindow))
         }
     }
 }

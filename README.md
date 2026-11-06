@@ -30,7 +30,10 @@ can read and edit. There are no accounts, no sync and no integrations.
 - **Keys in the Panel** work wherever focus is, with or without Keyboard navigation turned on:
   ⌘[ and ⌘] move a week back or forward, ← and → move a Day (unless you're typing in a field, where
   they move the insertion point), ⌘T goes back to today, ⌘N opens ＋ and ⌘I opens or closes the (i)
-  Time Summary. Each control's help tag names its key.
+  Time Summary. Each control's help tag names its key. Like menu shortcuts, the keys follow your
+  keyboard layout: ⌘[ is ⌘ with whatever types `[` (⌘⌥5 on German, ⌘⌥⇧5 on French), and ⌘T is ⌘ with
+  the key that types `t`. On layouts such as Russian, which type Latin letters with ⌘ held, the keys are
+  where they are on a US keyboard.
 - Only one timer runs at a time. Starting a project pauses whichever one was running.
 - If you come back to a running timer after the Mac slept, locked, or sat with no input, Chronobar asks
   whether to remove the time you were away.
@@ -258,6 +261,11 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] In the ＋ form's Project and duration fields and in a row's adjust field, type some text: ← and →
       move the insertion point and ⌘← ⌘→ ⇧← ⌥← edit and select as usual, without changing the Day;
       ⌘A, ⌘C and ⌘V work. ⌘[ ⌘] ⌘T ⌘N ⌘I still work from those fields.
+- [ ] Add German, French, Dvorak and Russian in System Settings › Keyboard › Text Input and, with each
+      selected, check the keys above: ⌘ with whatever types `[` and `]` moves a week (⌘⌥5 and ⌘⌥6 on
+      German, ⌘⌥⇧5 and ⌘⌥⇧- on French), ⌘T ⌘N ⌘I work where the layout types t, n and i (on Russian, at
+      the US positions), and typing `[` (⌥5 on German) in a field types it. On US, ⌘⇧[, ⌘⌥[ and ⌘⇧T don't
+      move a week or go to today.
 - [ ] Hover over ‹, ›, a strip Day, the Today button, the date (on another Day), ＋ and (i): each help
       tag names its key.
 - [ ] With the Settings window in front, the Panel's keys do nothing there.
