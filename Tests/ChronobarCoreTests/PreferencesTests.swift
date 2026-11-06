@@ -13,6 +13,7 @@ import ChronobarCore
         #expect(preferences.runningColor == .accent)
         #expect(preferences.showInDock)
         #expect(!preferences.loginHintDismissed)
+        #expect(!preferences.startPausesOthers)
     }
 
     @Test func choicesSurviveARelaunch() {
@@ -23,11 +24,13 @@ import ChronobarCore
         preferences.runningColor = .teal
         preferences.showInDock = false
         preferences.loginHintDismissed = true
+        preferences.startPausesOthers = true
 
         let relaunched = Preferences(defaults: settings.fresh())
         #expect(relaunched.runningColor == .teal)
         #expect(!relaunched.showInDock)
         #expect(relaunched.loginHintDismissed)
+        #expect(relaunched.startPausesOthers)
     }
 
     @Test func anUnknownStoredColorFallsBackToTheAccentColor() {

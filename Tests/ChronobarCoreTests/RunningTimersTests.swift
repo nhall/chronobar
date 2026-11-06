@@ -36,7 +36,7 @@ import ChronobarCore
         """)
     }
 
-    /// A v1 Day file has no `source`: its Entries are the app's, and a write leaves them as they were.
+    /// A v1 Day file has no `source`: its Entries are the app's, and a write marks them so.
     @Test func aMissingSourceReadsAsTheApp() throws {
         try writeToday("""
         {
@@ -55,7 +55,7 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Internal", "start": "2026-11-03T08:00:00-05:00", "end": "2026-11-03T09:00:00-05:00" }
+            { "project": "Internal", "start": "2026-11-03T08:00:00-05:00", "end": "2026-11-03T09:00:00-05:00", "source": "app" }
           ]
         }
 
@@ -92,10 +92,11 @@ import ChronobarCore
         #expect(relaunched.dayTotal(relaunched.today) == 150 * 60)
     }
 
-    /// Every start still pauses the others, as in v1, whoever started them.
-    @Test func startingPausesEveryOtherTimer() throws {
+    /// With "Starting a timer pauses the others" on, a start pauses the others, whoever started them.
+    @Test func withTheSettingOnStartingPausesEveryOtherTimer() throws {
         try writeToday(twoOpen)
         let tracker = Tracker(clock: clock, storageRoot: root)
+        tracker.startPausesOthers = true
         try tracker.start("Website Redesign")
 
         #expect(tracker.timers.map(\.project) == ["Website Redesign"])
@@ -104,8 +105,8 @@ import ChronobarCore
           "date": "2026-11-03",
           "entries": [
             { "project": "Client A, Ticket 665", "start": "2026-11-03T08:00:00-05:00", "end": "2026-11-03T09:00:00-05:00", "source": "agent" },
-            { "project": "Internal", "start": "2026-11-03T08:30:00-05:00", "end": "2026-11-03T09:00:00-05:00" },
-            { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": null }
+            { "project": "Internal", "start": "2026-11-03T08:30:00-05:00", "end": "2026-11-03T09:00:00-05:00", "source": "app" },
+            { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": null, "source": "app" }
           ]
         }
 
@@ -136,7 +137,7 @@ import ChronobarCore
           "date": "2026-11-03",
           "entries": [
             { "project": "Client A, Ticket 665", "start": "2026-11-03T08:00:00-05:00", "end": "2026-11-04T00:00:00-05:00", "source": "agent" },
-            { "project": "Internal", "start": "2026-11-03T08:30:00-05:00", "end": "2026-11-04T00:00:00-05:00" }
+            { "project": "Internal", "start": "2026-11-03T08:30:00-05:00", "end": "2026-11-04T00:00:00-05:00", "source": "app" }
           ]
         }
 
@@ -146,7 +147,7 @@ import ChronobarCore
           "date": "2026-11-04",
           "entries": [
             { "project": "Client A, Ticket 665", "start": "2026-11-04T00:00:00-05:00", "end": null, "source": "agent" },
-            { "project": "Internal", "start": "2026-11-04T00:00:00-05:00", "end": null }
+            { "project": "Internal", "start": "2026-11-04T00:00:00-05:00", "end": null, "source": "app" }
           ]
         }
 
@@ -171,9 +172,9 @@ import ChronobarCore
           "date": "2026-11-03",
           "entries": [
             { "project": "Client A, Ticket 665", "start": "2026-11-03T08:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "agent" },
-            { "project": "Internal", "start": "2026-11-03T08:30:00-05:00", "end": "2026-11-03T10:00:00-05:00" },
+            { "project": "Internal", "start": "2026-11-03T08:30:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" },
             { "project": "Client A, Ticket 665", "start": "2026-11-03T13:00:00-05:00", "end": null, "source": "agent" },
-            { "project": "Internal", "start": "2026-11-03T13:00:00-05:00", "end": null }
+            { "project": "Internal", "start": "2026-11-03T13:00:00-05:00", "end": null, "source": "app" }
           ]
         }
 
@@ -209,7 +210,7 @@ import ChronobarCore
           "date": "2026-11-03",
           "entries": [
             { "project": "Client A, Ticket 665", "start": "2026-11-03T08:00:00-05:00", "end": "2026-11-03T09:00:00-05:00", "source": "agent" },
-            { "project": "Internal", "start": "2026-11-03T08:30:00-05:00", "end": "2026-11-03T09:00:00-05:00" }
+            { "project": "Internal", "start": "2026-11-03T08:30:00-05:00", "end": "2026-11-03T09:00:00-05:00", "source": "app" }
           ]
         }
 

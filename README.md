@@ -15,11 +15,11 @@ can read and edit. There are no accounts, no sync and no integrations.
 ## How it works
 
 - **The Pill** sits in the menu bar. Its left square shows ▶ on gray when stopped and ⏸ on a colored
-  background while a timer runs. Click it to start or pause. The right side shows today's time for the
-  selected project (`1:23`); click it to open the Panel.
+  background while any timer runs. Click ⏸ to pause every running timer, or ▶ to open the ＋ form. The
+  right side shows today's total across all projects (`1:23`); click it to open the Panel.
 - **The Panel** shows the day you are viewing, a strip with the week's daily totals, and one row per
-  project with its total for that day. Each of today's rows ends with a ▶ button that switches the
-  timer to that project; the running row is highlighted and shows ⏸ to pause it. Use ＋, under the
+  project with its total for that day. Each of today's rows ends with a ▶ button that starts that
+  project's timer; every running row is highlighted and shows ⏸ to pause just that timer. Use ＋, under the
   rows, to start a new project or to log time you forgot to track: its form opens just above it, and a
   new project's row appears at the bottom of the rows, right above the form. The header keeps the
   date, the day's total, (i) and ⚙. ‹ › move a week back or forward without limit; on any
@@ -34,7 +34,9 @@ can read and edit. There are no accounts, no sync and no integrations.
   keyboard layout: ⌘[ is ⌘ with whatever types `[` (⌘⌥5 on German, ⌘⌥⇧5 on French), and ⌘T is ⌘ with
   the key that types `t`. On layouts such as Russian, which type Latin letters with ⌘ held, the keys are
   where they are on a US keyboard.
-- Only one timer runs at a time. Starting a project pauses whichever one was running.
+- Several timers can run at once, one per project. Starting a project leaves the others running, and
+  starting one that is already running keeps it going. Turn on "Starting a timer pauses the others" in
+  Settings to have each start pause every other timer instead.
 - If you come back to a running timer after the Mac slept, locked, or sat with no input, Chronobar asks
   whether to remove the time you were away.
 
@@ -92,7 +94,7 @@ It runs next to the everyday copy and shares nothing with it:
 | | Everyday copy | Development copy |
 |---|---|---|
 | App | `Chronobar.app` | `Chronobar Dev.app` |
-| Bundle ID (settings, Selected Project, start at login) | `io.github.nhall.chronobar` | `io.github.nhall.chronobar.dev` |
+| Bundle ID (settings, start at login) | `io.github.nhall.chronobar` | `io.github.nhall.chronobar.dev` |
 | Data folder | `~/Library/Application Support/Chronobar` | `~/Library/Application Support/Chronobar Dev` |
 | Process (for `killall`) | `Chronobar` | `ChronobarDev` |
 
@@ -133,8 +135,8 @@ Each day is one JSON file with one entry per line:
 
 - `date` must match the file name.
 - A **timed** entry has `start` and `end` as ISO 8601 times with a UTC offset, to the second. `end` is
-  `null` only for a running timer, at most one per project. An optional `source` says who started it:
-  `"app"` or `"agent"`. Chronobar writes it only for `"agent"`; an entry without it is the app's.
+  `null` only for a running timer, at most one per project. `source` says who started it: `"app"` or
+  `"agent"`. Chronobar always writes it; an entry without it, as in older files, is the app's.
 - A **manual** entry has a whole number of `seconds`, negative for subtractions. `note` is `manual`
   for time logged with ＋ and `adjustment` for a corrected total; it is a marker, not free text.
 - A project's total for the day is the sum of its timed durations and manual seconds, never shown
@@ -142,7 +144,7 @@ Each day is one JSON file with one entry per line:
 - Any Day can have a file, past or future: time logged ahead, such as a vacation, goes in that Day's
   file in the same format. Timers run only today, so a day ahead holds only manual entries until it
   arrives.
-- A timer running past midnight is split: the old day's entry ends at the start of the new day and a
+- Every timer running past midnight is split: the old day's entry ends at the start of the new day and a
   new entry starts in the new day's file.
 
 You can edit these files by hand, for example to fix a start time. Chronobar re-reads a day's file
@@ -157,7 +159,7 @@ its history in the day files stays. Names match regardless of case and surroundi
 
 ### Settings
 
-Settings, the selected project and the app's last-alive time are kept in the app's preferences
+Settings and the app's last-alive time are kept in the app's preferences
 (`io.github.nhall.chronobar`), not in the data folder.
 
 ## Manual test checklist
@@ -170,7 +172,7 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 
 **Start, pause, switch**
 
-- [ ] With no project selected, ▶ opens the ＋ form.
+- [ ] With no timer running, ▶ opens the ＋ form.
 - [ ] ＋, type a new project name, Start: the square turns colored with ⏸ and the time starts at `0:00`.
       The form closes back to the rows, the new project's row is highlighted, and the Panel stays open.
 - [ ] ＋ sits at the bottom of the Panel, on its left edge: under "No time tracked" on an empty Day, and
@@ -190,21 +192,27 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] Click outside the Panel: it closes.
 - [ ] After a minute the time reads `0:01`; the day file has one entry with `"end": null`.
 - [ ] Click ⏸: the square goes gray with ▶, the time stays, the entry now has an `end`.
-- [ ] Click ▶: the same project resumes and its total keeps counting from where it was.
-- [ ] With the Panel closed, click the square several times, on its edges as well as its middle: each
-      click toggles ⏸ and ▶, and the Panel stays closed.
-- [ ] With the Panel open, do the same: each click toggles, and the Panel stays open.
+- [ ] Click the row's ▶: the same project resumes on its row and its total keeps counting from where it
+      was.
+- [ ] With a timer running and the Panel closed, click the square on its edge: the timer pauses and the
+      Panel stays closed. Start it again and click the square's middle: the same.
+- [ ] With the Panel open, do the same: each click on ⏸ pauses, and the Panel stays open.
 - [ ] Repeat both with a trackpad (tap to click and a full press) as well as a mouse.
 - [ ] Click the time segment: the Panel opens.
-- [ ] Start a second project from ＋: the first entry closes, only one entry is open, and the Panel
-      highlights the new project's row.
-- [ ] Each of today's rows shows its time, then ▶ at the far right; the running row shows ⏸ instead
+- [ ] Start a second project from ＋: the first keeps running, the day file has two entries with
+      `"end": null`, both rows are highlighted with ⏸, and the Pill's time is the sum of both.
+- [ ] Each of today's rows shows its time, then ▶ at the far right; every running row shows ⏸ instead
       and is highlighted. Rows on any other Day have no button.
-- [ ] Click the first project's ▶ in the Panel: it resumes on its existing row, and the second pauses.
-- [ ] Click the running row's ⏸: the timer pauses, the row loses its highlight and shows ▶, and the
-      Pill's square goes gray with ▶.
-- [ ] With the Panel open, click the Pill's square or press the global shortcut: the row's ⏸ and ▶
-      follow it.
+- [ ] Type a running project's name in ＋ and Start: nothing changes; its row keeps counting, with no
+      new entry and no alert.
+- [ ] Click one running row's ⏸: only that timer pauses, its row loses its highlight and shows ▶, and
+      the other keeps running. Pause the last one: the Pill's square goes gray with ▶.
+- [ ] With two timers running and the Panel open, click the Pill's square or press the global
+      shortcut: both rows pause.
+- [ ] In Settings, "Starting a timer pauses the others" is off. Turn it on, start two projects one after
+      the other: the first pauses. Turn it off: starting another leaves the running one running.
+- [ ] With two timers running before midnight, wait past it (or set the clock): both entries end at
+      midnight in the old day's file and both continue in the new day's file.
 - [ ] Clicking a row's time still opens the field to change its total; ▶/⏸ does not.
 - [ ] ＋, click ▾ in the Project field (or press ↓): every project is listed, most recently used first,
       and the list scrolls when long. Type part of a name: the list narrows to names containing it, those
@@ -235,13 +243,13 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 
 **Accessibility**
 
-- [ ] With VoiceOver on, move to the Pill (⌃F8 or the VoiceOver menu bar commands): it reads the Selected
-      Project, its time today in words and whether it is running, or No Project selected. VO-Space opens
-      the Panel. VO-⌘-Space lists Start or Pause (New Project with nothing selected) and Open Panel;
-      Start and Pause work without opening the Panel, and the label follows.
-- [ ] With VoiceOver on and another app in front, press the global shortcut: VoiceOver says "Started"
-      then the Selected Project, and on the next press "Paused" and the Project. With no Selected Project
-      it says "New Project" as the ＋ form opens. With VoiceOver off, the shortcut says nothing.
+- [ ] With VoiceOver on, move to the Pill (⌃F8 or the VoiceOver menu bar commands): it reads what runs
+      and today's total in words: "Website Redesign running, 1 hour 23 minutes today", "2 timers
+      running, …" or "Nothing running, …". VO-Space opens the Panel. VO-⌘-Space lists Pause (New Project
+      with nothing running) and Open Panel; Pause works without opening the Panel, and the label follows.
+- [ ] With VoiceOver on and another app in front, press the global shortcut with one timer running:
+      VoiceOver says "Paused" and the project; with two, "Paused 2 timers". With nothing running it says
+      "New Project" as the ＋ form opens. With VoiceOver off, the shortcut says nothing.
 - [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day, Time
       Summary, Menu, Previous week and Next week, each Day in the Week strip with its date, total, and
       "today" or "viewed" (the viewed Day also reads as selected), each row's name (with "running" on

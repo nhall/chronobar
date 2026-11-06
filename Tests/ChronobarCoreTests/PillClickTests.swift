@@ -8,12 +8,11 @@ import ChronobarCore
     /// A status item 68 points wide, with 8 points of padding either side of it in its window.
     let extent: ClosedRange<CGFloat> = -8...76
 
-    @Test func aClickOnTheSquareTogglesTheSelectedProjectsTimer() throws {
+    @Test func whileTimersRunAClickOnTheSquarePausesThem() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
-        try tracker.pause()
 
-        #expect(PillClick.action(at: PillPointer(x: 12, within: extent), tracker: tracker) == .toggleTimer)
+        #expect(PillClick.action(at: PillPointer(x: 12, within: extent), tracker: tracker) == .pauseTimers)
     }
 
     @Test func aClickOnTheTimeSegmentOpensThePanel() throws {
@@ -23,8 +22,11 @@ import ChronobarCore
         #expect(PillClick.action(at: PillPointer(x: 40, within: extent), tracker: tracker) == .openPanel)
     }
 
-    @Test func withNoSelectedProjectTheSquareOpensTheNewProjectForm() {
+    /// There is no Selected Project to resume, even after a timer ran today.
+    @Test func withNothingRunningTheSquareOpensTheNewProjectForm() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        try tracker.pause()
 
         #expect(PillClick.action(at: PillPointer(x: 12, within: extent), tracker: tracker) == .openNewProjectForm)
     }
@@ -36,7 +38,7 @@ import ChronobarCore
         try tracker.start("Website Redesign")
 
         for x: CGFloat in [-8, 0, 25.9] {
-            #expect(PillClick.action(at: PillPointer(x: x, within: extent), tracker: tracker) == .toggleTimer)
+            #expect(PillClick.action(at: PillPointer(x: x, within: extent), tracker: tracker) == .pauseTimers)
         }
         for x: CGFloat in [26, 68, 76] {
             #expect(PillClick.action(at: PillPointer(x: x, within: extent), tracker: tracker) == .openPanel)

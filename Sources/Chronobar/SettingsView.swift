@@ -21,6 +21,7 @@ struct SettingsView: View {
                 }
             }
             KeyboardShortcuts.Recorder("Play/pause shortcut", name: .toggleTimer)
+            Toggle("Starting a timer pauses the others", isOn: $preferences.startPausesOthers)
             Toggle("Show in Dock", isOn: $preferences.showInDock)
             Toggle("Start at login", isOn: Binding(get: { loginItem.isOn }, set: { loginItem.set($0) }))
             if loginItem.status == .requiresApproval {

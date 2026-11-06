@@ -4,7 +4,7 @@ import Foundation
 /// `scripts/bundle-app.sh --dev` builds to run next to it. Read from the app's Info.plist, which
 /// `scripts/info-plist.sh` writes; `InfoPlistTests` checks that what it writes is what this reads.
 ///
-/// Settings, the Selected Project, the heartbeat and start at login follow the bundle ID on their own;
+/// Settings, the heartbeat and start at login follow the bundle ID on their own;
 /// the data folder doesn't, so a development copy names its own folder here.
 public struct BuildVariant: Equatable, Sendable {
     /// Info.plist key naming the folder in Application Support that holds the Project list and Day files.

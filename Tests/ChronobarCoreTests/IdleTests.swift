@@ -16,8 +16,8 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-03T13:00:00-05:00", "end": "2026-11-03T14:10:00-05:00" },
-            { "project": "Website Redesign", "start": "2026-11-03T15:00:00-05:00", "end": null }
+            { "project": "Website Redesign", "start": "2026-11-03T13:00:00-05:00", "end": "2026-11-03T14:10:00-05:00", "source": "app" },
+            { "project": "Website Redesign", "start": "2026-11-03T15:00:00-05:00", "end": null, "source": "app" }
           ]
         }
 
@@ -38,13 +38,12 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-03T13:00:00-05:00", "end": "2026-11-03T14:10:00-05:00" }
+            { "project": "Website Redesign", "start": "2026-11-03T13:00:00-05:00", "end": "2026-11-03T14:10:00-05:00", "source": "app" }
           ]
         }
 
         """)
         #expect(tracker.running == nil)
-        #expect(tracker.selectedProject == "Website Redesign")
         #expect(tracker.total("Website Redesign", on: tracker.today) == 70 * 60)
     }
 
@@ -73,7 +72,7 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-03T23:00:00-05:00", "end": "2026-11-03T23:40:00-05:00" }
+            { "project": "Website Redesign", "start": "2026-11-03T23:00:00-05:00", "end": "2026-11-03T23:40:00-05:00", "source": "app" }
           ]
         }
 
@@ -82,7 +81,7 @@ import ChronobarCore
         {
           "date": "2026-11-04",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-04T00:30:00-05:00", "end": null }
+            { "project": "Website Redesign", "start": "2026-11-04T00:30:00-05:00", "end": null, "source": "app" }
           ]
         }
 
@@ -117,7 +116,7 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-03T17:00:00-05:00", "end": "2026-11-03T18:00:00-05:00" }
+            { "project": "Website Redesign", "start": "2026-11-03T17:00:00-05:00", "end": "2026-11-03T18:00:00-05:00", "source": "app" }
           ]
         }
 
@@ -153,7 +152,7 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-03T22:00:00-05:00", "end": "2026-11-03T22:30:00-05:00" }
+            { "project": "Website Redesign", "start": "2026-11-03T22:00:00-05:00", "end": "2026-11-03T22:30:00-05:00", "source": "app" }
           ]
         }
 
@@ -169,7 +168,7 @@ import ChronobarCore
         {
           "date": "2026-11-05",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-05T08:00:00-05:00", "end": null }
+            { "project": "Website Redesign", "start": "2026-11-05T08:00:00-05:00", "end": null, "source": "app" }
           ]
         }
 
@@ -191,7 +190,7 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Internal", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T09:30:00-05:00" }
+            { "project": "Internal", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T09:30:00-05:00", "source": "app" }
           ]
         }
 

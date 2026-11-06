@@ -17,9 +17,10 @@ public enum PillPointer: Equatable, Sendable {
 
 /// What a click on the Pill does.
 public enum PillClick: Equatable, Sendable {
-    case toggleTimer
+    /// ⏸: pauses every running timer.
+    case pauseTimers
     case openPanel
-    /// ▶ with nothing to start: the Panel's ＋ form.
+    /// ▶ with nothing running: the Panel's ＋ form.
     case openNewProjectForm
 
     /// The action for a press with the pointer at `pointer`.
@@ -32,7 +33,7 @@ public enum PillClick: Equatable, Sendable {
     /// What the square does, from a click or the global shortcut.
     @MainActor
     public static func square(tracker: Tracker) -> PillClick {
-        tracker.canToggle ? .toggleTimer : .openNewProjectForm
+        tracker.timers.isEmpty ? .openNewProjectForm : .pauseTimers
     }
 }
 
@@ -44,7 +45,7 @@ public enum PillClick: Equatable, Sendable {
 /// once and keeps the Panel open, and one anywhere else closes the Panel.
 ///
 /// A press on the Pill with ⌘ held is the start of a ⌘-drag, which moves the status item, so it is never a
-/// click: it toggles nothing and opens nothing.
+/// click: it pauses nothing and opens nothing.
 public struct PillPress: Sendable {
     private enum Pressed: Equatable, Sendable {
         /// A click, with the pointer where its mouse-down was.

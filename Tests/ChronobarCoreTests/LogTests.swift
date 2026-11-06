@@ -30,7 +30,6 @@ import ChronobarCore
         try tracker.log("Website Redesign", "45", on: tracker.today)
 
         #expect(tracker.running == nil)
-        #expect(tracker.selectedProject == nil)
         #expect(tracker.rows(tracker.today) == [Row(project: "Website Redesign", total: 45 * 60)])
         #expect(tracker.projects == ["Website Redesign"])
         #expect(contents(dayFile(root, "2026-11-03")) == """
@@ -83,7 +82,6 @@ import ChronobarCore
         #expect(tracker.rows(future) == [Row(project: "Vacation", total: 8 * 60 * 60)])
         #expect(tracker.rows(tracker.today) == [Row(project: "Internal", total: 0)])
         #expect(tracker.running?.project == "Internal")
-        #expect(tracker.selectedProject == "Internal")
         #expect(contents(dayFile(root, "2026-11-16")) == """
         {
           "date": "2026-11-16",

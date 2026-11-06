@@ -24,7 +24,6 @@ import ChronobarCore
         try tracker.pause()
 
         #expect(tracker.projects == ["Internal"])
-        #expect(tracker.selectedProject == "Internal")
         #expect(tracker.total("Internal", on: tracker.today) == 90 * 60)
         #expect(try tracker.addProject("INTERNAL") == "Internal")
         #expect(contents(projectsFile(root)) == "Internal\n")
@@ -47,6 +46,7 @@ import ChronobarCore
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T10:00:00")
+        try tracker.toggle("Website Redesign")
         try tracker.start("Internal")
         clock.set("2026-11-03T10:15:00")
         try tracker.pause()
@@ -60,48 +60,23 @@ import ChronobarCore
         #expect(Tracker(clock: clock, storageRoot: root).total("Website Redesign", on: tracker.today) == 3600)
     }
 
-    @Test func archivingTheSelectedProjectClearsTheSelectionButLeavesItRunning() throws {
+    @Test func archivingARunningProjectLeavesItRunning() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T10:00:00")
 
         try tracker.archiveProject("Website Redesign")
-        #expect(tracker.selectedProject == nil)
         #expect(tracker.running?.project == "Website Redesign")
 
         tracker.reload()
-        #expect(tracker.selectedProject == nil)
         #expect(tracker.running?.project == "Website Redesign")
+        #expect(Tracker(clock: clock, storageRoot: root).running?.project == "Website Redesign")
 
         clock.set("2026-11-03T10:30:00")
-        try tracker.toggle()
+        try tracker.toggle("Website Redesign")
         #expect(tracker.running == nil)
-        #expect(tracker.selectedProject == nil)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 90 * 60)
         #expect(tracker.projects == [])
-    }
-
-    @Test func anArchivedSelectionStaysClearedAfterARelaunch() throws {
-        let settings = TestSettings()
-        let defaults = settings.fresh()
-        defer { settings.remove() }
-
-        let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
-        try tracker.start("Website Redesign")
-        try tracker.archiveProject("Website Redesign")
-
-        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
-        #expect(relaunched.running?.project == "Website Redesign")
-        #expect(relaunched.selectedProject == nil)
-    }
-
-    @Test func archivingAnotherProjectKeepsTheSelection() throws {
-        let tracker = Tracker(clock: clock, storageRoot: root)
-        try tracker.start("Internal")
-        try tracker.start("Website Redesign")
-        try tracker.archiveProject("Internal")
-
-        #expect(tracker.selectedProject == "Website Redesign")
     }
 
     @Test func typingAnArchivedNameRevivesItWithItsStoredSpelling() throws {
