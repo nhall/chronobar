@@ -70,7 +70,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                 guard let self, let button = self.statusItem.button else { return false }
                 // With another app frontmost the app never sees ⌘ go down, so the cover can still be over
                 // the Pill; it goes now, so the next press reaches the menu bar for its ⌘-drag.
-                self.placeCover(duringPress: true)
+                self.placeCover(pressCommandKey: commandKey)
                 guard let action = self.press.mouseDown(
                     onPill: self.isOnPill(window), at: Self.pointer(over: button), commandKey: commandKey,
                     panelOpen: self.popover.isShown, tracker: self.tracker) else { return false }
@@ -174,15 +174,17 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     /// Puts the cover over the Pill while the pointer is on it, and takes it away otherwise
     /// (`PillCoverArea`). Run on every pointer move, so it follows the status item wherever it goes, and on
-    /// every mouse-down. `duringPress` takes the cover away even from under the press that is down.
-    private func placeCover(duringPress: Bool = false) {
+    /// every mouse-down. At a mouse-down, `pressCommandKey` is whether that press had ⌘ held, and the cover
+    /// can go even from under it.
+    private func placeCover(pressCommandKey: Bool? = nil) {
+        let duringPress = pressCommandKey != nil
         guard let button = statusItem.button, let window = button.window, let screen = window.screen else {
             return cover.remove(duringPress: duringPress)
         }
         let item = window.convertToScreen(button.convert(button.bounds, to: nil))
         let frame = PillCoverArea.frame(
             item: item, screen: screen.frame, visible: screen.visibleFrame, pointer: NSEvent.mouseLocation,
-            commandKey: NSEvent.modifierFlags.contains(.command))
+            commandKey: pressCommandKey ?? NSEvent.modifierFlags.contains(.command))
         if let frame { cover.place(at: frame) } else { cover.remove(duringPress: duringPress) }
     }
 
