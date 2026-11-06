@@ -211,6 +211,9 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       Project, its time today in words and whether it is running, or No Project selected. VO-Space opens
       the Panel. VO-⌘-Space lists Start or Pause (New Project with nothing selected) and Open Panel;
       Start and Pause work without opening the Panel, and the label follows.
+- [ ] With VoiceOver on and another app in front, press the global shortcut: VoiceOver says "Started"
+      then the Selected Project, and on the next press "Paused" and the Project. With no Selected Project
+      it says "New Project" as the ＋ form opens. With VoiceOver off, the shortcut says nothing.
 - [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day, Time
       Summary, Start or log time, Menu, Previous week and Next week, each Day in the Week strip with its
       date, total, and "today" or "viewed" (the viewed Day also reads as selected), each row's name
