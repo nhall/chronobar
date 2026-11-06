@@ -37,7 +37,7 @@ public enum Entry: Equatable, Sendable {
 }
 
 /// Who started a timed Entry, so idle handling and crash recovery can tell the two apart.
-public enum EntrySource: String, Sendable {
+public enum EntrySource: String, Codable, Sendable {
     /// The Pill, the Panel or the global shortcut. A Day file Entry without a `source` is one of these.
     case app
     /// MCP or the command line.

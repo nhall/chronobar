@@ -39,6 +39,15 @@ import ChronobarCore
         #expect(variant.appName == "Chronobar")
     }
 
+    /// The `chronobar` command finds each copy by these, without its Info.plist to read.
+    @Test func eachCopyIsWhereTheCommandLineLooksForIt() throws {
+        for (copy, arguments) in [(BuildVariant.Copy.everyday, []), (.development, ["--dev"])] {
+            let info = try infoPlist(arguments)
+            #expect(info["CFBundleIdentifier"] as? String == copy.bundleID)
+            #expect(try BuildVariant(info: info).dataFolder == copy.dataFolder)
+        }
+    }
+
     /// The keys the script writes are the ones `BuildVariant` reads.
     @Test func theDevelopmentCopyGetsItsOwnBundleIDNameDataFolderAndBadge() throws {
         let info = try infoPlist(["--dev"])

@@ -84,8 +84,14 @@ enum DayFile {
     }
 }
 
+/// A file Core refuses to change because it won't parse: a Day file, `projects.txt` or `archived.txt`.
+/// Every error Core throws for one conforms, so callers outside Core can tell it from other failures.
+public protocol MalformedFileError: Error {}
+
+extension DayFile.Malformed: MalformedFileError {}
+
 /// A Day file that won't parse (or has writes still waiting for it), refusing a change.
-public struct MalformedDayFile: Error, Equatable {
+public struct MalformedDayFile: MalformedFileError, Equatable {
     public let day: Day
 
     public init(day: Day) {

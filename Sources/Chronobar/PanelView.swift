@@ -207,6 +207,7 @@ struct PanelView: View {
                     ForEach(rows, id: \.project) { row in
                         // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
                         RowView(row: row, isRunning: isToday && tracker.isRunning(row.project),
+                                source: tracker.timers[row.project]?.source ?? .app,
                                 canStart: isToday, panel: panel,
                                 toggle: { actions.toggle(row.project) },
                                 adjust: {
@@ -473,6 +474,8 @@ private struct RowList<Rows: View>: View {
 private struct RowView: View {
     let row: Row
     let isRunning: Bool
+    /// Who started the running timer: an agent's gets a terminal icon after the name.
+    let source: EntrySource
     let canStart: Bool
     @Bindable var panel: PanelModel
     let toggle: () -> Void
@@ -486,10 +489,17 @@ private struct RowView: View {
     }
 
     var body: some View {
-        let presentation = RowPresentation(row: row, isRunning: isRunning)
+        let presentation = RowPresentation(row: row, isRunning: isRunning, source: source)
         HStack {
             Text(row.project).lineLimit(1)
                 .accessibilityLabel(presentation.nameLabel)
+            if let agentMark = presentation.agentMark {
+                // The name's VoiceOver label already says an agent started it.
+                Image(systemName: "terminal")
+                    .foregroundStyle(.secondary)
+                    .help(agentMark)
+                    .accessibilityHidden(true)
+            }
             Spacer()
             if panel.adjusting == row.project {
                 TextField(DurationFormat.hoursMinutes(row.total), text: $panel.adjustment)

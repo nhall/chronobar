@@ -32,4 +32,15 @@ import ChronobarCore
         #expect(presentation.nameLabel == "Orchard Rebuild")
         #expect(presentation.toggleLabel == "Start Orchard Rebuild")
     }
+
+    @Test func aTimerAnAgentStartedIsMarkedWithWhyItIsNotPausedForIdleTime() {
+        let presentation = RowPresentation(row: row, isRunning: true, source: .agent)
+        #expect(presentation.agentMark == "Started by an agent; not paused for idle time")
+        #expect(presentation.nameLabel == "Orchard Rebuild, running, started by an agent")
+    }
+
+    @Test func aTimerStartedInTheAppAndAStoppedRowHaveNoAgentMark() {
+        #expect(RowPresentation(row: row, isRunning: true, source: .app).agentMark == nil)
+        #expect(RowPresentation(row: row, isRunning: false).agentMark == nil)
+    }
 }
