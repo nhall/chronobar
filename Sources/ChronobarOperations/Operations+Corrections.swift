@@ -1,0 +1,86 @@
+import Foundation
+import ChronobarCore
+
+/// Fixing recordings after the fact: `stop` at a time, `set_start`, `add_entry` and `adjust`. Core checks
+/// the times and refuses anything that would book time that hasn't happened or count time twice.
+extension Operations {
+    func stop(_ label: String?, at end: Date) throws(OperationError) -> StopResult {
+        let label = if let label { try named(label) } else { try onlyRunningLabel() }
+        let entry = try core { try tracker.stop(label, at: end) }
+        return StopResult(entry: result(entry), running: runningTimers(), today: todayResult())
+    }
+
+    func setStart(_ label: String?, at start: Date) throws(OperationError) -> SetStartResult {
+        let label = if let label { try named(label) } else { try onlyRunningLabel(to: "move") }
+        let run = try core { try tracker.setStart(label, at: start) }
+        guard let timer = runningTimers().first(where: { ProjectName.matches($0.label, run.last!.project) }) else {
+            throw OperationError(.failed, "\(label)'s timer stopped while its start moved.")
+        }
+        return SetStartResult(timer: timer, earlier: run.dropLast().map(result), today: todayResult())
+    }
+
+    func addEntry(_ label: String, _ span: EntrySpan) throws(OperationError) -> AddEntryResult {
+        switch span {
+        case .times(let start, let end):
+            let entries = try core { try tracker.addEntry(label, start: start, end: end, source: .agent) }
+            let days = entries.map { $0.day(in: tracker.calendar) }
+            return AddEntryResult(label: entries[0].project, entries: entries.map(result), manual: nil,
+                                  days: days.map(dayResult))
+        case .duration(let duration, let date):
+            let day = try date.map(parsedDay) ?? tracker.today
+            let project = try core { try tracker.addEntry(label, duration: duration, on: day) }
+            guard case .absolute(let seconds)? = try? DurationInput(parsing: duration) else {
+                throw OperationError(.failed, "Chronobar added \(duration) but couldn't read it back.")
+            }
+            let manual = ManualEntryResult(date: day.description, seconds: seconds,
+                                           totalSeconds: self.seconds(tracker.total(project, on: day)))
+            return AddEntryResult(label: project, entries: [], manual: manual, days: [dayResult(day)])
+        }
+    }
+
+    func adjust(_ label: String, _ input: String, on date: String?) throws(OperationError) -> AdjustResult {
+        let label = try named(label)
+        let day = try date.map(parsedDay) ?? tracker.today
+        let before = tracker.total(label, on: day)
+        try core { try tracker.adjust(label, input, on: day) }
+        let total = tracker.total(label, on: day)
+        let project = tracker.rows(day).first { ProjectName.matches($0.project, label) }?.project ?? label
+        return AdjustResult(label: project, date: day.description, changeSeconds: seconds(total) - seconds(before),
+                            totalSeconds: seconds(total), day: dayResult(day))
+    }
+
+    /// The `OperationError` for a correction Core refused, or nil for any other error.
+    func correctionError(_ error: any Error) -> OperationError? {
+        switch error {
+        case let error as NotRunning:
+            OperationError(.notRunning, "\(error.project) isn't running.\(runningList())", running: runningTimers())
+        case let error as FutureTime:
+            OperationError(.futureTime, "\(time(error.time)) is in the future; it's now \(time(tracker.now)). "
+                           + "Chronobar only records time that has happened.")
+        case let error as FutureDay:
+            OperationError(.futureTime, "\(error.day) is after today, so its time hasn't happened yet.")
+        case let error as EndBeforeStart:
+            OperationError(.endBeforeStart, "The end, \(time(error.end)), isn't after the start, \(time(error.start)).")
+        case let error as Overlap:
+            OperationError(.overlap, "\(error.project) already has time from \(time(error.start)) to "
+                           + "\(error.end.map(time) ?? "now (it's running)"), which this would count twice.")
+        case let error as InvalidDuration:
+            OperationError(.invalidDuration, "\"\(error.text)\" isn't a duration such as 1:30 or 45 (minutes); "
+                           + "adjust also takes a change such as +15 or -10.")
+        default:
+            nil
+        }
+    }
+
+    /// A finished Entry Core stored, with the Label's total on its Day.
+    private func result(_ entry: TimedEntry) -> EntryResult {
+        let day = entry.day(in: tracker.calendar)
+        return EntryResult(label: entry.project, start: entry.start, end: entry.end ?? tracker.now,
+                           source: entry.source, totalSeconds: seconds(tracker.total(entry.project, on: day)))
+    }
+
+    /// `date` as the Day files write it, for a message.
+    private func time(_ date: Date) -> String {
+        date.formatted(Date.ISO8601FormatStyle(timeZoneSeparator: .colon, timeZone: timeZone))
+    }
+}

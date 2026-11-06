@@ -18,6 +18,9 @@ final class FakeClock: TimeSource {
     func set(_ local: String) { now = FakeClock.date(local, calendar) }
     func advance(_ seconds: TimeInterval) { now += seconds }
 
+    /// The moment `local` names on this clock's calendar.
+    func date(_ local: String) -> Date { FakeClock.date(local, calendar) }
+
     private static func date(_ local: String, _ calendar: Calendar) -> Date {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")

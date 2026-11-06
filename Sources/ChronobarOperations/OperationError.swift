@@ -13,12 +13,20 @@ public struct OperationError: Error, Codable, Equatable, Sendable {
         case unknownLabel = "unknown_label"
         /// A date that isn't a calendar Day written `YYYY-MM-DD`.
         case invalidDate = "invalid_date"
-        /// `stop` named a Label with no running timer.
+        /// `stop` or `set_start` named a Label with no running timer.
         case notRunning = "not_running"
-        /// `stop` without a Label, and no timer runs.
+        /// `stop` or `set_start` without a Label, and no timer runs.
         case nothingRunning = "nothing_running"
-        /// `stop` without a Label, and several timers run; `running` lists them.
+        /// `stop` or `set_start` without a Label, and several timers run; `running` lists them.
         case ambiguous
+        /// A time after now, or a duration on a Day after today: time that hasn't happened.
+        case futureTime = "future_time"
+        /// An end that isn't after its start.
+        case endBeforeStart = "end_before_start"
+        /// The Label already has time in that stretch, which would count twice.
+        case overlap
+        /// A duration or total that isn't `1:30`, `45`, `+15` or `-10`, or a duration that isn't positive.
+        case invalidDuration = "invalid_duration"
         /// A Day file, `projects.txt` or `archived.txt` won't parse, so Chronobar won't write it until it's
         /// fixed by hand.
         case malformedFile = "malformed_file"

@@ -20,6 +20,9 @@ public enum Wire {
         } catch DecodingError.typeMismatch(_, let context) {
             let key = context.codingPath.last?.stringValue ?? "request"
             return .failure(OperationError(.invalidRequest, "The request's \"\(key)\" has the wrong type."))
+        } catch DecodingError.dataCorrupted(let context) where !context.codingPath.isEmpty {
+            let key = context.codingPath.last!.stringValue
+            return .failure(OperationError(.invalidRequest, "The request's \"\(key)\": \(context.debugDescription)."))
         } catch {
             return .failure(OperationError(.invalidRequest,
                                            #"The request isn't a JSON object such as {"op": "status"}."#))
@@ -79,6 +82,9 @@ public enum Wire {
             case "status": .status(try container.decode(StatusResult.self, forKey: .result))
             case "start": .start(try container.decode(StartResult.self, forKey: .result))
             case "stop": .stop(try container.decode(StopResult.self, forKey: .result))
+            case "set_start": .setStart(try container.decode(SetStartResult.self, forKey: .result))
+            case "add_entry": .addEntry(try container.decode(AddEntryResult.self, forKey: .result))
+            case "adjust": .adjust(try container.decode(AdjustResult.self, forKey: .result))
             case "day": .day(try container.decode(DayRowsResult.self, forKey: .result))
             case "summary": .summary(try container.decode(SummaryResult.self, forKey: .result))
             case "labels": .labels(try container.decode(LabelsResult.self, forKey: .result))
@@ -97,6 +103,9 @@ public enum Wire {
             case .status(let result): try container.encode(result, forKey: .result)
             case .start(let result): try container.encode(result, forKey: .result)
             case .stop(let result): try container.encode(result, forKey: .result)
+            case .setStart(let result): try container.encode(result, forKey: .result)
+            case .addEntry(let result): try container.encode(result, forKey: .result)
+            case .adjust(let result): try container.encode(result, forKey: .result)
             case .day(let result): try container.encode(result, forKey: .result)
             case .summary(let result): try container.encode(result, forKey: .result)
             case .labels(let result): try container.encode(result, forKey: .result)
@@ -128,7 +137,7 @@ public enum Wire {
             let container = try decoder.singleValueContainer()
             let text = try container.decode(String.self)
             guard let date = try? Date.ISO8601FormatStyle(timeZoneSeparator: .colon).parse(text) else {
-                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Not an ISO 8601 time: \(text)")
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "\(text) isn't an ISO 8601 time with an offset, such as 2026-11-03T14:40:00-05:00")
             }
             return date
         }

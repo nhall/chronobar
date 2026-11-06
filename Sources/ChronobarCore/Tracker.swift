@@ -26,7 +26,7 @@ public final class Tracker {
     /// then was left by a crash.
     @ObservationIgnored private let launched: Date
     @ObservationIgnored private let lastAlive: Date?
-    @ObservationIgnored private let files: DayFiles
+    @ObservationIgnored let files: DayFiles
     @ObservationIgnored private let projectStore: ProjectStore
     @ObservationIgnored private let archivedStore: ProjectStore
     @ObservationIgnored private let defaults: UserDefaults?
@@ -200,8 +200,15 @@ public final class Tracker {
     /// When `timer`'s run began: its start, or for a timer carried over at midnight, the start of the Entry
     /// it was split from on the Day before, followed back as far as the splits go.
     private func runStart(of timer: Running) -> Date {
+        runPieces(of: timer)[0].start
+    }
+
+    /// The Entries `timer`'s run is stored as, oldest first, as (Day, start): its own open Entry last, and
+    /// before it, for a timer carried over at midnight, each Entry on an earlier Day it was split from.
+    func runPieces(of timer: Running) -> [(day: Day, start: Date)] {
         var start = timer.start
         var day = Day(containing: start, in: calendar)
+        var pieces = [(day: day, start: start)]
         while start == calendar.startOfDay(for: day.noon(in: calendar)) {
             day = day.adding(days: -1, in: calendar)
             let split = files.entries(on: day).lazy.compactMap { entry -> Date? in
@@ -211,8 +218,9 @@ public final class Tracker {
             }.first
             guard let split else { break }
             start = split
+            pieces.insert((day, start), at: 0)
         }
-        return start
+        return pieces
     }
 
     /// Clears `pendingIdle.blockedBy` once that Day's file parses and its deferred writes have landed.
@@ -409,7 +417,7 @@ public final class Tracker {
     /// The Project `name` refers to, for start and log to write under: the spelling of the Pinned Project,
     /// else of the archived one, else of its latest Entry, else `name` trimmed. An archived Project comes
     /// off `archived.txt`. Throws if either list won't parse, so a write never replaces it.
-    private func resolve(_ name: String) throws -> String {
+    func resolve(_ name: String) throws -> String {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
         let pinned = try projectStore.load()
@@ -553,7 +561,7 @@ public final class Tracker {
     }
 
     /// Brings `now` up to the clock and rolls over to a new Day. Every command starts with this.
-    private func catchUp() {
+    func catchUp() {
         now = clock.now
         rollOver()
     }

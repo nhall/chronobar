@@ -30,6 +30,8 @@ let package = Package(
         .executableTarget(name: "ChronobarCLI", dependencies: ["ChronobarCore", "ChronobarOperations"]),
         .testTarget(name: "ChronobarCoreTests", dependencies: ["ChronobarCore"]),
         .testTarget(name: "OperationsTests", dependencies: ["ChronobarCore", "ChronobarOperations"]),
+        // How the `chronobar` command reads its arguments.
+        .testTarget(name: "CLITests", dependencies: ["ChronobarCore", "ChronobarOperations", "ChronobarCLI"]),
         // What only the app target knows, such as the running colors as SwiftUI draws them.
         .testTarget(name: "ChronobarTests", dependencies: ["ChronobarCore", "Chronobar"]),
         // The scripts under scripts/, run as a developer or the bundling script runs them.
