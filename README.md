@@ -202,8 +202,12 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       names, and Accent color's dot matches the accent in System Settings › Appearance, changing
       when you pick another accent there.
 - [ ] With a timer running, pick yellow, mint, blue and Accent color in turn, in light and dark mode
-      and with Increase Contrast on and off: the Pill's ⏸, the running row's name, total and ⏸, and
-      today's date in the Week strip read clearly on each (white on dark colors, black on light ones).
+      and with Increase Contrast on and off: the Pill's ⏸ and today's date in the Week strip read
+      clearly on each (white on dark colors, black on light ones).
+- [ ] With several rows, one running, in light and dark mode, with Increase Contrast on and off and
+      whatever running color is picked: no row has the running color or the accent color behind it. The
+      running row has a quiet gray highlight, with its name, total and ⏸ in the normal text color; the
+      other rows' ▶ are gray. ‹ ›, (i), ＋ and ⚙ are gray or the text color, never the accent color.
 
 **Accessibility**
 
