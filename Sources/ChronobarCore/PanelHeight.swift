@@ -17,6 +17,20 @@ public enum PanelHeight {
         max(Double(pill.minY - visible.minY) - chrome - margin, 0)
     }
 
+    /// The most `chrome` can plausibly be: a popover's arrow, frame and shadow take a few tens of points.
+    public static let maximumChrome = 64.0
+
+    /// The `chrome` for `available`, measured from the popover's window: `window` points tall with the Panel
+    /// `panel` points tall in it, hung from a Pill whose bottom is at `pillBottom`. The window's top sits at
+    /// the Pill's bottom snapped down to a whole point. Only heights are used, not where the window is, so
+    /// a popover the system squeezed onto the screen or moved off the Pill still measures right. Nil for a
+    /// measure that can't be a popover's frame, as before its window is laid out round the Panel.
+    public static func chrome(window: Double, panel: Double, pillBottom: Double) -> Double? {
+        let frame = window - panel
+        guard frame > 0, frame <= maximumChrome else { return nil }
+        return (frame + pillBottom - pillBottom.rounded(.down)).rounded(.up)
+    }
+
     /// The rows' height for rows `natural` points tall when nothing caps them, with `rest` points of the
     /// Panel's content around them (the header, the Week strip, ＋ and an open ＋ form) and `available`
     /// points for all of it. Less than `natural`, the rows scroll within it.

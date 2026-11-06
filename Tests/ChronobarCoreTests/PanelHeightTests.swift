@@ -68,6 +68,25 @@ import ChronobarCore
         #expect(rows == PanelHeight.minimumRows)
     }
 
+    /// The popover's window is 26 points taller than the Panel in it (its arrow, frame and shadow), and its
+    /// top sits at the Pill's bottom snapped down to a whole point: half a point more under a Pill at 1089.5.
+    @Test func chromeIsTheWindowAroundThePanelPlusTheSnapUnderThePill() {
+        #expect(PanelHeight.chrome(window: 1081, panel: 1055, pillBottom: 1089.5) == 27)
+        #expect(PanelHeight.chrome(window: 1081, panel: 1055, pillBottom: 1089) == 26)
+    }
+
+    /// A popover too tall for the screen is squeezed onto it and moved off the Pill, Panel and all, but its
+    /// frame around the Panel stays the same, so the measure doesn't depend on where the system put it.
+    @Test func chromeIsTheSameWhenTheSystemSqueezedThePopover() {
+        #expect(PanelHeight.chrome(window: 1084, panel: 1058, pillBottom: 1089.5) == 27)
+    }
+
+    /// A window not yet laid out round its Panel, or one far bigger than any popover's frame, is refused.
+    @Test(arguments: [(1055.0, 1055.0), (1000, 1055), (0, 0), (1300, 1055)])
+    func implausibleChromeIsRefused(window: Double, panel: Double) {
+        #expect(PanelHeight.chrome(window: window, panel: panel, pillBottom: 1089.5) == nil)
+    }
+
     @Test func fewRowsOnAVeryShortScreenKeepTheirHeight() {
         #expect(PanelHeight.rows(natural: 30, rest: 400, available: 380) == 30)
     }
