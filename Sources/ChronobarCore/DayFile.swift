@@ -11,9 +11,8 @@ enum DayFile {
             switch entry {
             case .timed(let project, let start, let end, let source):
                 let endText = end.map { string($0.formatted(dates)) } ?? "null"
-                // `app` is what a missing `source` reads as, so it is left out and v1 files keep their shape.
-                let sourceText = source == .app ? "" : #", "source": \#(string(source.rawValue))"#
-                return #"{ "project": \#(string(project)), "start": \#(string(start.formatted(dates))), "end": \#(endText)\#(sourceText) }"#
+                // Always written, so the file shows who started each Entry; a missing `source` reads as `app`.
+                return #"{ "project": \#(string(project)), "start": \#(string(start.formatted(dates))), "end": \#(endText), "source": \#(string(source.rawValue)) }"#
             case .manual(let project, let seconds, let note):
                 return #"{ "project": \#(string(project)), "seconds": \#(seconds), "note": \#(string(note.rawValue)) }"#
             }

@@ -40,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showDockBadge()
         loginItem.renew()
         tracker = Tracker(clock: SystemTimeSource(), storageRoot: storageRoot, defaults: .standard)
+        observeStartPausesOthers()
         statusItem = StatusItemController(
             tracker: tracker, variant: variant, storageRoot: storageRoot, preferences: preferences,
             loginItem: loginItem)
@@ -153,6 +154,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.applyDockPolicy()
                 self?.observeShowInDock()
             }
+        }
+    }
+
+    /// Keeps Core's start rule in step with the Settings toggle, so every start follows it.
+    private func observeStartPausesOthers() {
+        tracker.startPausesOthers = withObservationTracking {
+            preferences.startPausesOthers
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeStartPausesOthers() }
         }
     }
 

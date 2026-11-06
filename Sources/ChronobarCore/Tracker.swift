@@ -4,17 +4,15 @@ import Observation
 /// Core's single entry point: the timers, totals and the Day files behind them.
 @MainActor @Observable
 public final class Tracker {
-    /// Every running timer, each an open Entry in the loaded Day's file. Every start still pauses the
-    /// others, so for now at most one runs.
+    /// Every running timer, each an open Entry in the loaded Day's file, at most one per Project.
     public private(set) var timers = RunningTimers()
 
     /// Compatibility view for callers written for a single timer: the newest running timer. Callers
     /// move to `timers` as the app learns to show several; then this goes.
     public var running: Running? { timers.newest }
-    /// The Project ▶ starts: the one most recently started. Kept in `defaults` across launches.
-    public private(set) var selectedProject: String? {
-        didSet { defaults?.set(selectedProject, forKey: Self.selectedProjectKey) }
-    }
+    /// Whether `start` pauses every other running timer, whatever started them. The Settings toggle
+    /// "Starting a timer pauses the others"; off by default.
+    public var startPausesOthers = false
     /// The Pinned Projects, always suggested, in `projects.txt` order.
     public private(set) var projects: [String] = []
     /// The archived Projects, never suggested until typed again, in `archived.txt` order.
@@ -34,11 +32,11 @@ public final class Tracker {
     @ObservationIgnored private let archivedStore: ProjectStore
     @ObservationIgnored private let defaults: UserDefaults?
 
-    private static let selectedProjectKey = "selectedProject"
     private static let heartbeatKey = "heartbeat"
+    /// Where v1 kept the Project ▶ started. Nothing reads it now; it is removed at launch.
+    private static let retiredSelectedProjectKey = "selectedProject"
 
     /// Reads today's file. Each open Entry there is a running timer, so timers survive a relaunch.
-    /// With no `defaults`, the Selected Project is kept in memory only.
     public init(clock: TimeSource, storageRoot: URL, defaults: UserDefaults? = nil) {
         self.clock = clock
         self.files = DayFiles(root: storageRoot, clock: clock)
@@ -48,7 +46,7 @@ public final class Tracker {
         self.now = clock.now
         self.launched = clock.now
         self.lastAlive = defaults?.object(forKey: Self.heartbeatKey) as? Date
-        self.selectedProject = defaults?.string(forKey: Self.selectedProjectKey)
+        defaults?.removeObject(forKey: Self.retiredSelectedProjectKey)
         reload()
     }
 
@@ -70,10 +68,6 @@ public final class Tracker {
         // An open Entry in a file that just parsed again is left for `recover(reparsed:)`, unless it is
         // one of Core's own timers.
         timers = RunningTimers(reparsed.contains(today) ? open.filter { known.contains($0) } : open)
-        // A running Project that was archived keeps running but isn't selected again.
-        if let running, !archived.contains(where: { ProjectName.matches($0, running.project) }) {
-            selectedProject = storedName(running.project)
-        }
         recover(reparsed: reparsed)
     }
 
@@ -82,21 +76,24 @@ public final class Tracker {
     /// Whether `day`'s file failed to parse when last read. The Panel warns about it.
     public func isMalformed(_ day: Day) -> Bool { malformedDays.contains(day) }
 
-    /// Starts a timer for `project`, pausing every running one first. A new name creates a Project.
-    /// Refused, leaving the running timers alone, while today's file is malformed. Timers run only today:
-    /// unlike `log` and `adjust` this takes no Day, so no Day other than today ever gets a timer.
-    /// Returns the Project's name with its stored spelling, the name its row is shown under.
+    /// Starts a timer for `project`, leaving the running ones running unless `startPausesOthers` is on. A
+    /// Project already running keeps its timer, start and source, so this is a no-op for it. A new name
+    /// creates a Project. Refused, leaving the running timers alone, while today's file is malformed.
+    /// Timers run only today: unlike `log` and `adjust` this takes no Day, so no Day other than today ever
+    /// gets a timer. Returns the Project's name with its stored spelling, the name its row is shown under.
     @discardableResult
     public func start(_ name: String, source: EntrySource = .app) throws -> String {
-        now = clock.now
+        catchUp()
         files.retryPending()
         _ = try files.read(today)
         let project = try resolve(name)
-        try pause()
+        if startPausesOthers {
+            for other in timers where !ProjectName.matches(other.project, project) { try pause(other.project) }
+        }
+        guard !timers.contains(project) else { return project }
         let timer = Running(project: project, start: now, source: source)
         try files.update(today) { $0.append(.timed(project: project, start: timer.start, end: nil, source: source)) }
         timers.insert(timer)
-        selectedProject = project
         return project
     }
 
@@ -119,23 +116,10 @@ public final class Tracker {
         timers.remove(timer.project)
     }
 
-    /// Whether `toggle()` has a timer to pause or a Selected Project to start.
-    public var canToggle: Bool { !timers.isEmpty || selectedProject != nil }
-
-    /// Pauses every running timer, or with none running starts the Selected Project. Does nothing with no
-    /// Selected Project; the UI opens the ＋ form instead.
-    public func toggle() throws {
-        if !timers.isEmpty {
-            try pause()
-        } else if let selectedProject {
-            try start(selectedProject)
-        }
-    }
-
     /// Whether `name`'s timer is running.
     public func isRunning(_ name: String) -> Bool { timers.contains(name) }
 
-    /// A Panel row's ▶/⏸: pauses `name` if it is running, otherwise starts it, pausing every other timer.
+    /// A Panel row's ▶/⏸: pauses `name` if it is running, otherwise starts it as `start` does.
     public func toggle(_ name: String) throws {
         if isRunning(name) {
             try pause(name)
@@ -444,7 +428,6 @@ public final class Tracker {
         }
         projects = pinned
         self.archived = archived
-        if let selectedProject, ProjectName.matches(selectedProject, name) { self.selectedProject = nil }
     }
 
     /// Adds a typed duration (`1:30`, `45`) to the Project on `day`, past, today or future, as a manual

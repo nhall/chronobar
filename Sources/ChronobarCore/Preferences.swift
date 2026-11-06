@@ -47,6 +47,11 @@ public final class Preferences {
     public var loginHintDismissed: Bool {
         didSet { defaults.set(loginHintDismissed, forKey: Keys.loginHintDismissed) }
     }
+    /// "Starting a timer pauses the others", for people who time one thing at a time. Off by default, so
+    /// one agent's start never pauses another's timer. The app hands it to `Tracker.startPausesOthers`.
+    public var startPausesOthers: Bool {
+        didSet { defaults.set(startPausesOthers, forKey: Keys.startPausesOthers) }
+    }
     /// Stored as minutes, 0 for Off. Saving drops the old on/off key so it can't turn detection back off.
     public var idleThreshold: IdleThreshold {
         didSet {
@@ -61,6 +66,7 @@ public final class Preferences {
         static let runningColor = "runningColor"
         static let showInDock = "showInDock"
         static let loginHintDismissed = "loginHintDismissed"
+        static let startPausesOthers = "startPausesOthers"
         /// Written by builds before the pop-up; false there means Off.
         static let detectsInputIdle = "detectsInputIdle"
         static let idleThresholdMinutes = "idleThresholdMinutes"
@@ -71,6 +77,7 @@ public final class Preferences {
         runningColor = defaults.string(forKey: Keys.runningColor).flatMap(RunningColor.init) ?? .accent
         showInDock = defaults.object(forKey: Keys.showInDock) as? Bool ?? true
         loginHintDismissed = defaults.bool(forKey: Keys.loginHintDismissed)
+        startPausesOthers = defaults.bool(forKey: Keys.startPausesOthers)
         idleThreshold = if defaults.object(forKey: Keys.detectsInputIdle) as? Bool == false {
             .off
         } else {

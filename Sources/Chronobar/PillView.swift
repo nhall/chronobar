@@ -7,7 +7,7 @@ extension PillMetrics {
     static let cornerRadius: CGFloat = 4
 }
 
-/// The two-segment menu bar item: the ▶/⏸ square and the Selected Project's time today.
+/// The two-segment menu bar item: the ▶/⏸ square and today's Day total.
 struct PillView: View {
     let tracker: Tracker
     let preferences: Preferences
@@ -18,7 +18,7 @@ struct PillView: View {
     @Environment(\.self) private var environment
 
     var body: some View {
-        let isRunning = tracker.running != nil
+        let isRunning = !tracker.timers.isEmpty
         HStack(spacing: PillMetrics.gap) {
             Image(systemName: isRunning ? "pause.fill" : "play.fill")
                 .font(.system(size: 9, weight: .bold))
@@ -64,8 +64,5 @@ struct PillView: View {
             .overlay(shape.strokeBorder(Color.white.opacity(fill.outlined ? 0.6 : 0), lineWidth: 1))
     }
 
-    private var time: String {
-        guard let project = tracker.selectedProject else { return DurationFormat.hoursMinutes(0) }
-        return DurationFormat.hoursMinutes(tracker.total(project, on: tracker.today))
-    }
+    private var time: String { DurationFormat.hoursMinutes(tracker.dayTotal(tracker.today)) }
 }

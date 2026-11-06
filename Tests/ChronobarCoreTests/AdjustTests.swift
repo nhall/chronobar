@@ -26,7 +26,7 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-03T07:00:00-05:00", "end": "2026-11-03T08:00:00-05:00" },
+            { "project": "Website Redesign", "start": "2026-11-03T07:00:00-05:00", "end": "2026-11-03T08:00:00-05:00", "source": "app" },
             { "project": "Website Redesign", "seconds": 900, "note": "adjustment" }
           ]
         }
@@ -104,7 +104,7 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": null },
+            { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": null, "source": "app" },
             { "project": "Website Redesign", "seconds": 1800, "note": "adjustment" }
           ]
         }

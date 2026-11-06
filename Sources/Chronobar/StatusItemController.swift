@@ -111,7 +111,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         KeyboardShortcuts.onKeyUp(for: .toggleTimer) { [weak self] in
             guard let self else { return }
             let action = PillClick.square(tracker: tracker)
-            let before = tracker.running
+            let before = tracker.timers
             run(action, by: .keyboard)
             announce(ShortcutAnnouncement.text(for: action, before: before, after: tracker))
         }
@@ -222,7 +222,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// Runs a Pill action from a click, or from the keyboard or VoiceOver.
     private func run(_ action: PillClick, by opening: PanelOpening) {
         switch action {
-        case .toggleTimer: perform { try tracker.toggle() }
+        case .pauseTimers: perform { try tracker.pause() }
         case .openPanel: showPanel(newProject: false, by: opening)
         case .openNewProjectForm: showPanel(newProject: true, by: opening)
         }
