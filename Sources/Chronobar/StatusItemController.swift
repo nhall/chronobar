@@ -74,6 +74,17 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             }
             return taken ? nil : event
         }
+        // The Panel's key equivalents, ahead of the focused control so they work wherever focus is, with
+        // Keyboard navigation on or off. A key that would edit text in a focused field passes through.
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let window = event.window
+            let key = Self.panelKey(keyCode: event.keyCode, characters: event.charactersIgnoringModifiers)
+            let modifiers = Self.panelModifiers(event.modifierFlags)
+            let taken = MainActor.assumeIsolated {
+                self?.handlePanelKey(key, modifiers: modifiers, in: window) ?? false
+            }
+            return taken ? nil : event
+        }
         // The global shortcut does exactly what a click on the square does.
         KeyboardShortcuts.onKeyUp(for: .toggleTimer) { [weak self] in
             self?.run(PillClick.square(tracker: tracker))
@@ -138,6 +149,37 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let x = button.convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil).x
         let leading = button.convert(NSPoint.zero, from: nil).x
         return PillPointer(x: x, within: leading...(leading + window.frame.width))
+    }
+
+    /// Runs the Panel command for a key pressed in the Panel or the (i) Time Summary it shows, and returns
+    /// whether it ran.
+    private func handlePanelKey(_ key: PanelKey.Key?, modifiers: PanelKey.Modifiers, in window: NSWindow?) -> Bool {
+        guard popover.isShown, let key, let window,
+              let panelWindow = popover.contentViewController?.view.window,
+              window === panelWindow || window.parent === panelWindow else { return false }
+        // A focused text field edits through its field editor, a text view.
+        let editingText = (window.firstResponder as? NSTextView)?.isEditable ?? false
+        guard let command = PanelKey.command(for: key, modifiers: modifiers, editingText: editingText)
+        else { return false }
+        panel.perform(command, today: tracker.today, calendar: tracker.calendar)
+        return true
+    }
+
+    private static func panelKey(keyCode: UInt16, characters: String?) -> PanelKey.Key? {
+        switch keyCode {
+        case 123: .leftArrow
+        case 124: .rightArrow
+        default: characters.map { .character($0) }
+        }
+    }
+
+    private static func panelModifiers(_ flags: NSEvent.ModifierFlags) -> PanelKey.Modifiers {
+        var modifiers: PanelKey.Modifiers = []
+        if flags.contains(.command) { modifiers.insert(.command) }
+        if flags.contains(.shift) { modifiers.insert(.shift) }
+        if flags.contains(.option) { modifiers.insert(.option) }
+        if flags.contains(.control) { modifiers.insert(.control) }
+        return modifiers
     }
 
     private func run(_ action: PillClick) {
