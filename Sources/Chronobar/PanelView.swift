@@ -43,7 +43,7 @@ final class PanelModel {
     var availableHeight = Double.infinity
     /// A Project whose row to scroll into view: one Start or Log just added or changed, or one keyboard
     /// focus just moved onto.
-    var reveal: String?
+    var projectToReveal: String?
 
     /// The Panel opened, by `opening`.
     func opened(by opening: PanelOpening) {
@@ -80,11 +80,13 @@ final class PanelModel {
 
 /// What the Panel asks the app to do.
 struct PanelActions {
-    let start: (String) -> Void
+    /// Start and log return the Project's name as its row is shown, which can differ from what was typed
+    /// (`Tracker.addProject`), or nil when refused, so the field keeps what was typed.
+    let start: (String) -> String?
     /// A row's ▶/⏸: starts the Project, or pauses it while it runs.
     let toggle: (String) -> Void
-    /// Log and adjust return false when the input was refused, so the field keeps what was typed.
-    let log: (_ project: String, _ duration: String, _ day: Day) -> Bool
+    let log: (_ project: String, _ duration: String, _ day: Day) -> String?
+    /// Returns false when the input was refused, so the field keeps what was typed.
     let adjust: (_ project: String, _ input: String, _ day: Day) -> Bool
     let archive: (String) -> Void
     let openDataFolder: () -> Void
@@ -230,15 +232,15 @@ struct PanelView: View {
                     suggestions: tracker.suggestions(for:),
                     match: tracker.match(panel.newProjectName),
                     // Start and Log go back to the rows and leave the Panel open.
-                    start: { project in
-                        actions.start(project)
+                    start: { name in
+                        let project = actions.start(name)
                         panel.showingNewProject = false
-                        panel.reveal = project
+                        panel.projectToReveal = project
                     },
-                    log: { project in
-                        if actions.log(project, panel.newProjectDuration, day) {
+                    log: { name in
+                        if let project = actions.log(name, panel.newProjectDuration, day) {
                             panel.showingNewProject = false
-                            panel.reveal = project
+                            panel.projectToReveal = project
                         }
                     },
                     // The field empties, so Return can't bring the Project straight back.
@@ -321,8 +323,8 @@ private struct WeekStrip: View {
     private func column(_ item: DayTotal) -> some View {
         let date = item.day.noon(in: calendar)
         let style = Date.FormatStyle(locale: .autoupdatingCurrent, calendar: calendar, timeZone: calendar.timeZone)
-        let isToday = item.day == today
-        let isViewed = item.day == viewed
+        let mark = DayMark(item.day, today: today, viewed: viewed)
+        let scheme = environment.colorScheme
         // With Differentiate Without Color, or Increase Contrast, the viewed Day also has a ring, so it
         // differs from today's filled circle in shape as well as color, and today's date is bold.
         let marksShape = environment.accessibilityDifferentiateWithoutColor
@@ -332,19 +334,43 @@ private struct WeekStrip: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Text(date.formatted(style.day()))
-                .font(.callout.monospacedDigit().weight(isToday && marksShape ? .bold : .regular))
-                .foregroundStyle(isToday ? TodayCircle.date(in: environment.colorScheme)
-                    : isViewed ? ViewedDayCircle.date : Color.primary)
+                .font(.callout.monospacedDigit().weight(mark == .today && marksShape ? .bold : .regular))
+                .foregroundStyle(mark.date(in: scheme))
                 .frame(width: 24, height: 24)
-                .background(Circle().fill(isToday ? TodayCircle.fill
-                    : isViewed ? ViewedDayCircle.fill(in: environment.colorScheme) : Color.clear))
+                .background(Circle().fill(mark.fill(in: scheme)))
                 .overlay(Circle().strokeBorder(
-                    Color.primary.opacity(isViewed && !isToday && marksShape ? 1 : 0), lineWidth: 1.5))
+                    Color.primary.opacity(mark == .viewed && marksShape ? 1 : 0), lineWidth: 1.5))
             Text(DurationFormat.hoursMinutes(item.total))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
         .contentShape(Rectangle())
+    }
+}
+
+/// How a Day's date is marked in the Week strip: today's circle, the viewed Day's when it isn't today, or
+/// none. Each gives the circle's fill and the date's color on it.
+private enum DayMark {
+    case today, viewed, plain
+
+    init(_ day: Day, today: Day, viewed: Day) {
+        self = day == today ? .today : day == viewed ? .viewed : .plain
+    }
+
+    func fill(in scheme: ColorScheme) -> Color {
+        switch self {
+        case .today: TodayCircle.fill
+        case .viewed: ViewedDayCircle.fill(in: scheme)
+        case .plain: .clear
+        }
+    }
+
+    func date(in scheme: ColorScheme) -> Color {
+        switch self {
+        case .today: TodayCircle.date(in: scheme)
+        case .viewed: ViewedDayCircle.date
+        case .plain: .primary
+        }
     }
 }
 
@@ -390,10 +416,10 @@ private struct RowList<Rows: View>: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             // A Day's first row needs no scrolling.
-            .onAppear { panel.reveal = nil }
-            .onChange(of: panel.reveal) { _, project in
+            .onAppear { panel.projectToReveal = nil }
+            .onChange(of: panel.projectToReveal) { _, project in
                 guard let project else { return }
-                panel.reveal = nil
+                panel.projectToReveal = nil
                 withAnimation(reduceMotion ? nil : .easeOut(duration: PanelResize.duration)) {
                     proxy.scrollTo(project)
                 }
@@ -464,7 +490,7 @@ private struct RowView: View {
             }
         }
         .onChange(of: focusedButton) { _, button in
-            if button != nil { panel.reveal = row.project }
+            if button != nil { panel.projectToReveal = row.project }
         }
         .foregroundStyle(.primary)
         .padding(.horizontal, 6)

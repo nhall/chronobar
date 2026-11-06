@@ -28,12 +28,9 @@ import ChronobarCore
     @Test(arguments: Appearance.all)
     func theDateIsReadableOnTheCircle(appearance: Appearance) {
         let environment = appearance.environment
-        let backdrop: Double = appearance.scheme == .dark ? 0 : 1
-        let circle = TodayCircle.fill.resolve(in: environment)
-        func over(_ c: Float) -> Double { Double(c) * Double(circle.opacity) + backdrop * (1 - Double(circle.opacity)) }
-        let fill = SRGB(red: over(circle.red), green: over(circle.green), blue: over(circle.blue))
-        let date = TodayCircle.date(in: environment.colorScheme).resolve(in: environment)
-        let text = SRGB(red: Double(date.red), green: Double(date.green), blue: Double(date.blue))
+        let backdrop = appearance.scheme == .dark ? SRGB(red: 0, green: 0, blue: 0) : SRGB(red: 1, green: 1, blue: 1)
+        let fill = TodayCircle.fill.srgb(in: environment, over: backdrop)
+        let text = TodayCircle.date(in: environment.colorScheme).srgb(in: environment, over: fill)
         #expect(Contrast.ratio(text, fill) >= 4.5)
     }
 }

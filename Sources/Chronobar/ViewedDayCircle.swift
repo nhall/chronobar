@@ -11,5 +11,4 @@ enum ViewedDayCircle {
 
     /// Black on both grays: white on dark mode's lighter gray would fall short of 4.5:1.
     static let date = Color.black
-
 }

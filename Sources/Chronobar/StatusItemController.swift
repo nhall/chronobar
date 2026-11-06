@@ -31,10 +31,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         popover.behavior = .transient
         popover.delegate = self
         let actions = PanelActions(
-            start: { [weak self] project in self?.perform { try tracker.start(project) } },
+            start: { [weak self] project in self?.attempt { try tracker.start(project) } },
             toggle: { [weak self] project in self?.perform { try tracker.toggle(project) } },
             log: { [weak self] project, duration, day in
-                self?.perform { try tracker.log(project, duration, on: day) } ?? false
+                self?.attempt { try tracker.log(project, duration, on: day) }
             },
             adjust: { [weak self] project, input, day in
                 self?.perform { try tracker.adjust(project, input, on: day) } ?? false
@@ -130,20 +130,23 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     /// Caps the Panel's height at the room under the Pill on the Pill's screen (`PanelHeight`).
     private func capPanel() {
-        guard let pill = pillFrame(), let screen = statusItem.button?.window?.screen else { return }
+        guard let (pill, screen) = pillScreen() else { return }
         let available = PanelHeight.available(under: pill, visible: screen.visibleFrame, chrome: panelChrome)
         if panel.availableHeight != available { panel.availableHeight = available }
     }
 
-    /// The status item's frame on screen.
-    private func pillFrame() -> CGRect? {
-        guard let button = statusItem.button, let window = button.window else { return nil }
-        return window.convertToScreen(button.convert(button.bounds, to: nil))
+    /// The status item's frame on screen, and the screen it is on.
+    private func pillScreen() -> (pill: CGRect, screen: NSScreen)? {
+        guard let button = statusItem.button, let window = button.window, let screen = window.screen else {
+            return nil
+        }
+        return (window.convertToScreen(button.convert(button.bounds, to: nil)), screen)
     }
 
     /// The points the popover's window takes under the Pill besides the Panel: its arrow above the Panel and
     /// its frame and shadow below, which must stay on screen too or the popover moves off the Pill. Measured
-    /// each time the Panel shows (`popoverDidShow`); until then, what the popover took when this was written.
+    /// each time the Panel is about to show (`measureChrome`), before its first frame; until the first
+    /// measure, what the popover took when this was written.
     private var panelChrome = 27.0
 
     /// VoiceOver lands on the status item's button, so the button carries what the Pill shows and the
@@ -201,9 +204,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// can go even from under it.
     private func placeCover(pressCommandKey: Bool? = nil) {
         let duringPress = pressCommandKey != nil
-        guard let item = pillFrame(), let screen = statusItem.button?.window?.screen else {
-            return cover.remove(duringPress: duringPress)
-        }
+        guard let (item, screen) = pillScreen() else { return cover.remove(duringPress: duringPress) }
         let frame = PillCoverArea.frame(
             item: item, screen: screen.frame, visible: screen.visibleFrame, pointer: NSEvent.mouseLocation,
             commandKey: pressCommandKey ?? NSEvent.modifierFlags.contains(.command))
@@ -284,14 +285,29 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         if let window = popover.contentViewController?.view.window { settleFocus(in: window, newProject: newProject) }
     }
 
-    /// Measures `panelChrome` from the popover as shown, in case the system draws it differently, and caps
-    /// the Panel again if it changed.
+    /// The popover's window is laid out by now but not yet on screen, so a Panel capped with the wrong
+    /// chrome is refitted before its first frame rather than animating once open.
+    func popoverWillShow(_ notification: Notification) {
+        measureChrome()
+    }
+
+    /// In case the window wasn't laid out round the Panel when it was about to show.
     func popoverDidShow(_ notification: Notification) {
-        guard let window = popover.contentViewController?.view.window, let pill = pillFrame() else { return }
-        let chrome = (pill.minY - window.frame.minY - popover.contentSize.height).rounded(.up)
-        guard chrome > 0, chrome != panelChrome else { return }
+        measureChrome()
+    }
+
+    /// Measures `panelChrome` from the popover's window (`PanelHeight.chrome`), and caps and fits the Panel
+    /// again if it changed.
+    private func measureChrome() {
+        guard let view = popover.contentViewController?.view, let window = view.window,
+              let pill = pillScreen()?.pill,
+              let chrome = PanelHeight.chrome(window: window.frame.height,
+                                              panel: view.convert(view.bounds, to: nil).height,
+                                              pillBottom: pill.minY),
+              chrome != panelChrome else { return }
         panelChrome = chrome
         capPanel()
+        sizer?.fitBeforeShowing()
     }
 
     func popoverDidClose(_ notification: Notification) {
@@ -325,13 +341,17 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// returns false.
     @discardableResult
     private func perform(_ action: () throws -> Void) -> Bool {
+        attempt(action) != nil
+    }
+
+    /// Runs a Core command and returns what it returned; on an error logs it, beeps and returns nil.
+    private func attempt<Result>(_ action: () throws -> Result) -> Result? {
         defer { refresh() }
         do {
-            try action()
-            return true
+            return try action()
         } catch {
             reportFailure(error, category: "tracker")
-            return false
+            return nil
         }
     }
 }

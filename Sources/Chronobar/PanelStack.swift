@@ -41,7 +41,7 @@ struct PanelStack: Layout {
         guard let rows = subviews.firstIndex(where: { $0[Rows.self] }) else { return heights }
         let natural = subviews[rows].sizeThatFits(proposal).height
         let rest = heights.reduce(0, +) + gaps(subviews)
-        heights[rows] = PanelHeight.rows(natural: natural, rest: rest, available: available).height
+        heights[rows] = PanelHeight.rows(natural: natural, rest: rest, available: available)
         return heights
     }
 }
