@@ -19,20 +19,8 @@ public enum PanelHeight {
 
     /// The rows' height for rows `natural` points tall when nothing caps them, with `rest` points of the
     /// Panel's content around them (the header, the Week strip, ＋ and an open ＋ form) and `available`
-    /// points for all of it.
-    public static func rows(natural: Double, rest: Double, available: Double) -> PanelRows {
-        let room = max(available - rest, minimumRows)
-        return natural > room ? PanelRows(height: room, scrolls: true) : PanelRows(height: natural, scrolls: false)
-    }
-}
-
-/// How tall the Panel's rows are, and whether they scroll within that.
-public struct PanelRows: Equatable, Sendable {
-    public let height: Double
-    public let scrolls: Bool
-
-    public init(height: Double, scrolls: Bool) {
-        self.height = height
-        self.scrolls = scrolls
+    /// points for all of it. Less than `natural`, the rows scroll within it.
+    public static func rows(natural: Double, rest: Double, available: Double) -> Double {
+        min(natural, max(available - rest, minimumRows))
     }
 }

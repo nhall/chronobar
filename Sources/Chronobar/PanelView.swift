@@ -323,8 +323,8 @@ private struct WeekStrip: View {
     private func column(_ item: DayTotal) -> some View {
         let date = item.day.noon(in: calendar)
         let style = Date.FormatStyle(locale: .autoupdatingCurrent, calendar: calendar, timeZone: calendar.timeZone)
-        let isToday = item.day == today
-        let isViewed = item.day == viewed
+        let mark = DayMark(item.day, today: today, viewed: viewed)
+        let scheme = environment.colorScheme
         // With Differentiate Without Color, or Increase Contrast, the viewed Day also has a ring, so it
         // differs from today's filled circle in shape as well as color, and today's date is bold.
         let marksShape = environment.accessibilityDifferentiateWithoutColor
@@ -334,19 +334,43 @@ private struct WeekStrip: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Text(date.formatted(style.day()))
-                .font(.callout.monospacedDigit().weight(isToday && marksShape ? .bold : .regular))
-                .foregroundStyle(isToday ? TodayCircle.date(in: environment.colorScheme)
-                    : isViewed ? ViewedDayCircle.date : Color.primary)
+                .font(.callout.monospacedDigit().weight(mark == .today && marksShape ? .bold : .regular))
+                .foregroundStyle(mark.date(in: scheme))
                 .frame(width: 24, height: 24)
-                .background(Circle().fill(isToday ? TodayCircle.fill
-                    : isViewed ? ViewedDayCircle.fill(in: environment.colorScheme) : Color.clear))
+                .background(Circle().fill(mark.fill(in: scheme)))
                 .overlay(Circle().strokeBorder(
-                    Color.primary.opacity(isViewed && !isToday && marksShape ? 1 : 0), lineWidth: 1.5))
+                    Color.primary.opacity(mark == .viewed && marksShape ? 1 : 0), lineWidth: 1.5))
             Text(DurationFormat.hoursMinutes(item.total))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
         }
         .contentShape(Rectangle())
+    }
+}
+
+/// How a Day's date is marked in the Week strip: today's circle, the viewed Day's when it isn't today, or
+/// none. Each gives the circle's fill and the date's color on it.
+private enum DayMark {
+    case today, viewed, plain
+
+    init(_ day: Day, today: Day, viewed: Day) {
+        self = day == today ? .today : day == viewed ? .viewed : .plain
+    }
+
+    func fill(in scheme: ColorScheme) -> Color {
+        switch self {
+        case .today: TodayCircle.fill
+        case .viewed: ViewedDayCircle.fill(in: scheme)
+        case .plain: .clear
+        }
+    }
+
+    func date(in scheme: ColorScheme) -> Color {
+        switch self {
+        case .today: TodayCircle.date(in: scheme)
+        case .viewed: ViewedDayCircle.date
+        case .plain: .primary
+        }
     }
 }
 

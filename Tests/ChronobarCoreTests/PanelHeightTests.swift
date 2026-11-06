@@ -42,33 +42,33 @@ import ChronobarCore
     @Test func rowsThatFitKeepTheirHeight() {
         let rows = PanelHeight.rows(natural: 300, rest: 400, available: 1068)
 
-        #expect(rows == PanelRows(height: 300, scrolls: false))
+        #expect(rows == 300)
     }
 
     @Test func rowsThatExactlyFillTheRoomDontScroll() {
-        #expect(PanelHeight.rows(natural: 668, rest: 400, available: 1068) == PanelRows(height: 668, scrolls: false))
+        #expect(PanelHeight.rows(natural: 668, rest: 400, available: 1068) == 668)
     }
 
     /// Past the room, the rows get what the header, the Week strip and ＋ leave, and scroll.
     @Test func rowsPastTheRoomGetWhatTheRestLeavesAndScroll() {
         let rows = PanelHeight.rows(natural: 2000, rest: 400, available: 1068)
 
-        #expect(rows == PanelRows(height: 668, scrolls: true))
+        #expect(rows == 668)
     }
 
     /// The open ＋ form takes from the rows, not from the bottom of the Panel.
     @Test func theOpenFormTakesFromTheRows() {
-        #expect(PanelHeight.rows(natural: 2000, rest: 480, available: 1068) == PanelRows(height: 588, scrolls: true))
+        #expect(PanelHeight.rows(natural: 2000, rest: 480, available: 1068) == 588)
     }
 
     /// On a screen too short for the rest, the rows still show a couple of rows rather than vanishing.
     @Test func rowsKeepAFewRowsOnAVeryShortScreen() {
         let rows = PanelHeight.rows(natural: 2000, rest: 400, available: 380)
 
-        #expect(rows == PanelRows(height: PanelHeight.minimumRows, scrolls: true))
+        #expect(rows == PanelHeight.minimumRows)
     }
 
     @Test func fewRowsOnAVeryShortScreenKeepTheirHeight() {
-        #expect(PanelHeight.rows(natural: 30, rest: 400, available: 380) == PanelRows(height: 30, scrolls: false))
+        #expect(PanelHeight.rows(natural: 30, rest: 400, available: 380) == 30)
     }
 }
