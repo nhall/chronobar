@@ -29,7 +29,12 @@ public final class Operations {
             case .stop(let label, let end?): return .success(.stop(try stop(label, at: end)))
             case .setStart(let label, let start): return .success(.setStart(try setStart(label, at: start)))
             case .addEntry(let label, let span): return .success(.addEntry(try addEntry(label, span)))
-            case .adjust(let label, let input, let day): return .success(.adjust(try adjust(label, input, on: day)))
+            case .adjust(let label, let input, let date): return .success(.adjust(try adjust(label, input, on: date)))
+            case .day(let date): return .success(.day(try day(date)))
+            case .summary: return .success(.summary(summary()))
+            case .labels(let query): return .success(.labels(labels(query)))
+            case .pin(let label): return .success(.pin(try pin(label)))
+            case .archive(let label): return .success(.archive(try archive(label)))
             }
         } catch {
             return .failure(error)

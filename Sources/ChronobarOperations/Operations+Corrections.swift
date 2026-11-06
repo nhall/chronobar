@@ -26,8 +26,8 @@ extension Operations {
             let days = entries.map { $0.day(in: tracker.calendar) }
             return AddEntryResult(label: entries[0].project, entries: entries.map(result), manual: nil,
                                   days: days.map(dayResult))
-        case .duration(let duration, let day):
-            let day = day ?? tracker.today
+        case .duration(let duration, let date):
+            let day = try date.map(parsedDay) ?? tracker.today
             let project = try core { try tracker.addEntry(label, duration: duration, on: day) }
             guard case .absolute(let seconds)? = try? DurationInput(parsing: duration) else {
                 throw OperationError(.failed, "Chronobar added \(duration) but couldn't read it back.")
@@ -38,9 +38,9 @@ extension Operations {
         }
     }
 
-    func adjust(_ label: String, _ input: String, on day: Day?) throws(OperationError) -> AdjustResult {
+    func adjust(_ label: String, _ input: String, on date: String?) throws(OperationError) -> AdjustResult {
         let label = try named(label)
-        let day = day ?? tracker.today
+        let day = try date.map(parsedDay) ?? tracker.today
         let before = tracker.total(label, on: day)
         try core { try tracker.adjust(label, input, on: day) }
         let total = tracker.total(label, on: day)
@@ -77,11 +77,6 @@ extension Operations {
         let day = entry.day(in: tracker.calendar)
         return EntryResult(label: entry.project, start: entry.start, end: entry.end ?? tracker.now,
                            source: entry.source, totalSeconds: seconds(tracker.total(entry.project, on: day)))
-    }
-
-    func dayResult(_ day: Day) -> DayResult {
-        DayResult(date: day.description, totalSeconds: seconds(tracker.dayTotal(day)),
-                  elapsedSeconds: seconds(tracker.elapsed(day)))
     }
 
     /// `date` as the Day files write it, for a message.

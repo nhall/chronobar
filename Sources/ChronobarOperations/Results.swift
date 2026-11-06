@@ -10,6 +10,11 @@ public enum OperationResult: Equatable, Sendable {
     case setStart(SetStartResult)
     case addEntry(AddEntryResult)
     case adjust(AdjustResult)
+    case day(DayRowsResult)
+    case summary(SummaryResult)
+    case labels(LabelsResult)
+    case pin(PinResult)
+    case archive(ArchiveResult)
 
     /// The operation this answers, as `Request.operation` names it.
     public var operation: String {
@@ -20,6 +25,11 @@ public enum OperationResult: Equatable, Sendable {
         case .setStart: "set_start"
         case .addEntry: "add_entry"
         case .adjust: "adjust"
+        case .day: "day"
+        case .summary: "summary"
+        case .labels: "labels"
+        case .pin: "pin"
+        case .archive: "archive"
         }
     }
 }

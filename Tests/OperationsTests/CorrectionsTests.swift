@@ -186,7 +186,7 @@ import ChronobarOperations
         try write(root, "2026-11-02", #"    { "project": "Website Redesign", "seconds": 600, "note": "manual" }"#)
         let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
 
-        let added = try operations.addEntry("website redesign", .duration("1:30", day: Day("2026-11-02")))
+        let added = try operations.addEntry("website redesign", .duration("1:30", date: "2026-11-02"))
 
         #expect(added.label == "Website Redesign")
         #expect(added.entries.isEmpty)
@@ -197,7 +197,7 @@ import ChronobarOperations
     @Test func addingADurationWithNoDayAddsItToday() throws {
         let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
 
-        let added = try operations.addEntry("Website Redesign", .duration("45", day: nil))
+        let added = try operations.addEntry("Website Redesign", .duration("45", date: nil))
 
         #expect(added.manual?.date == "2026-11-03")
     }
@@ -207,8 +207,8 @@ import ChronobarOperations
          OperationError.Kind.futureTime),
         (.times(start: FakeClock("2026-11-03T08:00:00").now, end: FakeClock("2026-11-03T07:00:00").now),
          .endBeforeStart),
-        (.duration("1:00", day: Day("2026-11-04")), .futureTime),
-        (.duration("soon", day: nil), .invalidDuration),
+        (.duration("1:00", date: "2026-11-04"), .futureTime),
+        (.duration("soon", date: nil), .invalidDuration),
     ])
     func badEntriesAreRefusedAndChangeNothing(span: EntrySpan, kind: OperationError.Kind) throws {
         let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
@@ -223,7 +223,7 @@ import ChronobarOperations
         try write(root, "2026-11-02", "not json")
         let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
 
-        let error = operations.perform(.addEntry(label: "Website Redesign", span: .duration("1:00", day: Day("2026-11-02")))).error
+        let error = operations.perform(.addEntry(label: "Website Redesign", span: .duration("1:00", date: "2026-11-02"))).error
 
         #expect(error?.kind == .malformedFile)
         #expect(error?.message.contains("days/2026-11-02.json") == true)
@@ -235,7 +235,7 @@ import ChronobarOperations
         try write(root, "2026-11-02", #"    { "project": "Website Redesign", "seconds": 3600, "note": "manual" }"#)
         let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
 
-        let adjusted = try operations.adjust("website redesign", "+15", day: Day("2026-11-02"))
+        let adjusted = try operations.adjust("website redesign", "+15", date: "2026-11-02")
 
         #expect(adjusted == AdjustResult(label: "Website Redesign", date: "2026-11-02", changeSeconds: 15 * 60,
                                          totalSeconds: 75 * 60,
@@ -248,7 +248,7 @@ import ChronobarOperations
         _ = try operations.start("Website Redesign")
         clock.set("2026-11-03T10:00:00")
 
-        let adjusted = try operations.adjust("Website Redesign", "1:15", day: nil)
+        let adjusted = try operations.adjust("Website Redesign", "1:15", date: nil)
 
         #expect(adjusted.date == "2026-11-03")
         #expect(adjusted.changeSeconds == 15 * 60)
@@ -259,7 +259,7 @@ import ChronobarOperations
     @Test func adjustingWithATypoIsRefused() throws {
         let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
 
-        let error = operations.perform(.adjust(label: "Website Redesign", input: "1:75", day: nil)).error
+        let error = operations.perform(.adjust(label: "Website Redesign", input: "1:75", date: nil)).error
 
         #expect(error?.kind == .invalidDuration)
         #expect(error?.message.contains("1:75") == true)
@@ -268,7 +268,7 @@ import ChronobarOperations
     @Test func adjustingABlankLabelIsRefused() throws {
         let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
 
-        #expect(operations.perform(.adjust(label: " ", input: "1:00", day: nil)).error?.kind == .invalidLabel)
+        #expect(operations.perform(.adjust(label: " ", input: "1:00", date: nil)).error?.kind == .invalidLabel)
     }
 
     // MARK: On the wire
@@ -296,7 +296,7 @@ import ChronobarOperations
 
         let moved = try respond(#"{"op": "set_start", "at": "2026-11-03T08:30:00-05:00"}"#, operations)
         let added = try respond(#"{"op": "add_entry", "label": "Internal", "start": "2026-11-03T07:00:00-05:00", "end": "2026-11-03T07:30:00-05:00"}"#, operations)
-        let logged = try respond(#"{"op": "add_entry", "label": "Internal", "duration": "0:15", "day": "2026-11-02"}"#, operations)
+        let logged = try respond(#"{"op": "add_entry", "label": "Internal", "duration": "0:15", "date": "2026-11-02"}"#, operations)
         let adjusted = try respond(#"{"op": "adjust", "label": "Internal", "input": "-10"}"#, operations)
 
         #expect(moved["op"] as? String == "set_start")
@@ -320,12 +320,12 @@ import ChronobarOperations
         #expect((error["message"] as? String)?.contains("ISO 8601") == true)
     }
 
-    @Test func aDayThatIsNotADateIsAnInvalidRequest() throws {
+    @Test func aDateThatIsNotADayIsAnInvalidDate() throws {
         let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
 
-        let error = try respond(#"{"op": "adjust", "label": "Internal", "input": "1:00", "day": "Tuesday"}"#, operations)["error"]
+        let error = try respond(#"{"op": "adjust", "label": "Internal", "input": "1:00", "date": "Tuesday"}"#, operations)["error"]
 
-        #expect((error as? [String: Any])?["kind"] as? String == "invalid_request")
+        #expect((error as? [String: Any])?["kind"] as? String == "invalid_date")
     }
 
     /// What the `chronobar` command sends and reads back, for each correction.
@@ -337,8 +337,8 @@ import ChronobarOperations
         let requests: [Request] = [
             .setStart(label: "Website Redesign", at: clock.date("2026-11-03T08:45:00")),
             .addEntry(label: "Internal", span: .times(start: clock.date("2026-11-03T07:00:00"), end: clock.date("2026-11-03T07:30:00"))),
-            .addEntry(label: "Internal", span: .duration("15", day: Day("2026-11-02"))),
-            .adjust(label: "Internal", input: "+5", day: Day("2026-11-02")),
+            .addEntry(label: "Internal", span: .duration("15", date: "2026-11-02")),
+            .adjust(label: "Internal", input: "+5", date: "2026-11-02"),
             .stop(label: nil, at: clock.date("2026-11-03T09:50:00")),
         ]
 
@@ -372,8 +372,8 @@ extension Operations {
         return result
     }
 
-    func adjust(_ label: String, _ input: String, day: Day?) throws -> AdjustResult {
-        guard case .adjust(let result) = try perform(.adjust(label: label, input: input, day: day)).success() else {
+    func adjust(_ label: String, _ input: String, date: String?) throws -> AdjustResult {
+        guard case .adjust(let result) = try perform(.adjust(label: label, input: input, date: date)).success() else {
             throw Unexpected()
         }
         return result

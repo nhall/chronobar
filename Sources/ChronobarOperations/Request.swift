@@ -14,8 +14,19 @@ public enum Request: Equatable, Sendable {
     case setStart(label: String?, at: Date)
     /// Adds a finished Entry for `label`, without starting a timer.
     case addEntry(label: String, span: EntrySpan)
-    /// Sets `label`'s total on `day` (nil: today) to `input` (`1:15`) or changes it by `input` (`+15`, `-10`).
-    case adjust(label: String, input: String, day: Day? = nil)
+    /// Sets `label`'s total on `date` (nil: today) to `input` (`1:15`) or changes it by `input` (`+15`,
+    /// `-10`). `date` is `YYYY-MM-DD`.
+    case adjust(label: String, input: String, date: String? = nil)
+    /// A Day's rows and totals; with no date, today's. `date` is `YYYY-MM-DD`.
+    case day(date: String?)
+    /// The Time Summary: today, yesterday, this week and this month.
+    case summary
+    /// The ＋ form's suggestions containing `query`; with no query, all of them.
+    case labels(query: String?)
+    /// Pins `label`, so it is always suggested.
+    case pin(label: String)
+    /// Archives `label`: unpins it and hides it from the suggestions, keeping its time.
+    case archive(label: String)
 
     /// The name in `op`.
     public var operation: String {
@@ -26,6 +37,11 @@ public enum Request: Equatable, Sendable {
         case .setStart: "set_start"
         case .addEntry: "add_entry"
         case .adjust: "adjust"
+        case .day: "day"
+        case .summary: "summary"
+        case .labels: "labels"
+        case .pin: "pin"
+        case .archive: "archive"
         }
     }
 }
@@ -33,13 +49,15 @@ public enum Request: Equatable, Sendable {
 /// What `add_entry` adds: a timed Entry from a start to an end, or a duration on a Day as a manual Entry.
 public enum EntrySpan: Equatable, Sendable {
     case times(start: Date, end: Date)
-    /// `duration` as typed (`1:30`, `45`), on `day` (nil: today).
-    case duration(String, day: Day?)
+    /// `duration` as typed (`1:30`, `45`), on `date` (`YYYY-MM-DD`; nil: today).
+    case duration(String, date: String?)
 }
 
 extension Request: Codable {
     private enum CodingKeys: String, CodingKey {
-        case op, label, at, start, end, duration, day, input
+        case op, label
+        case date, query
+        case at, start, end, duration, input
     }
 
     /// Throws `OperationError` `unknownOperation` for an `op` it doesn't know; a missing or mistyped
@@ -59,7 +77,8 @@ extension Request: Codable {
         case "add_entry":
             let label = try container.decode(String.self, forKey: .label)
             if let duration = try container.decodeIfPresent(String.self, forKey: .duration) {
-                self = .addEntry(label: label, span: .duration(duration, day: try Self.day(in: container)))
+                let date = try container.decodeIfPresent(String.self, forKey: .date)
+                self = .addEntry(label: label, span: .duration(duration, date: date))
             } else {
                 self = .addEntry(label: label, span: .times(start: try container.decode(Date.self, forKey: .start),
                                                             end: try container.decode(Date.self, forKey: .end)))
@@ -67,26 +86,21 @@ extension Request: Codable {
         case "adjust":
             self = .adjust(label: try container.decode(String.self, forKey: .label),
                            input: try container.decode(String.self, forKey: .input),
-                           day: try Self.day(in: container))
+                           date: try container.decodeIfPresent(String.self, forKey: .date))
+        case "day": self = .day(date: try container.decodeIfPresent(String.self, forKey: .date))
+        case "summary": self = .summary
+        case "labels": self = .labels(query: try container.decodeIfPresent(String.self, forKey: .query))
+        case "pin": self = .pin(label: try container.decode(String.self, forKey: .label))
+        case "archive": self = .archive(label: try container.decode(String.self, forKey: .label))
         default: throw OperationError(.unknownOperation, "Unknown operation \"\(op)\".")
         }
-    }
-
-    /// `day` as `YYYY-MM-DD`, if present.
-    private static func day(in container: KeyedDecodingContainer<CodingKeys>) throws -> Day? {
-        guard let text = try container.decodeIfPresent(String.self, forKey: .day) else { return nil }
-        guard let day = Day(text) else {
-            throw DecodingError.dataCorruptedError(forKey: .day, in: container,
-                                                   debugDescription: "\(text) isn't a date such as 2026-11-03")
-        }
-        return day
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(operation, forKey: .op)
         switch self {
-        case .status: break
+        case .status, .summary: break
         case .start(let label): try container.encode(label, forKey: .label)
         case .stop(let label, let at):
             try container.encodeIfPresent(label, forKey: .label)
@@ -98,14 +112,17 @@ extension Request: Codable {
             try container.encode(label, forKey: .label)
             try container.encode(start, forKey: .start)
             try container.encode(end, forKey: .end)
-        case .addEntry(let label, .duration(let duration, let day)):
+        case .addEntry(let label, .duration(let duration, let date)):
             try container.encode(label, forKey: .label)
             try container.encode(duration, forKey: .duration)
-            try container.encodeIfPresent(day?.description, forKey: .day)
-        case .adjust(let label, let input, let day):
+            try container.encodeIfPresent(date, forKey: .date)
+        case .adjust(let label, let input, let date):
             try container.encode(label, forKey: .label)
             try container.encode(input, forKey: .input)
-            try container.encodeIfPresent(day?.description, forKey: .day)
+            try container.encodeIfPresent(date, forKey: .date)
+        case .day(let date): try container.encodeIfPresent(date, forKey: .date)
+        case .labels(let query): try container.encodeIfPresent(query, forKey: .query)
+        case .pin(let label), .archive(let label): try container.encode(label, forKey: .label)
         }
     }
 }

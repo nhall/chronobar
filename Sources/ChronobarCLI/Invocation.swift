@@ -24,6 +24,13 @@ enum Invocation: Equatable {
           adjust <label> <T> [--day DAY]
                                         Set <label>'s total on DAY to T (1:15) or change it
                                         (+15, -10).
+          day [<date>]                  List a Day's labels and totals; <date> is YYYY-MM-DD,
+                                        else today.
+          summary                       Show today, yesterday, this week and this month.
+          labels [<query>]              List the suggested labels, or those containing <query>.
+          pin <label>                   Keep <label> in the suggestions.
+          archive <label>               Unpin <label> and hide it from the suggestions, keeping
+                                        its time.
           help                          Show this help.
 
         Options:
@@ -33,7 +40,7 @@ enum Invocation: Equatable {
 
         TIME is HH:MM today in local time, or ISO 8601 with an offset
         (2026-11-03T14:40:00-05:00). DAY is YYYY-MM-DD and defaults to today.
-        The words of a label are joined into one, so quotes are optional.
+        The words after a command are joined into one label or query, so quotes are optional.
         Chronobar is launched if it isn't running. Exit status: 0 done, 1 refused,
         2 usage error, 3 Chronobar couldn't be reached.
         """
@@ -90,11 +97,8 @@ enum Invocation: Equatable {
             }
             return date
         }
-        func day() throws(OperationError) -> Day? {
-            guard let text = values["--day"] else { return nil }
-            guard let day = Day(text) else { throw OperationError(.usage, "--day \(text) isn't a date such as 2026-11-03.") }
-            return day
-        }
+        // Checked by the app, as for `day`.
+        let date = values["--day"]
 
         let request: Request
         switch command {
@@ -113,10 +117,10 @@ enum Invocation: Equatable {
             guard !label.isEmpty else { throw OperationError(.usage, "add needs a label.") }
             let start = try time("--start"), end = try time("--end")
             switch (start, end, values["--duration"]) {
-            case (let start?, let end?, nil) where values["--day"] == nil:
+            case (let start?, let end?, nil) where date == nil:
                 request = .addEntry(label: label, span: .times(start: start, end: end))
             case (nil, nil, let duration?):
-                request = .addEntry(label: label, span: .duration(duration, day: try day()))
+                request = .addEntry(label: label, span: .duration(duration, date: date))
             default:
                 throw OperationError(.usage, "add needs --start and --end, or --duration with an optional --day.")
             }
@@ -124,7 +128,17 @@ enum Invocation: Equatable {
             guard rest.count >= 2, let input = rest.popLast() else {
                 throw OperationError(.usage, "adjust needs a label and a total such as 1:15, +15 or -10.")
             }
-            request = .adjust(label: rest.joined(separator: " "), input: input, day: try day())
+            request = .adjust(label: rest.joined(separator: " "), input: input, date: date)
+        case "day":
+            guard words.count <= 2 else { throw OperationError(.usage, "day takes one date, YYYY-MM-DD.") }
+            request = .day(date: label.isEmpty ? nil : label)
+        case "summary":
+            guard label.isEmpty else { throw OperationError(.usage, "summary takes no arguments.") }
+            request = .summary
+        case "labels": request = .labels(query: label.isEmpty ? nil : label)
+        case "pin", "archive":
+            guard !label.isEmpty else { throw OperationError(.usage, "\(command) needs a label.") }
+            request = command == "pin" ? .pin(label: label) : .archive(label: label)
         default: throw OperationError(.usage, "Unknown command \(command).")
         }
         self = .request(request, json: json, copy: copy)

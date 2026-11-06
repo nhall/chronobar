@@ -76,6 +76,22 @@ an end that isn't after its start, and time a label already has (counting it twi
 start or entry that crosses midnight is split so each day file holds its own time. Timers and entries
 added this way are recorded as started by an agent.
 
+Reading where time went, and keeping the label list tidy:
+
+```sh
+chronobar day                           # today's labels, totals and elapsed time
+chronobar day 2026-11-02                # another day's
+chronobar summary                       # today, yesterday, this week and this month
+chronobar labels client a               # suggested labels containing "client a"
+chronobar pin "Internal meeting"        # always suggest it
+chronobar archive "Client A, Ticket 665"   # unpin it and stop suggesting it; its time stays
+```
+
+`labels` follows the ＋ form's rules: labels with time in the last 30 days and pinned ones, minus archived
+ones. With a query it also says what the query names exactly, even if it isn't suggested (`archived`, or
+`unused` with no time in 30 days), or that it would be `new`. `archive` refuses a label Chronobar has
+never seen (`unknown_label`), and leaves a running timer running.
+
 `--json` prints the app's JSON response instead of text: `{"ok": true, "op": …, "result": {…}}`, or
 `{"ok": false, "error": {"kind": …, "message": …}}`. Times are ISO 8601 with a UTC offset, as stored in
 the day files, and totals are whole seconds (`total_seconds`, `elapsed_seconds`). The exit status is 0
@@ -431,6 +447,12 @@ Try these against the development copy (`chronobar --dev …`) unless you are ch
 - [ ] With one timer running, `chronobar stop` stops it; with none, it exits 1 with "No timer is running."
 - [ ] `chronobar --json status` prints one line of JSON with `"ok":true` and times with a UTC offset;
       `chronobar --json stop` with nothing running prints `"ok":false` and `"kind":"nothing_running"`.
+- [ ] `chronobar day` shows the same rows, totals and elapsed time as the Panel, with "running" on running
+      rows; `chronobar day <a past date>` matches the Panel on that day; `chronobar day 2026-11-31` exits 1.
+- [ ] `chronobar summary` matches the (i) Time Summary.
+- [ ] `chronobar labels` matches the ＋ form's list; `chronobar pin X` adds X to it at once (open the ＋
+      form again) and to `projects.txt`; `chronobar archive X` takes it off both and adds it to
+      `archived.txt`, its row and time stay. `chronobar archive Nonsense` exits 1 and changes nothing.
 - [ ] `ls -l` on the data folder shows `chronobar.sock` as `srw-------`.
 - [ ] Quit the app, then run `chronobar status`: the app launches in the background without coming to
       the front, and the status prints. The same with the app never opened since a restart.

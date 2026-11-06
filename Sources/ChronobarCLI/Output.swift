@@ -42,6 +42,11 @@ enum Output {
                 : (adjusted.changeSeconds > 0 ? "+" : "-") + total(abs(adjusted.changeSeconds))
             return "\(adjusted.label) on \(adjusted.date): \(total(adjusted.totalSeconds)) (\(change)).\n"
                 + day(adjusted.day)
+        case .day(let day): return rows(day)
+        case .summary(let summary): return periods(summary)
+        case .labels(let labels): return list(labels)
+        case .pin(let pinned): return pinnedText(pinned)
+        case .archive(let archived): return archivedText(archived)
         }
     }
 
@@ -75,7 +80,7 @@ enum Output {
         return "\(name): \(total(day.totalSeconds)) · \(total(day.elapsedSeconds)) elapsed"
     }
 
-    private static func total(_ seconds: Int) -> String { DurationFormat.hoursMinutes(TimeInterval(seconds)) }
+    static func total(_ seconds: Int) -> String { DurationFormat.hoursMinutes(TimeInterval(seconds)) }
 
     private static func clock(_ date: Date) -> String {
         date.formatted(.dateTime.locale(Locale(identifier: "en_GB")).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))

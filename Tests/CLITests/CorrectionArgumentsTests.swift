@@ -67,9 +67,9 @@ import ChronobarOperations
         #expect(try request("add", "Internal", "--start", "7:00", "--end", "7:45")
                 == .addEntry(label: "Internal", span: .times(start: time(7, 0), end: time(7, 45))))
         #expect(try request("add", "Internal", "--duration", "1:30")
-                == .addEntry(label: "Internal", span: .duration("1:30", day: nil)))
+                == .addEntry(label: "Internal", span: .duration("1:30", date: nil)))
         #expect(try request("add", "Internal", "--duration", "45", "--day", "2026-11-02")
-                == .addEntry(label: "Internal", span: .duration("45", day: Day("2026-11-02"))))
+                == .addEntry(label: "Internal", span: .duration("45", date: "2026-11-02")))
     }
 
     @Test(arguments: [
@@ -78,7 +78,6 @@ import ChronobarOperations
         ["add", "Internal", "--start", "7:00", "--end", "7:45", "--duration", "45"],
         ["add", "Internal", "--start", "7:00", "--end", "7:45", "--day", "2026-11-02"],
         ["add", "--duration", "45"],
-        ["add", "Internal", "--duration", "45", "--day", "Tuesday"],
         ["stop", "--at", "soon"],
         ["stop", "--at"],
         ["start", "Internal", "--at", "7:00"],
@@ -93,7 +92,7 @@ import ChronobarOperations
                 == .adjust(label: "Client A, Ticket 665", input: "1:15"))
         #expect(try request("adjust", "Internal", "-10") == .adjust(label: "Internal", input: "-10"))
         #expect(try request("adjust", "Internal", "+15", "--day", "2026-11-02")
-                == .adjust(label: "Internal", input: "+15", day: Day("2026-11-02")))
+                == .adjust(label: "Internal", input: "+15", date: "2026-11-02"))
         #expect(usageError("adjust", "1:15")?.kind == .usage)
     }
 }
