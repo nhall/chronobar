@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             reportFailure(error, category: "launch", beep: false)
         }
         // Before launch finishes, so with Show in Dock off the app starts silently in the menu bar.
-        applyDockPolicy()
+        applyDockPolicy(launching: true)
         observeShowInDock()
     }
 
@@ -96,54 +96,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.refresh()
     }
 
-    private func applyDockPolicy() {
+    /// `launching` is for the policy the app starts with: leaving the Dock then hides no Settings window, and
+    /// coming to the front would take it from whatever the user is doing, as at login.
+    private func applyDockPolicy(launching: Bool = false) {
         let policy: NSApplication.ActivationPolicy = preferences.showInDock ? .regular : .accessory
         guard NSApp.activationPolicy() != policy else { return }
         NSApp.setActivationPolicy(policy)
         // The Dock tile is new each time the app enters the Dock, so its badge goes back on.
         if policy == .regular && NSApp.isRunning { showDockBadge() }
-        if policy == .accessory && NSApp.isRunning { comeBackAfterLeavingDock() }
+        if policy == .accessory && !launching { comeBackAfterLeavingDock() }
     }
 
     /// Leaving the Dock deactivates the app, which would drop the Settings window behind other apps, so the
-    /// app comes back to the front. macOS hands the front to another app a moment after the switch (about
-    /// 70 ms, seen on macOS 27) and undoes a request made before then, so the app waits until another app
-    /// has been made active, or `dockLeaveTimeout` if none is.
+    /// app comes back to the front each time it is deactivated in the next `dockLeaveWatch`. Seen on macOS
+    /// 27: the app is deactivated straight away, and comes back; about 70 ms later macOS hands the front to
+    /// another app again, which deactivates it once more, and it comes back for good. No notification marks
+    /// the end of that handover, so the watch ends after a set time.
     private func comeBackAfterLeavingDock() {
         endDockLeave()
-        let current = NSRunningApplication.current.processIdentifier
-        dockLeaveObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
-        ) { [weak self] notification in
-            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-            guard app?.processIdentifier != current else { return }
-            MainActor.assumeIsolated { self?.comeBackNow() }
+        dockLeaveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: NSApp, queue: .main
+        ) { _ in
+            MainActor.assumeIsolated { NSApp.comeToFront() }
         }
-        let timeout = Timer(timeInterval: Self.dockLeaveTimeout, repeats: false) { [weak self] _ in
-            MainActor.assumeIsolated { self?.comeBackNow() }
+        let watch = Timer(timeInterval: Self.dockLeaveWatch, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.endDockLeave() }
         }
-        RunLoop.main.add(timeout, forMode: .common)
-        dockLeaveTimer = timeout
-    }
-
-    private func comeBackNow() {
-        endDockLeave()
-        NSApp.comeToFront()
+        RunLoop.main.add(watch, forMode: .common)
+        dockLeaveTimer = watch
     }
 
     private func endDockLeave() {
-        if let dockLeaveObserver { NSWorkspace.shared.notificationCenter.removeObserver(dockLeaveObserver) }
+        if let dockLeaveObserver { NotificationCenter.default.removeObserver(dockLeaveObserver) }
         dockLeaveObserver = nil
         dockLeaveTimer?.invalidate()
         dockLeaveTimer = nil
     }
 
-    /// While `comeBackAfterLeavingDock` waits: its observer, and the timer that stops it waiting.
+    /// While `comeBackAfterLeavingDock` watches: its observer, and the timer that ends the watch.
     private var dockLeaveObserver: NSObjectProtocol?
     private var dockLeaveTimer: Timer?
 
-    /// How long `comeBackAfterLeavingDock` waits for another app to be made active, in case none is.
-    private static let dockLeaveTimeout: TimeInterval = 0.5
+    /// How long `comeBackAfterLeavingDock` watches: several times the handover macOS was seen to take.
+    private static let dockLeaveWatch: TimeInterval = 0.3
 
     private func observeShowInDock() {
         withObservationTracking {
