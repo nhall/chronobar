@@ -98,10 +98,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         // Keyboard navigation on or off. A key that would edit text in a focused field passes through.
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             let window = event.window
-            let key = PanelKey.Key(event)
+            let keyCode = event.keyCode
             let modifiers = PanelKey.Modifiers(event.modifierFlags)
             let taken = MainActor.assumeIsolated {
-                self?.handlePanelKey(key, modifiers: modifiers, in: window) ?? false
+                self?.handlePanelKey(keyCode, modifiers: modifiers, in: window) ?? false
             }
             return taken ? nil : event
         }
@@ -223,15 +223,16 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     /// Runs the Panel command for a key pressed in the Panel or the (i) Time Summary it shows, and returns
     /// whether it ran. Any key pressed there, command or not, shows the focus ring.
-    private func handlePanelKey(_ key: PanelKey.Key?, modifiers: PanelKey.Modifiers, in window: NSWindow?) -> Bool {
+    private func handlePanelKey(_ keyCode: UInt16, modifiers: PanelKey.Modifiers, in window: NSWindow?) -> Bool {
         guard popover.isShown, let window,
               let panelWindow = popover.contentViewController?.view.window,
               window === panelWindow || window.parent === panelWindow else { return false }
         panel.keyPressed()
-        guard let key else { return false }
+        guard let layout = PanelKey.currentLayout() else { return false }
         // A focused text field edits through its field editor, a text view.
         let editingText = (window.firstResponder as? NSTextView)?.isEditable ?? false
-        guard let command = PanelKey.command(for: key, modifiers: modifiers, editingText: editingText)
+        guard let command = PanelKey.command(
+            keyCode: keyCode, modifiers: modifiers, layout: layout, editingText: editingText)
         else { return false }
         panel.perform(command, today: tracker.today, calendar: tracker.calendar)
         return true
