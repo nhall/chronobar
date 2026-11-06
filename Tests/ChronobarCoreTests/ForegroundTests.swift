@@ -21,32 +21,25 @@ import ChronobarCore
     let indigo = SRGB(red: 88 / 255.0, green: 86 / 255.0, blue: 214 / 255.0)
 
     @Test func whiteStaysWhereverItIsReadable() {
-        #expect(Foreground.on(indigo, for: .text) == .white)
-        #expect(Foreground.on(indigo, for: .glyph) == .white)
+        #expect(Foreground.on(indigo) == .white)
         // About 4:1 is enough for a glyph.
-        #expect(Foreground.on(blue, for: .glyph) == .white)
+        #expect(Foreground.on(blue) == .white)
     }
 
     @Test func blackReplacesWhiteWhereWhiteIsTooFaint() {
-        #expect(Foreground.on(yellow, for: .text) == .black)
-        #expect(Foreground.on(yellow, for: .glyph) == .black)
-        // About 4:1 is too low for text.
-        #expect(Foreground.on(blue, for: .text) == .black)
+        #expect(Foreground.on(yellow) == .black)
     }
 
-    @Test func everyBackgroundGetsAForegroundThatMeetsItsRole() {
+    @Test func everyBackgroundGetsAReadableForeground() {
         let steps = stride(from: 0.0, through: 1.0, by: 1 / 32.0)
         for r in steps { for g in steps { for b in steps {
             let background = SRGB(red: r, green: g, blue: b)
-            for role in [Foreground.Role.text, .glyph] {
-                let ratio = Contrast.ratio(Foreground.on(background, for: role).srgb, background)
-                #expect(ratio >= role.minimumContrast, "\(background) \(role)")
-            }
+            let ratio = Contrast.ratio(Foreground.on(background).srgb, background)
+            #expect(ratio >= Foreground.minimumContrast, "\(background)")
         } } }
     }
 
-    @Test func theMinimumsAreWCAGs() {
-        #expect(Foreground.Role.text.minimumContrast == 4.5)
-        #expect(Foreground.Role.glyph.minimumContrast == 3)
+    @Test func theMinimumIsWCAGsForAGlyph() {
+        #expect(Foreground.minimumContrast == 3)
     }
 }

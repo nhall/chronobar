@@ -78,7 +78,9 @@ public final class Tracker {
     /// Starts a timer for `project`, pausing any running one first. A new name creates a Project.
     /// Refused, leaving any running timer alone, while today's file is malformed. Timers run only today:
     /// unlike `log` and `adjust` this takes no Day, so no Day other than today ever gets a timer.
-    public func start(_ name: String) throws {
+    /// Returns the Project's name as `addProject` resolves it, the name its row is shown under.
+    @discardableResult
+    public func start(_ name: String) throws -> String {
         now = clock.now
         files.retryPending()
         _ = try files.read(today)
@@ -88,6 +90,7 @@ public final class Tracker {
         try files.update(today) { $0.append(.timed(project: project, start: start, end: nil)) }
         running = Running(project: project, start: start)
         selectedProject = project
+        return project
     }
 
     /// Closes the running Entry. If today's file is malformed the timer still stops, and closing the
@@ -391,14 +394,17 @@ public final class Tracker {
 
     /// Adds a typed duration (`1:30`, `45`) to the Project on `day`, past, today or future, as a manual
     /// Entry, without starting a timer. A new name creates a Project. Throws `InvalidDuration` for
-    /// anything but a positive total.
-    public func log(_ name: String, _ duration: String, on day: Day) throws {
+    /// anything but a positive total. Returns the Project's name as `addProject` resolves it, the name its
+    /// row is shown under.
+    @discardableResult
+    public func log(_ name: String, _ duration: String, on day: Day) throws -> String {
         guard case .absolute(let seconds) = try DurationInput(parsing: duration), seconds > 0 else {
             throw InvalidDuration(text: duration)
         }
         catchUp()
         let project = try addProject(name)
         try files.update(day) { $0.append(.manual(project: project, seconds: seconds, note: .manual)) }
+        return project
     }
 
     /// Sets the Project's total on `day`, past, today or future, to a typed total (`1:15`) or changes it

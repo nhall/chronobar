@@ -6,7 +6,7 @@ can read and edit. There are no accounts, no sync and no integrations.
 
 <!-- TODO: screenshots
   - docs/screenshots/pill.png         the Pill, stopped and running, in light and dark menu bars
-  - docs/screenshots/panel.png        the Panel: date header, Week strip, project rows, ＋ and ⚙
+  - docs/screenshots/panel.png        the Panel: date header with ⚙, Week strip, project rows, ＋ under them
   - docs/screenshots/new-project.png  the ＋ form with project suggestions and a duration
   - docs/screenshots/idle-alert.png   the idle alert after waking the Mac
   - docs/screenshots/settings.png     the Settings window
@@ -19,11 +19,14 @@ can read and edit. There are no accounts, no sync and no integrations.
   selected project (`1:23`); click it to open the Panel.
 - **The Panel** shows the day you are viewing, a strip with the week's daily totals, and one row per
   project with its total for that day. Each of today's rows ends with a ▶ button that switches the
-  timer to that project; the running row is highlighted and shows ⏸ to pause it. Use ＋ to start a new
-  project or to log time you forgot to track. ‹ › move a week back or forward without limit; on any
+  timer to that project; the running row is highlighted and shows ⏸ to pause it. Use ＋, under the
+  rows, to start a new project or to log time you forgot to track: its form opens just above it, and a
+  new project's row appears at the bottom of the rows, right above the form. The header keeps the
+  date, the day's total, (i) and ⚙. ‹ › move a week back or forward without limit; on any
   day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
   vacation ahead. While you view another day, a Today button under the strip brings you back, as
-  does clicking the date.
+  does clicking the date. On a day with more rows than fit, the Panel stops just above the bottom of
+  the screen and only the rows scroll; the header, the strip and ＋ stay in view.
 - **Keys in the Panel** work wherever focus is, with or without Keyboard navigation turned on:
   ⌘[ and ⌘] move a week back or forward, ← and → move a Day (unless you're typing in a field, where
   they move the insertion point), ⌘T goes back to today, ⌘N opens ＋ and ⌘I opens or closes the (i)
@@ -166,6 +169,20 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] With no project selected, ▶ opens the ＋ form.
 - [ ] ＋, type a new project name, Start: the square turns colored with ⏸ and the time starts at `0:00`.
       The form closes back to the rows, the new project's row is highlighted, and the Panel stays open.
+- [ ] ＋ sits at the bottom of the Panel, on its left edge: under "No time tracked" on an empty Day, and
+      under the last row with one row and with many. The header shows the date, the Day total, (i) and
+      ⚙, and no ＋.
+- [ ] Click ＋: its form opens under the rows, just above ＋, with the Project field focused; the Panel
+      grows smoothly and stays attached to the Pill. Click ＋ again: the form closes and the Panel
+      shrinks back smoothly. Start or Log a new project: its row appears last, right above where the
+      form was.
+- [ ] With enough rows to pass the bottom of the screen (add projects, or hand-edit a Day file): the
+      Panel stops a little above the bottom of the screen's visible area, above the Dock, still
+      attached to the Pill. The rows scroll with the trackpad or mouse wheel; the header, the Week
+      strip and ＋ stay put, and so does the ＋ form when open. Start or Log a new project: the rows
+      scroll to its row. Tab or ⇧Tab onto a row out of view: the rows scroll to it, and the Panel's
+      keys still work. With a few rows there is no scroll bar and the Panel is as tall as its content.
+      Repeat with the Pill on a smaller external display, if you have one.
 - [ ] Click outside the Panel: it closes.
 - [ ] After a minute the time reads `0:01`; the day file has one entry with `"end": null`.
 - [ ] Click ⏸: the square goes gray with ▶, the time stays, the entry now has an `end`.
@@ -202,8 +219,15 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       names, and Accent color's dot matches the accent in System Settings › Appearance, changing
       when you pick another accent there.
 - [ ] With a timer running, pick yellow, mint, blue and Accent color in turn, in light and dark mode
-      and with Increase Contrast on and off: the Pill's ⏸, the running row's name, total and ⏸, and
-      today's date in the Week strip read clearly on each (white on dark colors, black on light ones).
+      and with Increase Contrast on and off: the Pill's ⏸ reads clearly on each (white on dark colors,
+      black on light ones).
+- [ ] In light and dark mode, with Increase Contrast on and off and whatever running color is picked:
+      today's date in the Week strip is on a circle in the text color, drawn in the opposite color
+      (black on white in dark mode, white on black in light mode), never on the running color.
+- [ ] With several rows, one running, in light and dark mode, with Increase Contrast on and off and
+      whatever running color is picked: no row has the running color or the accent color behind it. The
+      running row has a quiet gray highlight, with its name, total and ⏸ in the normal text color; the
+      other rows' ▶ are gray. ‹ ›, (i), ＋ and ⚙ are gray or the text color, never the accent color.
 
 **Accessibility**
 
@@ -215,10 +239,10 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       then the Selected Project, and on the next press "Paused" and the Project. With no Selected Project
       it says "New Project" as the ＋ form opens. With VoiceOver off, the shortcut says nothing.
 - [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day, Time
-      Summary, Start or log time, Menu, Previous week and Next week, each Day in the Week strip with its
-      date, total, and "today" or "viewed" (the viewed Day also reads as selected), each row's name
-      (with "running" on the running row), its total and Start or Pause, and Duration in the ＋ form.
-      Each Time Summary line reads as one: "This week, 12 hours 5 minutes".
+      Summary, Menu, Previous week and Next week, each Day in the Week strip with its date, total, and
+      "today" or "viewed" (the viewed Day also reads as selected), each row's name (with "running" on
+      the running row), its total and Start or Pause, then, with the ＋ form open, Duration in the form,
+      and last Start or log time (＋) under it. Each Time Summary line reads as one: "This week, 12 hours 5 minutes".
 - [ ] With Differentiate Without Color on, view a Day other than today: the viewed Day has a ring and
       today's date is bold, so they differ without color.
 - [ ] With Increase Contrast on, the Pill's time segment is opaque, darker, and outlined; with Reduce

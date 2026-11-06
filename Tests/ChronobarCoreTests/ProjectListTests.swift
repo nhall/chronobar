@@ -242,4 +242,32 @@ import ChronobarCore
         #expect(try tracker.addProject("GARDEN SHED") == "Garden Shed")
         #expect(tracker.isMalformed(Day("2026-11-02")!))
     }
+
+    /// Start returns the name its row is shown under, so the Panel can scroll to that row: the stored
+    /// spelling, not what was typed.
+    @Test func startReturnsTheNameTheRowIsShownUnder() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T10:00:00")
+
+        let project = try tracker.start("  website REDESIGN")
+
+        #expect(project == "Website Redesign")
+        #expect(tracker.rows(tracker.today).map(\.project) == ["Website Redesign"])
+    }
+
+    /// Log on another Day returns the spelling an archived Project is revived with, as its row shows it.
+    @Test func logReturnsTheNameARevivedProjectsRowIsShownUnder() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Garden Shed")
+        clock.set("2026-11-03T10:00:00")
+        try tracker.pause()
+        try tracker.archiveProject("Garden Shed")
+        let yesterday = Day("2026-11-02")!
+
+        let project = try tracker.log("GARDEN shed", "0:30", on: yesterday)
+
+        #expect(project == "Garden Shed")
+        #expect(tracker.rows(yesterday).map(\.project) == ["Garden Shed"])
+    }
 }

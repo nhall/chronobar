@@ -27,14 +27,14 @@ extension RunningColor {
         return SRGB(red: Double(resolved.red), green: Double(resolved.green), blue: Double(resolved.blue))
     }
 
-    /// White or black, whichever is readable on this color in `environment`.
-    func foreground(for role: Foreground.Role, in environment: EnvironmentValues) -> Foreground {
-        Foreground.on(background(in: environment), for: role)
+    /// White or black, whichever ▶ or ⏸ is readable in on this color in `environment`.
+    func foreground(in environment: EnvironmentValues) -> Foreground {
+        Foreground.on(background(in: environment))
     }
 
-    /// `foreground(for:in:)` as a SwiftUI color.
-    func foregroundColor(for role: Foreground.Role, in environment: EnvironmentValues) -> Color {
-        foreground(for: role, in: environment) == .white ? .white : .black
+    /// `foreground(in:)` as a SwiftUI color.
+    func foregroundColor(in environment: EnvironmentValues) -> Color {
+        foreground(in: environment) == .white ? .white : .black
     }
 
     var title: String { self == .accent ? "Accent color" : rawValue.capitalized }

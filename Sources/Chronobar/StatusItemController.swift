@@ -16,6 +16,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let pill: NSHostingView<PillView>
     private var press = PillPress()
     private var focusObserver: NSObjectProtocol?
+    /// Hosts the Panel in the popover, at its content's height.
+    private var sizer: PanelSizer?
     /// What VoiceOver was last given for the Pill.
     private var described: PillAccessibility?
 
@@ -29,10 +31,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         popover.behavior = .transient
         popover.delegate = self
         let actions = PanelActions(
-            start: { [weak self] project in self?.perform { try tracker.start(project) } },
+            start: { [weak self] project in self?.attempt { try tracker.start(project) } },
             toggle: { [weak self] project in self?.perform { try tracker.toggle(project) } },
             log: { [weak self] project, duration, day in
-                self?.perform { try tracker.log(project, duration, on: day) } ?? false
+                self?.attempt { try tracker.log(project, duration, on: day) }
             },
             adjust: { [weak self] project, input, day in
                 self?.perform { try tracker.adjust(project, input, on: day) } ?? false
@@ -45,11 +47,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                 NSWorkspace.shared.open(storageRoot)
             },
             quit: { NSApp.terminate(nil) })
-        let content = NSHostingController(rootView: PanelView(
+        sizer = PanelSizer(popover: popover, content: PanelView(
             tracker: tracker, panel: panel, preferences: preferences, loginItem: loginItem,
             appName: variant.appName, actions: actions))
-        content.sizingOptions = .preferredContentSize
-        popover.contentViewController = content
 
         guard let button = statusItem.button else { return }
         pill.translatesAutoresizingMaskIntoConstraints = false
@@ -74,7 +74,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                 guard let action = self.press.mouseDown(
                     onPill: self.isOnPill(window), at: Self.pointer(over: button), commandKey: commandKey,
                     panelOpen: self.popover.isShown, tracker: self.tracker) else { return false }
-                self.run(action)
+                self.run(action, by: .pointer)
                 return true
             }
             return taken ? nil : event
@@ -83,7 +83,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         // menu bar drawing its highlight. Its mouse-up stands in for the button's action.
         cover.onMouseUp = { [weak self] overPill in
             guard let self, let action = self.press.mouseUp(overPill: overPill, tracker: self.tracker) else { return }
-            self.run(action)
+            self.run(action, by: .pointer)
         }
         // Pointer moves and ⌘ over other apps, then over this one.
         let followPointer: (NSEvent) -> Void = { [weak self] _ in
@@ -110,7 +110,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             guard let self else { return }
             let action = PillClick.square(tracker: tracker)
             let before = tracker.running
-            run(action)
+            run(action, by: .keyboard)
             announce(ShortcutAnnouncement.text(for: action, before: before, after: tracker))
         }
         refresh()
@@ -121,9 +121,33 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     func refresh() {
         let width = ceil(pill.fittingSize.width)
         if statusItem.length != width { statusItem.length = width }
-        if popover.isShown, let button = statusItem.button { anchor.place(over: button) }
+        if popover.isShown, let button = statusItem.button {
+            anchor.place(over: button)
+            capPanel()
+        }
         describe()
     }
+
+    /// Caps the Panel's height at the room under the Pill on the Pill's screen (`PanelHeight`).
+    private func capPanel() {
+        guard let (pill, screen) = pillScreen() else { return }
+        let available = PanelHeight.available(under: pill, visible: screen.visibleFrame, chrome: panelChrome)
+        if panel.availableHeight != available { panel.availableHeight = available }
+    }
+
+    /// The status item's frame on screen, and the screen it is on.
+    private func pillScreen() -> (pill: CGRect, screen: NSScreen)? {
+        guard let button = statusItem.button, let window = button.window, let screen = window.screen else {
+            return nil
+        }
+        return (window.convertToScreen(button.convert(button.bounds, to: nil)), screen)
+    }
+
+    /// The points the popover's window takes under the Pill besides the Panel: its arrow above the Panel and
+    /// its frame and shadow below, which must stay on screen too or the popover moves off the Pill. Measured
+    /// each time the Panel is about to show (`measureChrome`), before its first frame; until the first
+    /// measure, what the popover took when this was written.
+    private var panelChrome = 27.0
 
     /// VoiceOver lands on the status item's button, so the button carries what the Pill shows and the
     /// actions a click on each segment takes. Its own press opens the Panel. The actions are only replaced
@@ -137,11 +161,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         button.setAccessibilityCustomActions([
             NSAccessibilityCustomAction(name: description.squareAction) { [weak self] in
                 guard let self else { return false }
-                run(PillClick.square(tracker: tracker))
+                run(PillClick.square(tracker: tracker), by: .keyboard)
                 return true
             },
             NSAccessibilityCustomAction(name: PillAccessibility.openPanelAction) { [weak self] in
-                self?.showPanel()
+                self?.showPanel(by: .keyboard)
                 return self != nil
             },
         ])
@@ -153,7 +177,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     @objc private func clicked(_ button: NSStatusBarButton) {
         let event = NSApp.currentEvent
         let byMouse = event.map { [.leftMouseDown, .leftMouseUp].contains($0.type) && $0.window === button.window }
-        if let action = press.buttonAction(byMouse: byMouse ?? false, tracker: tracker) { run(action) }
+        if let action = press.buttonAction(byMouse: byMouse ?? false, tracker: tracker) {
+            run(action, by: byMouse == true ? .pointer : .keyboard)
+        }
     }
 
     /// The transient Panel would close on the mouse-down of a click on the square, before that mouse-down
@@ -178,10 +204,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// can go even from under it.
     private func placeCover(pressCommandKey: Bool? = nil) {
         let duringPress = pressCommandKey != nil
-        guard let button = statusItem.button, let window = button.window, let screen = window.screen else {
-            return cover.remove(duringPress: duringPress)
-        }
-        let item = window.convertToScreen(button.convert(button.bounds, to: nil))
+        guard let (item, screen) = pillScreen() else { return cover.remove(duringPress: duringPress) }
         let frame = PillCoverArea.frame(
             item: item, screen: screen.frame, visible: screen.visibleFrame, pointer: NSEvent.mouseLocation,
             commandKey: pressCommandKey ?? NSEvent.modifierFlags.contains(.command))
@@ -199,11 +222,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 
     /// Runs the Panel command for a key pressed in the Panel or the (i) Time Summary it shows, and returns
-    /// whether it ran.
+    /// whether it ran. Any key pressed there, command or not, shows the focus ring.
     private func handlePanelKey(_ key: PanelKey.Key?, modifiers: PanelKey.Modifiers, in window: NSWindow?) -> Bool {
-        guard popover.isShown, let key, let window,
+        guard popover.isShown, let window,
               let panelWindow = popover.contentViewController?.view.window,
               window === panelWindow || window.parent === panelWindow else { return false }
+        panel.keyPressed()
+        guard let key else { return false }
         // A focused text field edits through its field editor, a text view.
         let editingText = (window.firstResponder as? NSTextView)?.isEditable ?? false
         guard let command = PanelKey.command(for: key, modifiers: modifiers, editingText: editingText)
@@ -212,11 +237,12 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         return true
     }
 
-    private func run(_ action: PillClick) {
+    /// Runs a Pill action from a click, or from the keyboard or VoiceOver.
+    private func run(_ action: PillClick, by opening: PanelOpening) {
         switch action {
         case .toggleTimer: perform { try tracker.toggle() }
-        case .openPanel: showPanel(newProject: false)
-        case .openNewProjectForm: showPanel(newProject: true)
+        case .openPanel: showPanel(newProject: false, by: opening)
+        case .openNewProjectForm: showPanel(newProject: true, by: opening)
         }
     }
 
@@ -229,9 +255,15 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
     }
 
-    func showPanel(newProject: Bool = false) {
+    /// Opens the Panel, with focus on today's date or in the ＋ form's Project field. After a click on the
+    /// Pill the focus ring stays hidden until a key press in the Panel (`FocusRing`).
+    func showPanel(newProject: Bool = false, by opening: PanelOpening) {
         panel.showingNewProject = newProject
-        if popover.isShown { return }
+        if popover.isShown {
+            panel.askedToOpenWhileOpen(by: opening)
+            return
+        }
+        panel.opened(by: opening)
         guard let button = statusItem.button else { return }
         // Each opening starts on today, picks up hand edits to any Day file and the Project list, and
         // retries writes deferred while a Day file was malformed. Tick first so a timer running past
@@ -247,49 +279,79 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         // menu the click just opened.
         NSApp.activate(ignoringOtherApps: true)
         anchor.place(over: button)
+        capPanel()
+        sizer?.fitBeforeShowing()
         popover.show(relativeTo: anchor.view.bounds, of: anchor.view, preferredEdge: .minY)
         if let window = popover.contentViewController?.view.window { settleFocus(in: window, newProject: newProject) }
+    }
+
+    /// The popover's window is laid out by now but not yet on screen, so a Panel capped with the wrong
+    /// chrome is refitted before its first frame rather than animating once open.
+    func popoverWillShow(_ notification: Notification) {
+        measureChrome()
+    }
+
+    /// In case the window wasn't laid out round the Panel when it was about to show.
+    func popoverDidShow(_ notification: Notification) {
+        measureChrome()
+    }
+
+    /// Measures `panelChrome` from the popover's window (`PanelHeight.chrome`), and caps and fits the Panel
+    /// again if it changed.
+    private func measureChrome() {
+        guard let view = popover.contentViewController?.view, let window = view.window,
+              let pill = pillScreen()?.pill,
+              let chrome = PanelHeight.chrome(window: window.frame.height,
+                                              panel: view.convert(view.bounds, to: nil).height,
+                                              pillBottom: pill.minY),
+              chrome != panelChrome else { return }
+        panelChrome = chrome
+        capPanel()
+        sizer?.fitBeforeShowing()
     }
 
     func popoverDidClose(_ notification: Notification) {
         anchor.orderOut(nil)
     }
 
-    /// AppKit focuses the first control, the date header, and draws its ring, when the Panel's window
-    /// becomes key, which from an inactive app can be after `show` returns. So once the window is key, focus
-    /// moves to the ＋ form's Project field, or with the form closed to nothing. With nothing focused, Tab
-    /// still moves focus to the header and on through the Panel, with its ring.
+    /// The Panel's window can only take focus once it is key, which from an inactive app can be after `show`
+    /// returns. So once the window is key, focus moves to the ＋ form's Project field, or with the form
+    /// closed to the date header, today's date, wherever it was when the Panel last closed.
     private func settleFocus(in window: NSWindow, newProject: Bool) {
         if let focusObserver { NotificationCenter.default.removeObserver(focusObserver) }
         focusObserver = nil
-        if window.isKeyWindow { return settle(window, newProject: newProject) }
+        if window.isKeyWindow { return settle(newProject: newProject) }
         focusObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, let window = self.popover.contentViewController?.view.window else { return }
-                self.settle(window, newProject: newProject)
+                guard let self else { return }
+                self.settle(newProject: newProject)
                 if let observer = self.focusObserver { NotificationCenter.default.removeObserver(observer) }
                 self.focusObserver = nil
             }
         }
     }
 
-    private func settle(_ window: NSWindow, newProject: Bool) {
-        if newProject { panel.newProjectFocusRequests += 1 } else { window.makeFirstResponder(nil) }
+    private func settle(newProject: Bool) {
+        if newProject { panel.newProjectFocusRequests += 1 } else { panel.headerFocusRequests += 1 }
     }
 
     /// Runs a Core command; on an error (a typo in a duration, a malformed Day file) logs it, beeps and
     /// returns false.
     @discardableResult
     private func perform(_ action: () throws -> Void) -> Bool {
+        attempt(action) != nil
+    }
+
+    /// Runs a Core command and returns what it returned; on an error logs it, beeps and returns nil.
+    private func attempt<Result>(_ action: () throws -> Result) -> Result? {
         defer { refresh() }
         do {
-            try action()
-            return true
+            return try action()
         } catch {
             reportFailure(error, category: "tracker")
-            return false
+            return nil
         }
     }
 }
