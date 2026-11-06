@@ -24,7 +24,7 @@ struct PillView: View {
                 .font(.system(size: 9, weight: .bold))
                 // White on stopped gray; on the running color, whichever of white and black reads.
                 .foregroundStyle(isRunning
-                    ? preferences.runningColor.foregroundColor(for: .glyph, in: environment) : .white)
+                    ? preferences.runningColor.foregroundColor(in: environment) : .white)
                 .frame(width: PillMetrics.squareWidth, height: PillMetrics.height)
                 .background(
                     RoundedRectangle(cornerRadius: PillMetrics.cornerRadius)

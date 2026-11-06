@@ -18,6 +18,12 @@ final class PanelModel {
     /// Bumped to put focus in the ＋ form's Project field once the Panel's window can take it: the form's
     /// own focus on appearing is lost when the Panel opens straight into it.
     var newProjectFocusRequests = 0
+    /// Bumped to put focus on the date header, today's date, once the Panel's window can take it.
+    var headerFocusRequests = 0
+    /// Whether the date header draws its focus ring: hidden after a click on the Pill opens the Panel, until
+    /// a key press. Until then nothing else has focus but a text field the click put it in, which always
+    /// shows its ring.
+    var focusRing = FocusRing()
     /// Whether the ＋ form's Project list is showing, which takes Return from the Start/Log button.
     var newProjectListOpen = false
     /// The ＋ form's duration; empty starts a timer, anything else logs that much time.
@@ -73,6 +79,7 @@ struct PanelView: View {
     /// `BuildVariant.appName`, so a development copy's menu reads "Quit Chronobar Dev".
     let appName: String
     let actions: PanelActions
+    @FocusState private var headerFocused: Bool
 
     var body: some View {
         let today = tracker.today
@@ -91,7 +98,21 @@ struct PanelView: View {
                 }
                 .buttonStyle(.plain)
                 .fixedSize()
+                // Opening the Panel focuses the header. Its ring is drawn here rather than by the system,
+                // which doesn't redraw the ring of a control that already has focus when
+                // `focusEffectDisabled` changes, so the first key press after a click would show nothing.
+                // With Keyboard navigation off the header can't take focus, and has no ring.
+                .focusEffectDisabled()
+                .focused($headerFocused)
+                .overlay {
+                    if headerFocused && panel.focusRing.isVisible {
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(Color(nsColor: .keyboardFocusIndicatorColor), lineWidth: 3)
+                            .padding(-1.5)
+                    }
+                }
                 .padding(.horizontal, -4)
+                .onChange(of: panel.headerFocusRequests) { headerFocused = true }
                 .help(isToday ? "" : PanelCommand.today.help(Self.backToToday))
                 .accessibilityHint(isToday ? "" : Self.backToToday)
                 Spacer()
@@ -146,7 +167,7 @@ struct PanelView: View {
                     dismiss: { preferences.loginHintDismissed = true })
             }
             WeekStrip(week: tracker.weekTotals(containing: day), today: today, viewed: day,
-                      calendar: tracker.calendar, runningColor: preferences.runningColor,
+                      calendar: tracker.calendar,
                       view: { panel.apply(.viewing($0, today: today)) },
                       move: { panel.perform($0, today: today, calendar: tracker.calendar) })
             // Under the strip, as the title row has no room for it at the Panel's width and above the
@@ -232,14 +253,13 @@ struct PanelView: View {
     }
 }
 
-/// Seven Days with their totals, ‹ › to move a week back or forward without limit. Today has a filled
-/// running-color circle, the viewed Day a gray one.
+/// Seven Days with their totals, ‹ › to move a week back or forward without limit. Today has a
+/// `TodayCircle`, the viewed Day a gray one.
 private struct WeekStrip: View {
     let week: [DayTotal]
     let today: Day
     let viewed: Day
     let calendar: Calendar
-    let runningColor: RunningColor
     @Environment(\.self) private var environment
     let view: (Day) -> Void
     /// ‹ and ›: `.previousWeek` or `.nextWeek`.
@@ -282,11 +302,10 @@ private struct WeekStrip: View {
                 .foregroundStyle(.secondary)
             Text(date.formatted(style.day()))
                 .font(.callout.monospacedDigit().weight(isToday && marksShape ? .bold : .regular))
-                .foregroundStyle(isToday
-                    ? runningColor.foregroundColor(for: .text, in: environment) : Color.primary)
+                .foregroundStyle(isToday ? TodayCircle.date(in: environment.colorScheme) : Color.primary)
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(
-                    isToday ? runningColor.color : isViewed ? Color.gray.opacity(0.35) : Color.clear))
+                    isToday ? TodayCircle.fill : isViewed ? Color.gray.opacity(0.35) : Color.clear))
                 .overlay(Circle().strokeBorder(
                     Color.primary.opacity(isViewed && !isToday && marksShape ? 1 : 0), lineWidth: 1.5))
             Text(DurationFormat.hoursMinutes(item.total))
