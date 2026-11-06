@@ -80,10 +80,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         idleMonitor.poll()
     }
 
-    /// Quitting stops the running timer at the quit time.
+    /// Quitting stops the timers started in the app at the quit time; agents' timers stay open.
     func applicationWillTerminate(_ notification: Notification) {
         do {
-            try tracker?.pause()
+            try tracker?.quit()
         } catch {
             reportFailure(error, category: "quit", beep: false)
         }

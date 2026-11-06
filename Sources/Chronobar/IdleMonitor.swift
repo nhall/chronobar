@@ -2,8 +2,9 @@ import AppKit
 import CoreGraphics
 import ChronobarCore
 
-/// Turns sleep, screen lock and input inactivity into the idle alert while a timer runs. Its only logic is
-/// deciding the idle start; `Tracker.resolveIdle` does the rest.
+/// Turns sleep, screen lock and input inactivity into the idle alert while a timer started in the app runs.
+/// Agents keep working while the user is away, so their timers never raise it. Its only logic is deciding
+/// the idle start; `Tracker.resolveIdle` does the rest.
 @MainActor
 final class IdleMonitor {
     private let tracker: Tracker
@@ -33,12 +34,12 @@ final class IdleMonitor {
     }
 
     /// Called every second. Asks about Idle time Core is holding (after a crash, or a removal refused
-    /// while a Day file was malformed, once it parses). Polls input idle only while a timer runs.
+    /// while a Day file was malformed, once it parses). Polls input idle only while an app timer runs.
     func poll() {
         if let idle = tracker.pendingIdle, idle.blockedBy == nil {
             prompt(since: idle.since, until: idle.until)
         }
-        guard tracker.running != nil, let minutes = preferences.idleThreshold.minutes else { return }
+        guard !appTimers.isEmpty, let minutes = preferences.idleThreshold.minutes else { return }
         let anyInput = CGEventType(rawValue: ~0)!
         let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: anyInput)
         guard idle >= TimeInterval(minutes * 60) else { return }
@@ -53,8 +54,11 @@ final class IdleMonitor {
         observers.append(token)
     }
 
+    /// The running timers started in the app, the only ones idle time applies to.
+    private var appTimers: [Running] { tracker.timers.filter { $0.source == .app } }
+
     private func away() {
-        guard tracker.running != nil else { return }
+        guard !appTimers.isEmpty else { return }
         // Lock then sleep (or the reverse) keeps the earlier start.
         awaySince = min(awaySince ?? Date(), Date())
     }
@@ -66,9 +70,11 @@ final class IdleMonitor {
     }
 
     /// Schedules the alert, folding reports that arrive together (wake, unlock, input, Core's pending Idle
-    /// time) into the earliest. Idle time up to now wins over one that ends earlier.
+    /// time) into the earliest. Idle time up to now wins over one that ends earlier. Core's pending Idle
+    /// time is asked about even with no app timer running: a crash may have left app-started time to cut
+    /// in an Entry that recovery closed.
     private func prompt(since: Date, until: Date? = nil) {
-        guard tracker.running != nil, !showing else { return }
+        guard !appTimers.isEmpty || tracker.pendingIdle != nil, !showing else { return }
         let scheduled = pendingSince != nil
         pendingUntil = scheduled ? pendingUntil.flatMap { a in until.map { max(a, $0) } } : until
         pendingSince = min(pendingSince ?? since, since)
@@ -80,16 +86,21 @@ final class IdleMonitor {
         let until = pendingUntil
         pendingSince = nil
         pendingUntil = nil
-        guard let running = tracker.running else { return }
+        let labels = appTimers.map(\.project)
+        guard !labels.isEmpty || tracker.pendingIdle != nil else { return }
         showing = true
         defer { showing = false }
 
+        // One alert for every app timer; each choice applies to all of them.
+        let running = labels.formatted(.list(type: .and))
+        let verb = labels.count == 1 ? "is" : "are"
         let alert = NSAlert()
         if let until {
-            alert.messageText = "You were idle from \(Self.time(since)) to \(Self.time(until)). "
-                + "\(running.project) is running."
+            alert.messageText = "You were idle from \(Self.time(since)) to \(Self.time(until))."
+                + (labels.isEmpty ? "" : " \(running) \(verb) running.")
         } else {
-            alert.messageText = "You've been idle since \(Self.time(since)). \(running.project) is still running."
+            alert.messageText = "You've been idle since \(Self.time(since))."
+                + (labels.isEmpty ? "" : " \(running) \(verb) still running.")
         }
         alert.addButton(withTitle: "Remove idle time")
         alert.addButton(withTitle: "Remove & stop")

@@ -34,10 +34,14 @@ struct SettingsView: View {
                         .controlSize(.small)
                 }
             }
-            Picker("Idle after no input for", selection: $preferences.idleThreshold) {
+            Picker(selection: $preferences.idleThreshold) {
                 ForEach(IdleThreshold.presets, id: \.self) { threshold in
                     Text(threshold.minutes.map { "\($0) minutes" } ?? "Off").tag(threshold)
                 }
+            } label: {
+                Text("Idle after no input for")
+                // A grouped Form shows a label's second Text as its subtitle.
+                Text("Applies to timers started in the app. Agents' timers keep running.")
             }
         }
         .formStyle(.grouped)
