@@ -1,13 +1,18 @@
 import SwiftUI
 import ChronobarCore
 
-/// The sizes only the Pill's drawing needs; its horizontal layout is in Core, shared with the click zones.
-extension PillMetrics {
+/// The Pill's sizes in points.
+enum PillMetrics {
+    /// Space between the Pill and the edges of the status item.
+    static let inset: CGFloat = 3
+    static let squareWidth: CGFloat = 22
+    static let gap: CGFloat = 2
     static let height: CGFloat = 18
     static let cornerRadius: CGFloat = 4
 }
 
-/// The two-segment menu bar item: the ▶/⏸ square and today's Day total.
+/// The two-segment menu bar item: the square, with the running count or ▶, and today's Day total.
+/// It only shows; any click on it opens the Panel.
 struct PillView: View {
     let tracker: Tracker
     let preferences: Preferences
@@ -18,17 +23,28 @@ struct PillView: View {
     @Environment(\.self) private var environment
 
     var body: some View {
-        let isRunning = !tracker.timers.isEmpty
+        let count = tracker.timers.count
+        let isRunning = count > 0
         HStack(spacing: PillMetrics.gap) {
-            Image(systemName: isRunning ? "pause.fill" : "play.fill")
-                .font(.system(size: 9, weight: .bold))
-                // White on stopped gray; on the running color, whichever of white and black reads.
-                .foregroundStyle(isRunning
-                    ? preferences.runningColor.foregroundColor(in: environment) : .white)
-                .frame(width: PillMetrics.squareWidth, height: PillMetrics.height)
-                .background(
-                    RoundedRectangle(cornerRadius: PillMetrics.cornerRadius)
-                        .fill(isRunning ? preferences.runningColor.color : Color(nsColor: .systemGray)))
+            Group {
+                if isRunning {
+                    // Shrinks rather than truncating should the count ever reach three digits.
+                    Text("\(count)")
+                        .font(.system(size: 11, weight: .bold).monospacedDigit())
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                        .padding(.horizontal, 2)
+                } else {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 9, weight: .bold))
+                }
+            }
+            // White on stopped gray; on the running color, whichever of white and black reads.
+            .foregroundStyle(isRunning ? preferences.runningColor.foregroundColor(in: environment) : .white)
+            .frame(width: PillMetrics.squareWidth, height: PillMetrics.height)
+            .background(
+                RoundedRectangle(cornerRadius: PillMetrics.cornerRadius)
+                    .fill(isRunning ? preferences.runningColor.color : Color(nsColor: .systemGray)))
             Text(time)
                 .font(.system(size: 12, weight: .medium).monospacedDigit())
                 .foregroundStyle(.white)
@@ -36,8 +52,8 @@ struct PillView: View {
                 .frame(height: PillMetrics.height)
                 .background(timeBackground)
             if let badge {
-                // Black on orange reads on a light or dark menu bar. It falls in the time segment's click
-                // zone, which runs to the Pill's trailing edge, so a click on it opens the Panel.
+                // Black on orange reads on a light or dark menu bar. Like the rest of the Pill, a click on it
+                // opens the Panel.
                 Text(badge)
                     .font(.system(size: 8, weight: .heavy))
                     .foregroundStyle(.black)

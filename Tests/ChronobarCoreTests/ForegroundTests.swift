@@ -22,12 +22,12 @@ import ChronobarCore
 
     @Test func whiteStaysWhereverItIsReadable() {
         #expect(Foreground.on(indigo) == .white)
-        // About 4:1 is enough for a glyph.
-        #expect(Foreground.on(blue) == .white)
     }
 
     @Test func blackReplacesWhiteWhereWhiteIsTooFaint() {
         #expect(Foreground.on(yellow) == .black)
+        // About 4:1 was enough for ▶ or ⏸, but not for the running count, which is text.
+        #expect(Foreground.on(blue) == .black)
     }
 
     @Test func everyBackgroundGetsAReadableForeground() {
@@ -39,7 +39,8 @@ import ChronobarCore
         } } }
     }
 
-    @Test func theMinimumIsWCAGsForAGlyph() {
-        #expect(Foreground.minimumContrast == 3)
+    /// The square shows the running count, a digit at 11 points, which is small text.
+    @Test func theMinimumIsWCAGsForSmallText() {
+        #expect(Foreground.minimumContrast == 4.5)
     }
 }

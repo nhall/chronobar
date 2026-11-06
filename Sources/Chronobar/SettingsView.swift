@@ -20,7 +20,7 @@ struct SettingsView: View {
                     .tag(color)
                 }
             }
-            KeyboardShortcuts.Recorder("Play/pause shortcut", name: .toggleTimer)
+            KeyboardShortcuts.Recorder("Open Panel shortcut", name: .openPanel)
             Toggle("Starting a timer pauses the others", isOn: $preferences.startPausesOthers)
             Toggle("Show in Dock", isOn: $preferences.showInDock)
             Toggle("Start at login", isOn: Binding(get: { loginItem.isOn }, set: { loginItem.set($0) }))

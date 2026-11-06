@@ -2,53 +2,25 @@ import Foundation
 import Testing
 import ChronobarCore
 
-/// What VoiceOver announces after the global shortcut, which otherwise acts without a sound.
+/// What VoiceOver announces after the global shortcut, which works from any app.
 @MainActor @Suite struct ShortcutAnnouncementTests {
     let clock = FakeClock("2026-11-03T09:00:00")
     let root = temporaryRoot()
 
-    @Test func pausingAnnouncesWhichProjectPaused() throws {
-        let tracker = Tracker(clock: clock, storageRoot: root)
-        try tracker.start("Website Redesign")
-        clock.advance(60)
-        let before = tracker.timers
-
-        try tracker.pause()
-
-        #expect(ShortcutAnnouncement.text(for: .pauseTimers, before: before, after: tracker)
-            == "Paused Website Redesign")
-    }
-
-    @Test func pausingSeveralAnnouncesHowManyPaused() throws {
+    /// The shortcut opens the Panel and touches no timer, so it says so and reads what the Pill shows.
+    @Test func itAnnouncesThePanelWithWhatRuns() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         try tracker.start("Internal")
-        let before = tracker.timers
+        clock.advance(30 * 60)
+        tracker.tick()
 
-        try tracker.pause()
-
-        #expect(ShortcutAnnouncement.text(for: .pauseTimers, before: before, after: tracker)
-            == "Paused 2 timers")
+        #expect(ShortcutAnnouncement.text(tracker: tracker) == "Panel opened. 2 timers running, 1 hour today")
     }
 
-    /// With nothing running the shortcut opens the ＋ form instead.
-    @Test func withNothingRunningItAnnouncesTheNewProjectForm() {
+    @Test func withNothingRunningItAnnouncesThePanelAndTodaysTotal() {
         let tracker = Tracker(clock: clock, storageRoot: root)
-        let action = PillClick.square(tracker: tracker)
 
-        #expect(ShortcutAnnouncement.text(for: action, before: tracker.timers, after: tracker) == "New Project")
-    }
-
-    /// Archiving the running Project leaves its timer running for the shortcut to pause.
-    @Test func pausingAnArchivedProjectAnnouncesItPaused() throws {
-        let tracker = Tracker(clock: clock, storageRoot: root)
-        try tracker.start("Website Redesign")
-        try tracker.archiveProject("Website Redesign")
-        let before = tracker.timers
-
-        try tracker.pause()
-
-        #expect(ShortcutAnnouncement.text(for: .pauseTimers, before: before, after: tracker)
-            == "Paused Website Redesign")
+        #expect(ShortcutAnnouncement.text(tracker: tracker) == "Panel opened. Nothing running, 0 minutes today")
     }
 }

@@ -28,6 +28,6 @@ public struct RowPresentation: Equatable, Sendable {
         toggle = isRunning ? .pause : .start
         toggleTone = isRunning ? .primary : .secondary
         nameLabel = isRunning ? "\(row.project), running" : row.project
-        toggleLabel = "\(TimerToggle.name(isRunning: isRunning)) \(row.project)"
+        toggleLabel = "\(isRunning ? "Pause" : "Start") \(row.project)"
     }
 }

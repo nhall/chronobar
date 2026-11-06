@@ -30,7 +30,7 @@ struct Appearance: CustomTestStringConvertible, Sendable {
 /// The accent color is the one currently set in System Settings; `ForegroundTests` covers every other.
 @MainActor @Suite struct RunningColorContrastTests {
     @Test(arguments: RunningColor.allCases, Appearance.all)
-    func glyphsAreReadableOnEveryRunningColor(color: RunningColor, appearance: Appearance) {
+    func theCountIsReadableOnEveryRunningColor(color: RunningColor, appearance: Appearance) {
         let background = color.background(in: appearance.environment)
         let foreground = color.foreground(in: appearance.environment)
         #expect(Contrast.ratio(foreground.srgb, background) >= Foreground.minimumContrast)

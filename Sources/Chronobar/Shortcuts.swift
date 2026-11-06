@@ -2,6 +2,7 @@
 @preconcurrency import KeyboardShortcuts
 
 extension KeyboardShortcuts.Name {
-    /// Mirrors the Pill's ▶/⏸ square. No default: the user records one in Settings.
-    static let toggleTimer = Self("toggleTimer")
+    /// Opens the Panel, as a click on the Pill does. No default: the user records one in Settings. Stored
+    /// under v1's key, from when it toggled the timer, so a shortcut recorded then still works.
+    static let openPanel = Self("toggleTimer")
 }
