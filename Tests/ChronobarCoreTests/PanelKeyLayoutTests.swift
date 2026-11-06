@@ -8,11 +8,12 @@ struct Layout {
     /// What a key types, by US key position, with nothing, ⇧, ⌥, ⌥⇧, ⌘, ⌘⇧, ⌘⌥ and ⌘⌥⇧ held.
     let rows: [UInt16: [String]]
 
+    /// Caps Lock capitalizes a letter, ⌘ held or not, as macOS's layouts do.
     func types(_ keyCode: UInt16, _ modifiers: PanelKey.Modifiers) -> String? {
         guard let row = rows[keyCode] else { return nil }
         let index = (modifiers.contains(.shift) ? 1 : 0) + (modifiers.contains(.option) ? 2 : 0)
             + (modifiers.contains(.command) ? 4 : 0)
-        return row[index]
+        return modifiers.contains(.capsLock) ? row[index].uppercased() : row[index]
     }
 
     func command(_ keyCode: UInt16, _ modifiers: PanelKey.Modifiers, editingText: Bool = false) -> PanelCommand? {
@@ -34,8 +35,6 @@ enum USKey {
     static let k: UInt16 = 0x28
     static let g: UInt16 = 0x05
     static let l: UInt16 = 0x25
-    static let leftArrow: UInt16 = 0x7B
-    static let rightArrow: UInt16 = 0x7C
 }
 
 extension Layout {
@@ -135,6 +134,8 @@ extension Layout {
         #expect(Layout.us.command(USKey.leftBracket, .command, editingText: true) == .previousWeek)
         #expect(Layout.us.command(USKey.rightBracket, .command, editingText: true) == .nextWeek)
         #expect(Layout.us.command(USKey.t, .command, editingText: true) == .today)
+        #expect(Layout.us.command(USKey.n, .command, editingText: true) == .newProject)
+        #expect(Layout.us.command(USKey.i, .command, editingText: true) == .timeSummary)
         #expect(Layout.german.command(USKey.five, [.command, .option], editingText: true) == .previousWeek)
         #expect(Layout.french.command(USKey.minus, [.command, .option, .shift], editingText: true) == .nextWeek)
     }
@@ -148,31 +149,63 @@ extension Layout {
         #expect(Layout.russian.command(USKey.t, [], editingText: true) == nil)
     }
 
-    /// ⌘A, ⌘C, ⌘V and the rest of text editing pass through.
+    /// ⌘A, ⌘C, ⌘V, ⌘X, ⌘Z and the rest of text editing pass through, and so do ⌘Q and ⌘, for the menu.
     @Test func otherCommandKeysPassThrough() {
         let others = Layout(rows: [
             0x00: ["a", "A", "å", "Å", "a", "a", "å", "Å"],
             0x08: ["c", "C", "ç", "Ç", "c", "c", "ç", "Ç"],
             0x09: ["v", "V", "√", "◊", "v", "v", "√", "◊"],
+            0x07: ["x", "X", "≈", "˛", "x", "x", "≈", "˛"],
+            0x06: ["z", "Z", "Ω", "¸", "z", "z", "Ω", "¸"],
+            0x0C: ["q", "Q", "œ", "Œ", "q", "q", "œ", "Œ"],
             0x2B: [",", "<", "≤", "¯", ",", ",", "≤", "¯"],
         ])
-        for key: UInt16 in [0x00, 0x08, 0x09, 0x2B] {
+        for key: UInt16 in [0x00, 0x08, 0x09, 0x07, 0x06, 0x0C, 0x2B] {
             #expect(others.command(key, .command, editingText: true) == nil)
+            #expect(others.command(key, .command, editingText: false) == nil)
         }
+    }
+
+    /// Caps Lock capitalizes a letter even with ⌘ held; the ⌘ keys go by the letter it capitalizes.
+    @Test func commandLettersIgnoreCapsLock() {
+        #expect(Layout.us.command(USKey.t, [.command, .capsLock]) == .today)
+        #expect(Layout.us.command(USKey.n, [.command, .capsLock], editingText: true) == .newProject)
+        #expect(Layout.us.command(USKey.i, [.command, .capsLock]) == .timeSummary)
+        #expect(Layout.us.command(USKey.leftBracket, [.command, .capsLock]) == .previousWeek)
+        #expect(Layout.german.command(USKey.five, [.command, .option, .capsLock]) == .previousWeek)
+    }
+
+    /// Caps Lock is no modifier of its own: ⌘⇧T with it on still passes through, and ← still moves a Day.
+    @Test func capsLockChangesNothingElse() {
+        #expect(Layout.us.command(USKey.t, [.command, .shift, .capsLock]) == nil)
+        #expect(Layout.us.command(USKey.t, .capsLock) == nil)
+        #expect(Layout.us.command(PanelKey.leftArrow, .capsLock) == .previousDay)
+        #expect(Layout.us.command(PanelKey.rightArrow, .capsLock, editingText: true) == nil)
+    }
+
+    /// An input source without layout data, such as some input methods, still has the arrows; the ⌘ keys
+    /// pass through.
+    @Test func arrowsWorkWithoutLayoutData() {
+        func command(_ keyCode: UInt16, _ modifiers: PanelKey.Modifiers) -> PanelCommand? {
+            PanelKey.command(keyCode: keyCode, modifiers: modifiers, layout: nil, editingText: false)
+        }
+        #expect(command(PanelKey.leftArrow, []) == .previousDay)
+        #expect(command(PanelKey.rightArrow, []) == .nextDay)
+        #expect(command(USKey.t, .command) == nil)
     }
 
     // MARK: Arrows
 
     @Test func arrowsMoveTheInsertionPointInATextField() {
-        #expect(Layout.us.command(USKey.leftArrow, [], editingText: true) == nil)
-        #expect(Layout.us.command(USKey.rightArrow, [], editingText: true) == nil)
+        #expect(Layout.us.command(PanelKey.leftArrow, [], editingText: true) == nil)
+        #expect(Layout.us.command(PanelKey.rightArrow, [], editingText: true) == nil)
     }
 
     /// ⌘←, ⇧→ and ⌥← are text-editing and selection keys; they never move the viewed Day.
     @Test func arrowsWithModifiersDoNothing() {
         for modifiers: PanelKey.Modifiers in [.command, .shift, .option, .control] {
-            #expect(Layout.us.command(USKey.leftArrow, modifiers) == nil)
-            #expect(Layout.us.command(USKey.rightArrow, modifiers) == nil)
+            #expect(Layout.us.command(PanelKey.leftArrow, modifiers) == nil)
+            #expect(Layout.us.command(PanelKey.rightArrow, modifiers) == nil)
         }
     }
 
@@ -260,8 +293,8 @@ extension Layout {
     /// The arrows are the same keys on every layout.
     @Test func arrowsMoveADayOnAnyLayout() {
         for layout in [Layout.us, .german, .french, .dvorak, .russian] {
-            #expect(layout.command(USKey.leftArrow, []) == .previousDay)
-            #expect(layout.command(USKey.rightArrow, []) == .nextDay)
+            #expect(layout.command(PanelKey.leftArrow, []) == .previousDay)
+            #expect(layout.command(PanelKey.rightArrow, []) == .nextDay)
         }
     }
 }

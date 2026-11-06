@@ -4,8 +4,8 @@ import ChronobarCore
 /// An invisible window over the Pill that takes a press on it before the menu bar can. The menu bar hosts
 /// status items itself and draws its highlight behind one on the mouse-down, before the app sees the press,
 /// so nothing in the app can stop it; a window of the app's own in front of the menu bar means the menu bar
-/// never gets the press. It is only shown while the pointer is on the Pill and the menu bar is shown there
-/// (`PillCoverArea`).
+/// never gets the press. It is only shown while the pointer is on the Pill and the Pill is shown there
+/// (`PillCoverArea`, placed by `PillCoverPlacer`).
 final class PillCover: NSPanel {
     /// The press's mouse-up, and whether it was over the Pill. Its mouse-down went through the app's event
     /// monitor, as one on the status item does.
@@ -21,9 +21,11 @@ final class PillCover: NSPanel {
         // Takes clicks although it draws nothing.
         ignoresMouseEvents = false
         level = .statusBar
-        // Not `.fullScreenAuxiliary`. Even so, on macOS 27 the cover still comes up in another app's
+        // Not `.fullScreenAuxiliary`. Even so, on macOS 27 the cover could come up in another app's
         // full-screen space on a built-in display with a camera housing, over the black band the menu bar
-        // slides into; there the window list reports the menu bar on screen even while it is away.
+        // slides into, as the window list reports the menu bar on screen there even while it is away; the
+        // check that the window at the Pill is the Pill's own (`PillCoverArea.placement`) is meant to keep
+        // it away there.
         collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         setAccessibilityElement(false)
     }
