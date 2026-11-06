@@ -326,6 +326,12 @@ public final class Tracker {
         rows(day).reduce(0) { $0 + $1.total }
     }
 
+    /// The Day's Elapsed time: the clock time covered by at least one timed Entry, a running timer
+    /// counted up to now. Below the Day total when timers overlap; manual Entries count only there.
+    public func elapsed(_ day: Day) -> TimeInterval {
+        Entry.elapsed(files.entries(on: day), asOf: now)
+    }
+
     /// The calendar Days and weeks are counted in.
     public var calendar: Calendar { clock.calendar }
 

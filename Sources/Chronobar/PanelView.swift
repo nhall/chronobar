@@ -140,11 +140,7 @@ struct PanelView: View {
                 .help(isToday ? "" : PanelCommand.today.help(Self.backToToday))
                 .accessibilityHint(isToday ? "" : Self.backToToday)
                 Spacer()
-                Text(DurationFormat.hoursMinutes(tracker.dayTotal(day)))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .help("Total for the day")
-                    .accessibilityLabel("Total for the day, \(DurationFormat.spoken(tracker.dayTotal(day)))")
+                DayTotalView(total: tracker.dayTotal(day), elapsed: tracker.elapsed(day))
                 Button {
                     panel.showingSummary.toggle()
                 } label: {
@@ -377,27 +373,67 @@ private enum DayMark {
     }
 }
 
+/// The header's "3:00 · 1:00 elapsed": the Day total, and in smaller text the clock time at least one
+/// timer covered, which is less when timers ran side by side. A long past Day's title leaves no room for
+/// it all, so it drops "elapsed", then moves the elapsed time under the total.
+private struct DayTotalView: View {
+    let total: TimeInterval
+    let elapsed: TimeInterval
+
+    var body: some View {
+        let total = DurationFormat.hoursMinutes(self.total)
+        let elapsed = DurationFormat.hoursMinutes(self.elapsed)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(total)
+                Text("· \(elapsed) elapsed").font(.caption)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(total)
+                Text("· \(elapsed)").font(.caption)
+            }
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(total)
+                Text("\(elapsed) elapsed").font(.caption)
+            }
+        }
+        .monospacedDigit()
+        .foregroundStyle(.secondary)
+        .help("Total for the day · \(elapsed) elapsed, the clock time at least one timer ran")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "Total for the day, \(DurationFormat.spoken(self.total)), \(DurationFormat.spoken(self.elapsed)) elapsed")
+    }
+}
+
 /// The (i) Time Summary.
 private struct SummaryView: View {
     let summary: Summary
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
-            line("Today", summary.today)
-            line("Yesterday", summary.yesterday)
-            line("This week", summary.week)
-            line("This month", summary.month)
+            line("Today", summary.today, summary.elapsed.today)
+            line("Yesterday", summary.yesterday, summary.elapsed.yesterday)
+            line("This week", summary.week, summary.elapsed.week)
+            line("This month", summary.month, summary.elapsed.month)
         }
         .padding()
     }
 
-    private func line(_ label: String, _ total: TimeInterval) -> some View {
-        // VoiceOver reads each line as one element: "This week, 12 hours 5 minutes".
-        GridRow {
+    private func line(_ label: String, _ total: TimeInterval, _ elapsed: TimeInterval) -> some View {
+        // VoiceOver reads each line as one element: "This week, 12 hours 5 minutes, 9 hours elapsed".
+        GridRow(alignment: .firstTextBaseline) {
             Text(label)
-                .accessibilityLabel("\(label), \(DurationFormat.spoken(total))")
+                .accessibilityLabel(
+                    "\(label), \(DurationFormat.spoken(total)), \(DurationFormat.spoken(elapsed)) elapsed")
             Text(DurationFormat.hoursMinutes(total))
                 .monospacedDigit()
+                .gridColumnAlignment(.trailing)
+                .accessibilityHidden(true)
+            Text("\(DurationFormat.hoursMinutes(elapsed)) elapsed")
+                .font(.caption)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
                 .gridColumnAlignment(.trailing)
                 .accessibilityHidden(true)
         }

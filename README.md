@@ -22,8 +22,8 @@ can read and edit. There are no accounts, no sync and no integrations.
   timer to that project; the running row is highlighted and shows ⏸ to pause it. Use ＋, under the
   rows, to start a new project or to log time you forgot to track: its form opens just above it, and a
   new project's row appears at the bottom of the rows, right above the form. The header keeps the
-  date, the day's total, (i) and ⚙. ‹ › move a week back or forward without limit; on any
-  day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
+  date, the day's total with its elapsed time beside it (`3:00 · 1:00 elapsed`), (i) and ⚙. ‹ ›
+  move a week back or forward without limit; on any day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
   vacation ahead. While you view another day, a Today button under the strip brings you back, as
   does clicking the date. On a day with more rows than fit, the Panel stops just above the bottom of
   the screen and only the rows scroll; the header, the strip and ＋ stay in view.
@@ -140,6 +140,10 @@ Each day is one JSON file with one entry per line:
   for time logged with ＋ and `adjustment` for a corrected total; it is a marker, not free text.
 - A project's total for the day is the sum of its timed durations and manual seconds, never shown
   below `0:00`, and displayed as hours and minutes rounded down.
+- A day's elapsed time is the clock time covered by at least one timed entry, a running one counted up
+  to now. Time two timers share counts once, so with timers running side by side it is less than the
+  day's total; manual entries count toward the total only. The (i) Time Summary's elapsed times are the
+  sums of their days'.
 - Any Day can have a file, past or future: time logged ahead, such as a vacation, goes in that Day's
   file in the same format. Timers run only today, so a day ahead holds only manual entries until it
   arrives.
@@ -264,11 +268,11 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] With VoiceOver on and another app in front, press the global shortcut: VoiceOver says "Started"
       then the Selected Project, and on the next press "Paused" and the Project. With no Selected Project
       it says "New Project" as the ＋ form opens. With VoiceOver off, the shortcut says nothing.
-- [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day, Time
-      Summary, Menu, Previous week and Next week, each Day in the Week strip with its date, total, and
+- [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day (with its
+      elapsed time), Time Summary, Menu, Previous week and Next week, each Day in the Week strip with its date, total, and
       "today" or "viewed" (the viewed Day also reads as selected), each row's name (with "running" on
       the running row), its total and Start or Pause, then, with the ＋ form open, Duration in the form,
-      and last Start or log time (＋) under it. Each Time Summary line reads as one: "This week, 12 hours 5 minutes".
+      and last Start or log time (＋) under it. Each Time Summary line reads as one: "This week, 12 hours 5 minutes, 9 hours elapsed".
 - [ ] With Differentiate Without Color on, view a Day other than today: the viewed Day has a ring and
       today's date is bold, so they differ without color.
 - [ ] With Increase Contrast on, the Pill's time segment is opaque, darker, and outlined; with Reduce
@@ -309,7 +313,12 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       rows and the week containing today show, and the button is gone.
 - [ ] From a past or future Day, click the date header instead: it also returns to today.
 - [ ] Repeat with the longest weekday (Wednesday) and a two-digit total: the header, strip and Today
-      button fit without truncating or overlapping.
+      button fit without truncating or overlapping. Where `· 1:00 elapsed` has no room it reads
+      `· 1:00`, and the help tag on the total still says "elapsed".
+- [ ] With two timers running side by side for 10 minutes, the header reads `0:20 · 0:10 elapsed`; with
+      no overlap the two times match, and logging `1:00` with ＋ raises the total only. Open (i): each
+      line shows its elapsed time beside the total in smaller gray text, and VoiceOver reads it as one:
+      "Today, 20 minutes, 10 minutes elapsed".
 - [ ] Click a row's time, type `1:15`, Return: the row reads `1:15`. Try `+15` and `-10` too.
 - [ ] `-9:00` on a short row stops at `0:00`; a typo like `1:7x` beeps and changes nothing.
 - [ ] Adjusting the running row keeps the timer running from the new total.

@@ -12,17 +12,27 @@ extension Tracker {
     }
 
     /// Today, yesterday, today's week (as in the Week strip) and today's calendar month, each the sum
-    /// of its Days' totals.
+    /// of its Days' totals, and likewise of its Days' Elapsed time.
     public func summary() -> Summary {
         let today = today
-        let daysInMonth = calendar.range(of: .day, in: .month, for: today.noon(in: calendar))!
-        let month = daysInMonth.reduce(0) { sum, day in
-            sum + dayTotal(Day(year: today.year, month: today.month, day: day))
+        let yesterday = today.adding(days: -1, in: calendar)
+        let first = today.startOfWeek(in: calendar)
+        let week = (0..<7).map { first.adding(days: $0, in: calendar) }
+        let month = calendar.range(of: .day, in: .month, for: today.noon(in: calendar))!.map {
+            Day(year: today.year, month: today.month, day: $0)
+        }
+        func sum(_ days: [Day], _ value: (Day) -> TimeInterval) -> TimeInterval {
+            days.reduce(0) { $0 + value($1) }
         }
         return Summary(
             today: dayTotal(today),
-            yesterday: dayTotal(today.adding(days: -1, in: calendar)),
-            week: weekTotals(containing: today).reduce(0) { $0 + $1.total },
-            month: month)
+            yesterday: dayTotal(yesterday),
+            week: sum(week, dayTotal),
+            month: sum(month, dayTotal),
+            elapsed: Summary.Elapsed(
+                today: elapsed(today),
+                yesterday: elapsed(yesterday),
+                week: sum(week, elapsed),
+                month: sum(month, elapsed)))
     }
 }

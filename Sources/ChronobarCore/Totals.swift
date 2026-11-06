@@ -22,17 +22,37 @@ public struct DayTotal: Equatable, Sendable {
     }
 }
 
-/// The (i) Time Summary: grand totals for today, yesterday, this week and this month.
+/// The (i) Time Summary: grand totals for today, yesterday, this week and this month, with the
+/// Elapsed time beside each.
 public struct Summary: Equatable, Sendable {
     public let today: TimeInterval
     public let yesterday: TimeInterval
     public let week: TimeInterval
     public let month: TimeInterval
+    public let elapsed: Elapsed
 
-    public init(today: TimeInterval, yesterday: TimeInterval, week: TimeInterval, month: TimeInterval) {
+    /// The Elapsed time of each period: the sum of its Days' Elapsed time.
+    public struct Elapsed: Equatable, Sendable {
+        public let today: TimeInterval
+        public let yesterday: TimeInterval
+        public let week: TimeInterval
+        public let month: TimeInterval
+
+        public init(today: TimeInterval, yesterday: TimeInterval, week: TimeInterval, month: TimeInterval) {
+            self.today = today
+            self.yesterday = yesterday
+            self.week = week
+            self.month = month
+        }
+    }
+
+    public init(
+        today: TimeInterval, yesterday: TimeInterval, week: TimeInterval, month: TimeInterval, elapsed: Elapsed
+    ) {
         self.today = today
         self.yesterday = yesterday
         self.week = week
         self.month = month
+        self.elapsed = elapsed
     }
 }
