@@ -111,14 +111,6 @@ struct PanelView: View {
                 .popover(isPresented: $panel.showingSummary, arrowEdge: .bottom) {
                     SummaryView(summary: tracker.summary())
                 }
-                Button {
-                    panel.showingNewProject.toggle()
-                } label: {
-                    Image(systemName: "plus").contentShape(Rectangle())
-                }
-                .iconButton(.primary)
-                .help(PanelCommand.newProject.help(isToday ? "Start or log time" : "Log time"))
-                .accessibilityLabel(isToday ? "Start or log time" : "Log time")
                 Menu {
                     SettingsLink { Text("Settings…") }
                         .keyboardShortcut(",", modifiers: .command)
@@ -167,6 +159,23 @@ struct PanelView: View {
                         .help(PanelCommand.today.help(Self.backToToday))
                 }
             }
+            if rows.isEmpty {
+                Text("No time tracked").foregroundStyle(.secondary)
+            } else {
+                VStack(spacing: 2) {
+                    ForEach(rows, id: \.project) { row in
+                        // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
+                        RowView(row: row, isRunning: isToday && tracker.isRunning(row.project),
+                                canStart: isToday, panel: panel,
+                                toggle: { actions.toggle(row.project) },
+                                adjust: {
+                                    if actions.adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
+                                })
+                    }
+                }
+            }
+            // ＋ and its form sit under the rows, where Start or Log adds a new Project's row (rows keep the
+            // order their Projects were first tracked in), so the eye stays at the bottom of the Panel.
             if panel.showingNewProject {
                 NewProjectForm(
                     name: $panel.newProjectName,
@@ -191,21 +200,14 @@ struct PanelView: View {
                         panel.newProjectFocusRequests += 1
                     })
             }
-            if rows.isEmpty {
-                Text("No time tracked").foregroundStyle(.secondary)
-            } else {
-                VStack(spacing: 2) {
-                    ForEach(rows, id: \.project) { row in
-                        // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
-                        RowView(row: row, isRunning: isToday && tracker.isRunning(row.project),
-                                canStart: isToday, panel: panel,
-                                toggle: { actions.toggle(row.project) },
-                                adjust: {
-                                    if actions.adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
-                                })
-                    }
-                }
+            Button {
+                panel.showingNewProject.toggle()
+            } label: {
+                Image(systemName: "plus").contentShape(Rectangle())
             }
+            .iconButton(.primary)
+            .help(PanelCommand.newProject.help(isToday ? "Start or log time" : "Log time"))
+            .accessibilityLabel(isToday ? "Start or log time" : "Log time")
         }
         .padding()
         .frame(width: 300)

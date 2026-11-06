@@ -43,6 +43,22 @@ import ChronobarCore
         ])
     }
 
+    /// The ＋ form sits under the rows, so a Project it adds belongs at the bottom, just above it.
+    @Test func aProjectLoggedFromThePlusFormGetsTheLastRow() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        clock.set("2026-11-03T10:00:00")
+        try tracker.pause()
+        try tracker.log("Internal", "0:30", on: tracker.today)
+        try tracker.log("Garden Shed", "15", on: tracker.today)
+
+        #expect(tracker.rows(tracker.today) == [
+            Row(project: "Website Redesign", total: 60 * 60),
+            Row(project: "Internal", total: 30 * 60),
+            Row(project: "Garden Shed", total: 15 * 60),
+        ])
+    }
+
     @Test func restartingAProjectAddsToItsRow() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
