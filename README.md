@@ -25,7 +25,7 @@ can read and edit. There are no accounts, no sync and no integrations.
   vacation ahead. While you view another day, a Today button under the strip brings you back, as
   does clicking the date.
 - **Keys in the Panel** work wherever focus is, with or without Keyboard navigation turned on:
-  ⌘[ and ⌘] move a week back or forward, ← and → move a day (unless you're typing in a field, where
+  ⌘[ and ⌘] move a week back or forward, ← and → move a Day (unless you're typing in a field, where
   they move the insertion point), ⌘T goes back to today, ⌘N opens ＋ and ⌘I opens or closes the (i)
   Time Summary. Each control's help tag names its key.
 - Only one timer runs at a time. Starting a project pauses whichever one was running.
