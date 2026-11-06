@@ -94,6 +94,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             followPointer(event)
             return event
         }
+        watchForCoverChanges()
         // The Panel's key equivalents, ahead of the focused control so they work wherever focus is, with
         // Keyboard navigation on or off. A key that would edit text in a focused field passes through.
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -117,7 +118,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 
     /// Resizes the status item to fit the Pill, whose time segment widens past `9:59`, and keeps an open
-    /// Panel's anchor over it.
+    /// Panel's anchor and the cover over it.
     func refresh() {
         let width = ceil(pill.fittingSize.width)
         if statusItem.length != width { statusItem.length = width }
@@ -125,6 +126,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             anchor.place(over: button)
             capPanel()
         }
+        placeCover()
         describe()
     }
 
@@ -198,17 +200,79 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         return window === statusItem.button?.window || window === cover
     }
 
-    /// Puts the cover over the Pill while the pointer is on it, and takes it away otherwise
-    /// (`PillCoverArea`). Run on every pointer move, so it follows the status item wherever it goes, and on
-    /// every mouse-down. At a mouse-down, `pressCommandKey` is whether that press had ⌘ held, and the cover
-    /// can go even from under it.
+    /// Puts the cover over the Pill while the pointer is on it and the menu bar is shown there, and takes it
+    /// away otherwise (`PillCoverArea`). Run on every pointer move, so it follows the status item wherever
+    /// it goes, and on every mouse-down. Also run without the pointer moving (`watchForCoverChanges`, and
+    /// every second from `refresh`), so a press on a Pill that appeared or moved under a resting pointer is
+    /// covered too. At a mouse-down, `pressCommandKey` is whether that press had ⌘ held, and the cover can
+    /// go even from under it.
     private func placeCover(pressCommandKey: Bool? = nil) {
         let duringPress = pressCommandKey != nil
         guard let (item, screen) = pillScreen() else { return cover.remove(duringPress: duringPress) }
-        let frame = PillCoverArea.frame(
-            item: item, screen: screen.frame, visible: screen.visibleFrame, pointer: NSEvent.mouseLocation,
-            commandKey: pressCommandKey ?? NSEvent.modifierFlags.contains(.command))
-        if let frame { cover.place(at: frame) } else { cover.remove(duringPress: duringPress) }
+        let placement = PillCoverArea.placement(
+            item: item, screen: screen.frame, pointer: NSEvent.mouseLocation,
+            commandKey: pressCommandKey ?? NSEvent.modifierFlags.contains(.command),
+            pressHeld: !duringPress && !cover.isVisible && NSEvent.pressedMouseButtons & 1 != 0,
+            menuBars: Self.menuBars())
+        switch placement {
+        case .cover(let frame):
+            menuBarChecks = 0
+            cover.place(at: frame)
+        case .away:
+            menuBarChecks = 0
+            cover.remove(duringPress: duringPress)
+        case .awaitingMenuBar:
+            cover.remove(duringPress: duringPress)
+            checkMenuBarSoon()
+        }
+    }
+
+    /// How many times in a row the cover has looked again for a menu bar that wasn't shown yet.
+    private var menuBarChecks = 0
+    private var menuBarCheck: Timer?
+
+    /// Looks again in a moment for an auto-hidden menu bar sliding in under a resting pointer, up to about a
+    /// second; after that, `refresh` still looks once a second.
+    private func checkMenuBarSoon() {
+        guard menuBarCheck == nil, menuBarChecks < 10 else { return }
+        menuBarChecks += 1
+        let timer = Timer(timeInterval: 0.1, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.menuBarCheck = nil
+                self?.placeCover()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        menuBarCheck = timer
+    }
+
+    /// The menu bars on screen now, from the window list.
+    private static func menuBars() -> [CGRect] {
+        guard let mainDisplay = NSScreen.screens.first,
+              let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID)
+                as? [[String: Any]] else { return [] }
+        return PillCoverArea.menuBars(in: windows, mainDisplayHeight: mainDisplay.frame.height)
+    }
+
+    /// Places the cover when the Pill may have come under the pointer without the pointer moving: the status
+    /// item appears, moves, resizes or changes screen, the app becomes active, the displays change, or
+    /// the Space changes, as when leaving another app's full screen.
+    private func watchForCoverChanges() {
+        let place: @Sendable (Notification) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated { self?.placeCover() }
+        }
+        let center = NotificationCenter.default
+        if let window = statusItem.button?.window {
+            for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification,
+                         NSWindow.didChangeScreenNotification] {
+                center.addObserver(forName: name, object: window, queue: .main, using: place)
+            }
+        }
+        for name in [NSApplication.didBecomeActiveNotification, NSApplication.didChangeScreenParametersNotification] {
+            center.addObserver(forName: name, object: nil, queue: .main, using: place)
+        }
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main, using: place)
     }
 
     /// The pointer's x from the button's leading edge, over the status item when it is within the status
