@@ -2,176 +2,101 @@ import Foundation
 import Testing
 import ChronobarCore
 
-/// A click on the Pill is decided where its mouse-down was, with the Panel open or closed.
+/// Every click on the Pill opens the Panel, wherever on the Pill it lands; none starts or pauses a timer.
 @MainActor @Suite struct PillPressTests {
-    let clock = FakeClock("2026-11-03T09:00:00")
-    let root = temporaryRoot()
-    let square = PillPointer.at(x: 12)
-    let timeSegment = PillPointer.at(x: 40)
-
-    func trackerWithATimerRunning() throws -> Tracker {
-        let tracker = Tracker(clock: clock, storageRoot: root)
-        try tracker.start("Website Redesign")
-        return tracker
-    }
-
     // MARK: Panel closed: the button's action comes after the mouse-down
 
-    @Test func aPressOnTheSquareThatDriftsOntoTheTimeSegmentStillToggles() throws {
-        let tracker = try trackerWithATimerRunning()
+    @Test func aClickOnThePillOpensThePanel() {
         var press = PillPress()
+        press.mouseDown(onPill: true, panelOpen: false)
 
-        #expect(press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker) == nil)
-        // The pointer is over the time segment by the mouse-up; only the mouse-down counts.
-        #expect(press.buttonAction(byMouse: true, tracker: tracker) == .pauseTimers)
+        #expect(press.buttonAction(byMouse: true) == true)
     }
 
-    @Test func aPressOnTheTimeSegmentThatDriftsOntoTheSquareOpensThePanel() throws {
-        let tracker = try trackerWithATimerRunning()
+    /// VoiceOver or the keyboard press the button with no mouse-down.
+    @Test func aPressNotByTheMouseOpensThePanel() {
         var press = PillPress()
 
-        _ = press.mouseDown(onPill: true, at: timeSegment, panelOpen: false, tracker: tracker)
-
-        #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
+        #expect(press.buttonAction(byMouse: false) == true)
     }
 
-    /// VoiceOver or the keyboard press the button with no mouse-down, whatever an earlier click left.
-    @Test func aPressNotByTheMouseOpensThePanel() throws {
-        let tracker = try trackerWithATimerRunning()
+    /// The menu bar can send the action without the app seeing the mouse-down.
+    @Test func aButtonActionWithNoMouseDownSeenOpensThePanel() {
         var press = PillPress()
-        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
 
-        #expect(press.buttonAction(byMouse: false, tracker: tracker) == .openPanel)
+        #expect(press.buttonAction(byMouse: true) == true)
     }
 
-    @Test func eachMouseDownIsUsedOnce() throws {
-        let tracker = try trackerWithATimerRunning()
-        var press = PillPress()
-        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
-        _ = press.buttonAction(byMouse: true, tracker: tracker)
+    // MARK: Panel open: the mouse-down closes it, and the button sends no action
 
-        #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
+    /// Its mouse-down closed the Panel; the mouse-up mustn't open it again.
+    @Test func aPressOnTheCoverThatClosedThePanelDoesNothingMore() {
+        var press = PillPress()
+        press.mouseDown(onPill: true, panelOpen: true)
+
+        #expect(press.mouseUp(overPill: true) == false)
     }
 
-    @Test func aMouseDownElsewhereIsNotAPressOnThePill() throws {
-        let tracker = try trackerWithATimerRunning()
+    @Test func aMouseDownWithThePanelOpenIsNotKeptForALaterPress() {
         var press = PillPress()
-        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
+        press.mouseDown(onPill: true, panelOpen: false)
 
-        #expect(press.mouseDown(onPill: false, at: square, panelOpen: false, tracker: tracker) == nil)
-        #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
-    }
+        press.mouseDown(onPill: true, panelOpen: true)
 
-    // MARK: Panel open: the button sends no action, so the mouse-down decides at once
-
-    @Test func withThePanelOpenTheSquareActsOnItsMouseDownAndKeepsThePanel() throws {
-        let tracker = try trackerWithATimerRunning()
-        var press = PillPress()
-
-        #expect(!PillPress.closesPanel(onPill: true, at: square, tracker: tracker))
-        #expect(press.mouseDown(onPill: true, at: square, panelOpen: true, tracker: tracker) == .pauseTimers)
-    }
-
-    @Test func withThePanelOpenTheSquareOpensTheNewProjectFormWithNothingToStart() {
-        let tracker = Tracker(clock: clock, storageRoot: root)
-        var press = PillPress()
-
-        #expect(press.mouseDown(onPill: true, at: square, panelOpen: true, tracker: tracker)
-            == .openNewProjectForm)
-    }
-
-    @Test func withThePanelOpenTheTimeSegmentClosesIt() throws {
-        let tracker = try trackerWithATimerRunning()
-        var press = PillPress()
-
-        #expect(PillPress.closesPanel(onPill: true, at: timeSegment, tracker: tracker))
-        #expect(press.mouseDown(onPill: true, at: timeSegment, panelOpen: true, tracker: tracker) == nil)
-    }
-
-    @Test func withThePanelOpenAMouseDownElsewhereClosesIt() throws {
-        let tracker = try trackerWithATimerRunning()
-        var press = PillPress()
-
-        #expect(PillPress.closesPanel(onPill: false, at: square, tracker: tracker))
-        #expect(press.mouseDown(onPill: false, at: square, panelOpen: true, tracker: tracker) == nil)
-    }
-
-    /// A mouse-down with the Panel open never reaches the button's action, so it isn't kept for one.
-    @Test func aMouseDownWithThePanelOpenIsNotKeptForALaterAction() throws {
-        let tracker = try trackerWithATimerRunning()
-        var press = PillPress()
-        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
-
-        _ = press.mouseDown(onPill: true, at: timeSegment, panelOpen: true, tracker: tracker)
-
-        #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
+        #expect(press.mouseUp(overPill: true) == false)
     }
 
     // MARK: The Pill's cover: the press never reaches the menu bar, so the mouse-up ends it
 
-    @Test func aPressOnTheCoverActsOnItsMouseUpFromWhereItBegan() throws {
-        let tracker = try trackerWithATimerRunning()
+    @Test func aPressOnTheCoverOpensThePanelOnItsMouseUp() {
         var press = PillPress()
-        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
+        press.mouseDown(onPill: true, panelOpen: false)
 
-        #expect(press.mouseUp(overPill: true, tracker: tracker) == .pauseTimers)
-    }
-
-    /// Its mouse-down closed the Panel; the mouse-up mustn't open it again.
-    @Test func aPressOnTheCoverThatClosedThePanelDoesNothingMore() throws {
-        let tracker = try trackerWithATimerRunning()
-        var press = PillPress()
-        _ = press.mouseDown(onPill: true, at: timeSegment, panelOpen: true, tracker: tracker)
-
-        #expect(press.mouseUp(overPill: true, tracker: tracker) == nil)
+        #expect(press.mouseUp(overPill: true) == true)
     }
 
     /// As with a button, a press let go away from the Pill is called off.
-    @Test func aPressOnTheCoverReleasedAwayFromThePillDoesNothing() throws {
-        let tracker = try trackerWithATimerRunning()
+    @Test func aPressOnTheCoverReleasedAwayFromThePillDoesNothing() {
         var press = PillPress()
-        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
+        press.mouseDown(onPill: true, panelOpen: false)
 
-        #expect(press.mouseUp(overPill: false, tracker: tracker) == nil)
-        #expect(press.mouseUp(overPill: true, tracker: tracker) == nil)
+        #expect(press.mouseUp(overPill: false) == false)
+        #expect(press.mouseUp(overPill: true) == false)
+    }
+
+    @Test func aMouseDownElsewhereIsNotAPressOnThePill() {
+        var press = PillPress()
+        press.mouseDown(onPill: true, panelOpen: false)
+
+        press.mouseDown(onPill: false, panelOpen: false)
+
+        #expect(press.mouseUp(overPill: true) == false)
     }
 
     // MARK: ⌘ held: the press is the start of a ⌘-drag, never a click
 
     /// With another app frontmost the app can't see ⌘ go down, so the cover can still be over the Pill.
-    @Test func aPressWithCommandHeldOnTheCoverDoesNothing() throws {
-        let tracker = try trackerWithATimerRunning()
+    @Test func aPressWithCommandHeldOnTheCoverDoesNothing() {
         var press = PillPress()
+        press.mouseDown(onPill: true, commandKey: true, panelOpen: false)
 
-        #expect(press.mouseDown(onPill: true, at: square, commandKey: true, panelOpen: false, tracker: tracker)
-            == nil)
-        #expect(press.mouseUp(overPill: true, tracker: tracker) == nil)
+        #expect(press.mouseUp(overPill: true) == false)
     }
 
-    @Test func aPressWithCommandHeldThroughTheMenuBarDoesNothing() throws {
-        let tracker = try trackerWithATimerRunning()
+    @Test func aPressWithCommandHeldThroughTheMenuBarDoesNothing() {
         var press = PillPress()
-        _ = press.mouseDown(onPill: true, at: timeSegment, commandKey: true, panelOpen: false, tracker: tracker)
+        press.mouseDown(onPill: true, commandKey: true, panelOpen: false)
 
-        #expect(press.buttonAction(byMouse: true, tracker: tracker) == nil)
-    }
-
-    @Test func withThePanelOpenAPressWithCommandHeldOnTheSquareDoesNothing() throws {
-        let tracker = try trackerWithATimerRunning()
-        var press = PillPress()
-
-        #expect(press.mouseDown(onPill: true, at: square, commandKey: true, panelOpen: true, tracker: tracker)
-            == nil)
+        #expect(press.buttonAction(byMouse: true) == false)
     }
 
     /// Each press is decided on its own: one with ⌘ held leaves nothing behind for the next.
-    @Test func aPressWithCommandHeldDoesNotStopTheNextClick() throws {
-        let tracker = try trackerWithATimerRunning()
+    @Test func aPressWithCommandHeldDoesNotStopTheNextClick() {
         var press = PillPress()
-        _ = press.mouseDown(onPill: true, at: square, commandKey: true, panelOpen: false, tracker: tracker)
-        _ = press.mouseUp(overPill: true, tracker: tracker)
+        press.mouseDown(onPill: true, commandKey: true, panelOpen: false)
+        _ = press.mouseUp(overPill: true)
 
-        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
-        #expect(press.mouseUp(overPill: true, tracker: tracker) == .pauseTimers)
+        press.mouseDown(onPill: true, panelOpen: false)
+        #expect(press.mouseUp(overPill: true) == true)
     }
 }
