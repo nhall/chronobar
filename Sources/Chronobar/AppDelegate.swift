@@ -13,7 +13,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `nil` when the Info.plist names a bad data folder; the app then refuses to start.
     private var variant: BuildVariant?
 
+    /// Set on macOS 14 only, whose Settings scene opens at launch (`ChronobarMain`).
+    nonisolated(unsafe) static var closesSettingsShownAtLaunch = false
+    private var launchSettingsCloser: LaunchSettingsCloser?
+
     func applicationWillFinishLaunching(_ notification: Notification) {
+        if Self.closesSettingsShownAtLaunch { launchSettingsCloser = LaunchSettingsCloser() }
         do {
             variant = try BuildVariant(info: Bundle.main.infoDictionary)
         } catch {
