@@ -11,10 +11,19 @@ import ChronobarCore
     let item = CGRect(x: 1186, y: 1089, width: 94, height: 22)
     let onItem = CGPoint(x: 1231, y: 1100)
 
+    // Window numbers seen on macOS 27: the status item's window, as `NSWindow.windowNumber` gives it, and
+    // what `NSWindow.windowNumber(at:belowWindowWithWindowNumber:)` finds at the Pill when the Pill is shown
+    // there, and when it is not (the menu bar's own window).
+    let pillWindow = 21_474_836_480
+    let pillShownThere = 0
+    let menuBarWindow = 6
+
     private func placement(item: CGRect? = nil, screen: CGRect? = nil, pointer: CGPoint, commandKey: Bool = false,
-                           pressHeld: Bool = false, menuBars: [CGRect]? = nil) -> PillCoverArea.Placement {
+                           pressHeld: Bool = false, menuBars: [CGRect]? = nil,
+                           windowAtPill: Int? = nil, coverUp: Bool = false) -> PillCoverArea.Placement {
         PillCoverArea.placement(item: item ?? self.item, screen: screen ?? self.screen, pointer: pointer,
-                                commandKey: commandKey, pressHeld: pressHeld, menuBars: menuBars ?? [menuBar])
+                                commandKey: commandKey, pressHeld: pressHeld, menuBars: menuBars ?? [menuBar],
+                                windowAtPill: windowAtPill ?? pillShownThere, pillWindow: pillWindow, coverUp: coverUp)
     }
 
     @Test func coversTheStatusItemUpToTheTopOfTheScreenWithThePointerOnIt() {
@@ -53,14 +62,41 @@ import ChronobarCore
     /// screen, so the cover waits for it.
     @Test func waitsForAHiddenMenuBarToSlideIn() {
         let hidden = CGRect(x: 0, y: 1117, width: 1728, height: 33)
-        #expect(placement(pointer: onItem, menuBars: []) == .awaitingMenuBar)
-        #expect(placement(pointer: CGPoint(x: 1190, y: 1117), menuBars: [hidden]) == .awaitingMenuBar)
+        #expect(placement(pointer: onItem, menuBars: []) == .awaitingPill)
+        #expect(placement(pointer: CGPoint(x: 1190, y: 1117), menuBars: [hidden]) == .awaitingPill)
+    }
+
+    /// A Pill pushed into the « overflow keeps its old frame, where the chevron or another app's status item
+    /// now is; in another app's full screen the window list says the menu bar is there while it is away.
+    /// Either way the window at the Pill isn't the Pill's own, so the cover stays off the others' clicks.
+    @Test func waitsWhileAnotherWindowIsWhereThePillWouldBe() {
+        #expect(placement(pointer: onItem, windowAtPill: menuBarWindow) == .awaitingPill)
+        #expect(placement(pointer: onItem, windowAtPill: 26_737) == .awaitingPill)
+    }
+
+    /// Under the cover the window server finds the menu bar, not the Pill, so a cover already up stays
+    /// without looking; it went up only where the Pill was found.
+    @Test func aCoverAlreadyUpStaysWithoutLookingUnderIt() {
+        #expect(placement(pointer: onItem, windowAtPill: menuBarWindow, coverUp: true)
+            == .cover(CGRect(x: 1186, y: 1089, width: 94, height: 28)))
+        #expect(placement(pointer: CGPoint(x: 600, y: 500), coverUp: true) == .away)
+        #expect(placement(pointer: onItem, menuBars: [], coverUp: true) == .awaitingPill)
+    }
+
+    /// The window server finds the status item's window by the low 32 bits of the number AppKit gives it;
+    /// where they are the whole number, as for an ordinary window, it is found by that.
+    @Test func findsThePillsWindowByItsWindowServerNumber() {
+        #expect(PillCoverArea.isPillWindow(0, pillWindow: 21_474_836_480))
+        #expect(PillCoverArea.isPillWindow(4_812, pillWindow: 4_812))
+        #expect(PillCoverArea.isPillWindow(4_812, pillWindow: 0x5_0000_12CC))
+        #expect(!PillCoverArea.isPillWindow(6, pillWindow: 21_474_836_480))
+        #expect(!PillCoverArea.isPillWindow(6, pillWindow: 4_812))
     }
 
     /// Halfway through sliding in, the menu bar isn't under the status item yet.
     @Test func waitsForAMenuBarStillSlidingIn() {
         let sliding = CGRect(x: 0, y: 1103, width: 1728, height: 33)
-        #expect(placement(pointer: onItem, menuBars: [sliding]) == .awaitingMenuBar)
+        #expect(placement(pointer: onItem, menuBars: [sliding]) == .awaitingPill)
     }
 
     /// Without the pointer on the status item there is nothing to wait for.
@@ -72,7 +108,7 @@ import ChronobarCore
     /// about this one.
     @Test func ignoresAnotherDisplaysMenuBar() {
         let otherDisplays = CGRect(x: 1728, y: 1084, width: 1920, height: 33)
-        #expect(placement(pointer: onItem, menuBars: [otherDisplays]) == .awaitingMenuBar)
+        #expect(placement(pointer: onItem, menuBars: [otherDisplays]) == .awaitingPill)
     }
 
     /// On a display other than the main one, the cover goes over the status item there and reaches that
@@ -118,8 +154,10 @@ import ChronobarCore
     @Test func looksForTheMenuBarOnlyWithThePointerOnTheStatusItem() {
         var looked = false
         func menuBars() -> [CGRect] { looked = true; return [] }
+        func windowAtPill() -> Int { looked = true; return pillShownThere }
         _ = PillCoverArea.placement(item: item, screen: screen, pointer: CGPoint(x: 600, y: 500),
-                                    commandKey: false, pressHeld: false, menuBars: menuBars())
+                                    commandKey: false, pressHeld: false, menuBars: menuBars(),
+                                    windowAtPill: windowAtPill(), pillWindow: pillWindow, coverUp: false)
         #expect(!looked)
     }
 }
