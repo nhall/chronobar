@@ -156,24 +156,23 @@ import ChronobarCore
         #expect(tracker.dayTotal(tracker.today) == 30 * 60)
     }
 
-    /// Crashed with two timers running: both are recovered, idle since the earliest moment either was last
-    /// alive, and removing the idle time restarts both from now with their sources.
+    /// Crashed with two timers running: both are recovered, idle since the app timer was last alive, and
+    /// removing the idle time restarts the app timer from now; the agent's runs on untouched.
     @Test func everyOpenEntryIsRecoveredAfterACrash() throws {
         let settings = TestSettings()
         defer { settings.remove() }
         try writeToday(twoOpen)
         clock.set("2026-11-03T13:00:00")
         let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
-        #expect(relaunched.recoverAfterLaunch() == FakeClock("2026-11-03T08:00:00").now)
+        #expect(relaunched.recoverAfterLaunch() == FakeClock("2026-11-03T08:30:00").now)
 
         try relaunched.resolveIdle(since: FakeClock("2026-11-03T10:00:00").now, choice: .remove)
         #expect(contents(dayFile(root, "2026-11-03")) == """
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Client A, Ticket 665", "start": "2026-11-03T08:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "agent" },
+            { "project": "Client A, Ticket 665", "start": "2026-11-03T08:00:00-05:00", "end": null, "source": "agent" },
             { "project": "Internal", "start": "2026-11-03T08:30:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" },
-            { "project": "Client A, Ticket 665", "start": "2026-11-03T13:00:00-05:00", "end": null, "source": "agent" },
             { "project": "Internal", "start": "2026-11-03T13:00:00-05:00", "end": null, "source": "app" }
           ]
         }
@@ -183,12 +182,12 @@ import ChronobarCore
         #expect(relaunched.pendingIdle == nil)
     }
 
-    /// Crashed overnight with two timers running: both carry on into today until the alert is answered.
+    /// Crashed overnight with two timers running: both carry on into today; only the app's is idle.
     @Test func everyEntryLeftOpenOnAPastDayIsRecovered() throws {
         try writeToday(twoOpen)
         clock.set("2026-11-04T09:00:00")
         let relaunched = Tracker(clock: clock, storageRoot: root)
-        #expect(relaunched.recoverAfterLaunch() == FakeClock("2026-11-03T08:00:00").now)
+        #expect(relaunched.recoverAfterLaunch() == FakeClock("2026-11-03T08:30:00").now)
         #expect(relaunched.timers.map(\.project) == ["Client A, Ticket 665", "Internal"])
         #expect(relaunched.timers.map(\.start) == [FakeClock("2026-11-04T00:00:00").now, FakeClock("2026-11-04T00:00:00").now])
     }
