@@ -233,8 +233,8 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day, Time
       Summary, Menu, Previous week and Next week, each Day in the Week strip with its date, total, and
       "today" or "viewed" (the viewed Day also reads as selected), each row's name (with "running" on
-      the running row), its total and Start or Pause, then Start or log time (＋) under the rows, and
-      Duration in the ＋ form. Each Time Summary line reads as one: "This week, 12 hours 5 minutes".
+      the running row), its total and Start or Pause, then, with the ＋ form open, Duration in the form,
+      and last Start or log time (＋) under it. Each Time Summary line reads as one: "This week, 12 hours 5 minutes".
 - [ ] With Differentiate Without Color on, view a Day other than today: the viewed Day has a ring and
       today's date is bold, so they differ without color.
 - [ ] With Increase Contrast on, the Pill's time segment is opaque, darker, and outlined; with Reduce
