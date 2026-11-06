@@ -43,7 +43,7 @@ final class PanelModel {
     var availableHeight = Double.infinity
     /// A Project whose row to scroll into view: one Start or Log just added or changed, or one keyboard
     /// focus just moved onto.
-    var reveal: String?
+    var projectToReveal: String?
 
     /// The Panel opened, by `opening`.
     func opened(by opening: PanelOpening) {
@@ -80,11 +80,13 @@ final class PanelModel {
 
 /// What the Panel asks the app to do.
 struct PanelActions {
-    let start: (String) -> Void
+    /// Start and log return the Project's name as its row is shown, which can differ from what was typed
+    /// (`Tracker.addProject`), or nil when refused, so the field keeps what was typed.
+    let start: (String) -> String?
     /// A row's ▶/⏸: starts the Project, or pauses it while it runs.
     let toggle: (String) -> Void
-    /// Log and adjust return false when the input was refused, so the field keeps what was typed.
-    let log: (_ project: String, _ duration: String, _ day: Day) -> Bool
+    let log: (_ project: String, _ duration: String, _ day: Day) -> String?
+    /// Returns false when the input was refused, so the field keeps what was typed.
     let adjust: (_ project: String, _ input: String, _ day: Day) -> Bool
     let archive: (String) -> Void
     let openDataFolder: () -> Void
@@ -230,15 +232,15 @@ struct PanelView: View {
                     suggestions: tracker.suggestions(for:),
                     match: tracker.match(panel.newProjectName),
                     // Start and Log go back to the rows and leave the Panel open.
-                    start: { project in
-                        actions.start(project)
+                    start: { name in
+                        let project = actions.start(name)
                         panel.showingNewProject = false
-                        panel.reveal = project
+                        panel.projectToReveal = project
                     },
-                    log: { project in
-                        if actions.log(project, panel.newProjectDuration, day) {
+                    log: { name in
+                        if let project = actions.log(name, panel.newProjectDuration, day) {
                             panel.showingNewProject = false
-                            panel.reveal = project
+                            panel.projectToReveal = project
                         }
                     },
                     // The field empties, so Return can't bring the Project straight back.
@@ -390,10 +392,10 @@ private struct RowList<Rows: View>: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             // A Day's first row needs no scrolling.
-            .onAppear { panel.reveal = nil }
-            .onChange(of: panel.reveal) { _, project in
+            .onAppear { panel.projectToReveal = nil }
+            .onChange(of: panel.projectToReveal) { _, project in
                 guard let project else { return }
-                panel.reveal = nil
+                panel.projectToReveal = nil
                 withAnimation(reduceMotion ? nil : .easeOut(duration: PanelResize.duration)) {
                     proxy.scrollTo(project)
                 }
@@ -464,7 +466,7 @@ private struct RowView: View {
             }
         }
         .onChange(of: focusedButton) { _, button in
-            if button != nil { panel.reveal = row.project }
+            if button != nil { panel.projectToReveal = row.project }
         }
         .foregroundStyle(.primary)
         .padding(.horizontal, 6)

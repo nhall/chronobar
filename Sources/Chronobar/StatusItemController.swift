@@ -31,10 +31,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         popover.behavior = .transient
         popover.delegate = self
         let actions = PanelActions(
-            start: { [weak self] project in self?.perform { try tracker.start(project) } },
+            start: { [weak self] project in self?.attempt { try tracker.start(project) } },
             toggle: { [weak self] project in self?.perform { try tracker.toggle(project) } },
             log: { [weak self] project, duration, day in
-                self?.perform { try tracker.log(project, duration, on: day) } ?? false
+                self?.attempt { try tracker.log(project, duration, on: day) }
             },
             adjust: { [weak self] project, input, day in
                 self?.perform { try tracker.adjust(project, input, on: day) } ?? false
@@ -325,13 +325,17 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// returns false.
     @discardableResult
     private func perform(_ action: () throws -> Void) -> Bool {
+        attempt(action) != nil
+    }
+
+    /// Runs a Core command and returns what it returned; on an error logs it, beeps and returns nil.
+    private func attempt<Result>(_ action: () throws -> Result) -> Result? {
         defer { refresh() }
         do {
-            try action()
-            return true
+            return try action()
         } catch {
             reportFailure(error, category: "tracker")
-            return false
+            return nil
         }
     }
 }
