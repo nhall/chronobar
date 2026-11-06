@@ -245,7 +245,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         guard popover.isShown, let window,
               let panelWindow = popover.contentViewController?.view.window,
               window === panelWindow || window.parent === panelWindow else { return false }
-        panel.focusRing.keyPressed()
+        panel.keyPressed()
         guard let key else { return false }
         // A focused text field edits through its field editor, a text view.
         let editingText = (window.firstResponder as? NSTextView)?.isEditable ?? false
@@ -278,11 +278,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     func showPanel(newProject: Bool = false, by opening: PanelOpening) {
         panel.showingNewProject = newProject
         if popover.isShown {
-            // The global shortcut with the Panel already open is a key press like one in the Panel.
-            if opening == .keyboard { panel.focusRing.keyPressed() }
+            panel.askedToOpenWhileOpen(by: opening)
             return
         }
-        panel.focusRing.panelOpened(by: opening)
+        panel.opened(by: opening)
         guard let button = statusItem.button else { return }
         // Each opening starts on today, picks up hand edits to any Day file and the Project list, and
         // retries writes deferred while a Day file was malformed. Tick first so a timer running past

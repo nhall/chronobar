@@ -23,7 +23,7 @@ final class PanelModel {
     /// Whether the date header draws its focus ring: hidden after a click on the Pill opens the Panel, until
     /// a key press. Until then nothing else has focus but a text field the click put it in, which always
     /// shows its ring.
-    var focusRing = FocusRing()
+    private(set) var focusRing = FocusRing()
     /// Whether the ＋ form's Project list is showing, which takes Return from the Start/Log button.
     var newProjectListOpen = false
     /// The ＋ form's duration; empty starts a timer, anything else logs that much time.
@@ -38,6 +38,21 @@ final class PanelModel {
         didSet { adjustment = "" }
     }
     var adjustment = ""
+
+    /// The Panel opened, by `opening`.
+    func opened(by opening: PanelOpening) {
+        focusRing.panelOpened(by: opening)
+    }
+
+    /// The Panel was asked to open, by `opening`, while it was already open.
+    func askedToOpenWhileOpen(by opening: PanelOpening) {
+        focusRing.askedToOpenWhileOpen(by: opening)
+    }
+
+    /// A key was pressed in the Panel or the (i) Time Summary it shows.
+    func keyPressed() {
+        focusRing.keyPressed()
+    }
 
     /// Carries out one of the Panel's key equivalents, or a control that does the same.
     func perform(_ command: PanelCommand, today: Day, calendar: Calendar) {
