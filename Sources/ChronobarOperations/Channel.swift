@@ -102,6 +102,8 @@ struct LineReader {
             let count = read(fd, &chunk, chunk.count)
             if count < 0 {
                 if errno == EINTR { continue }
+                // The receive timeout passed.
+                if errno == EAGAIN { throw Channel.Failure("read", ETIMEDOUT) }
                 throw Channel.Failure("read")
             }
             if count == 0 { return nil }
@@ -163,9 +165,29 @@ public final class ChannelServer: @unchecked Sendable {
         var lines = LineReader(fd: client)
         while let line = try? lines.next() {
             guard !line.allSatisfy({ $0 == UInt8(ascii: " ") || $0 == UInt8(ascii: "\r") }) else { continue }
-            let reply = DispatchQueue.main.sync { MainActor.assumeIsolated { respond(line) } }
+            let reply = onMainRunLoop { respond(line) }
             guard (try? Channel.write(reply, to: client)) != nil else { return }
         }
+    }
+
+    /// Runs `work` on the main thread and waits for it. Through the main run loop in its common modes, not
+    /// the main dispatch queue: an alert's modal loop (the idle alert's `runModal`) can run inside a main
+    /// queue block, which holds every other main queue block until the alert closes, while the run loop
+    /// keeps serving its common modes.
+    private static func onMainRunLoop(_ work: @escaping @MainActor @Sendable () -> Data) -> Data {
+        final class Reply: @unchecked Sendable {
+            var data = Data()
+        }
+        let reply = Reply()
+        let done = DispatchSemaphore(value: 0)
+        let main = CFRunLoopGetMain()
+        CFRunLoopPerformBlock(main, CFRunLoopMode.commonModes.rawValue) {
+            reply.data = MainActor.assumeIsolated { work() }
+            done.signal()
+        }
+        CFRunLoopWakeUp(main)
+        done.wait()
+        return reply.data
     }
 
     /// Stops listening and removes the socket file.
