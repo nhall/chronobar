@@ -12,6 +12,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
     private let anchor = PanelAnchor()
+    private let cover = PillCover()
     private let pill: NSHostingView<PillView>
     private var press = PillPress()
     private var focusObserver: NSObjectProtocol?
@@ -67,12 +68,25 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             let taken = MainActor.assumeIsolated {
                 guard let self, let button = self.statusItem.button else { return false }
                 guard let action = self.press.mouseDown(
-                    onStatusItem: window === button.window, at: Self.pointer(over: button),
+                    onStatusItem: self.isStatusItem(window), at: Self.pointer(over: button),
                     panelOpen: self.popover.isShown, tracker: self.tracker) else { return false }
                 self.run(action)
                 return true
             }
             return taken ? nil : event
+        }
+        // The cover goes over the Pill while the pointer is on it, so a press reaches the app without the
+        // menu bar drawing its highlight. Its mouse-up stands in for the button's action.
+        cover.onMouseUp = { [weak self] overPill in
+            guard let self, let action = self.press.mouseUp(overPill: overPill, tracker: self.tracker) else { return }
+            self.run(action)
+        }
+        NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .flagsChanged]) { [weak self] _ in
+            MainActor.assumeIsolated { self?.placeCover() }
+        }
+        NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .flagsChanged]) { [weak self] event in
+            MainActor.assumeIsolated { self?.placeCover() }
+            return event
         }
         // The global shortcut does exactly what a click on the square does.
         KeyboardShortcuts.onKeyUp(for: .toggleTimer) { [weak self] in
@@ -127,7 +141,27 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         guard let event = NSApp.currentEvent, event.type == .leftMouseDown,
               let button = statusItem.button else { return true }
         return PillPress.closesPanel(
-            onStatusItem: event.window === button.window, at: Self.pointer(over: button), tracker: tracker)
+            onStatusItem: isStatusItem(event.window), at: Self.pointer(over: button), tracker: tracker)
+    }
+
+    /// Whether a mouse-down in `window` is on the Pill: in the status item's own window, or in the cover
+    /// over it, which has the same frame.
+    private func isStatusItem(_ window: NSWindow?) -> Bool {
+        guard let window else { return false }
+        return window === statusItem.button?.window || window === cover
+    }
+
+    /// Puts the cover over the Pill while the pointer is on it, and takes it away otherwise
+    /// (`PillCoverArea`). Run on every pointer move, so it follows the status item wherever it goes.
+    private func placeCover() {
+        guard let button = statusItem.button, let window = button.window, let screen = window.screen else {
+            return cover.remove()
+        }
+        let item = window.convertToScreen(button.convert(button.bounds, to: nil))
+        let frame = PillCoverArea.frame(
+            item: item, screen: screen.frame, visible: screen.visibleFrame, pointer: NSEvent.mouseLocation,
+            commandKey: NSEvent.modifierFlags.contains(.command))
+        if let frame { cover.place(at: frame) } else { cover.remove() }
     }
 
     /// The pointer's x from the button's leading edge, over the status item when it is within the status
@@ -212,6 +246,71 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 /// Lets clicks fall through to the status bar button, which owns click handling and highlighting.
 private final class ClickThroughHostingView<Content: View>: NSHostingView<Content> {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+/// An invisible window over the Pill that takes a press on it before the menu bar can. The menu bar hosts
+/// status items itself and draws its highlight behind one on the mouse-down, before the app sees the press,
+/// so nothing in the app can stop it; a window of the app's own in front of the menu bar means the menu bar
+/// never gets the press. It is only shown while the pointer is on the Pill (`PillCoverArea`).
+private final class PillCover: NSPanel {
+    /// The press's mouse-up, and whether it was over the Pill. Its mouse-down went through the app's event
+    /// monitor, as one on the status item does.
+    var onMouseUp: ((Bool) -> Void)?
+
+    init() {
+        super.init(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
+                   defer: true)
+        contentView = PressView(cover: self)
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = false
+        // Takes clicks although it draws nothing.
+        ignoresMouseEvents = false
+        level = .statusBar
+        // Not in other apps' full-screen spaces, where the menu bar comes and goes: a press there reaches
+        // the status item as before.
+        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+        setAccessibilityElement(false)
+    }
+
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+
+    func place(at frame: NSRect) {
+        guard frame != self.frame || !isVisible else { return }
+        setFrame(frame, display: false)
+        orderFrontRegardless()
+    }
+
+    /// Takes the cover away, unless a press on it is still held.
+    func remove() {
+        guard isVisible, NSEvent.pressedMouseButtons & 1 == 0 else { return }
+        orderOut(nil)
+    }
+
+    private final class PressView: NSView {
+        unowned let cover: PillCover
+
+        init(cover: PillCover) {
+            self.cover = cover
+            super.init(frame: .zero)
+            // Pointer moves can arrive late or not at all once the pointer leaves the cover, so the cover
+            // also goes as soon as the pointer is off it.
+            addTrackingArea(NSTrackingArea(
+                rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self))
+        }
+
+        override func mouseExited(with event: NSEvent) { cover.remove() }
+
+        required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+        // A press works whether or not the app is active.
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+        override func mouseDown(with event: NSEvent) {}
+        override func mouseUp(with event: NSEvent) {
+            cover.onMouseUp?(bounds.contains(convert(event.locationInWindow, from: nil)))
+        }
+    }
 }
 
 /// An invisible window over the status item that the Panel hangs from. The menu bar draws its highlight

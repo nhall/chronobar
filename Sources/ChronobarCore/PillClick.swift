@@ -70,6 +70,15 @@ public struct PillPress: Sendable {
         return PillClick.action(at: byMouse ? pressed ?? .away : .away, tracker: tracker)
     }
 
+    /// The mouse-up of a press on the Pill's cover, which takes the press before the menu bar can, so there
+    /// is no button action. `overPill` is whether it was released over the Pill.
+    @MainActor
+    public mutating func mouseUp(overPill: Bool, tracker: Tracker) -> PillClick? {
+        defer { pressed = nil }
+        guard overPill, let pressed else { return nil }
+        return PillClick.action(at: pressed, tracker: tracker)
+    }
+
     @MainActor
     private static func squareAction(onStatusItem: Bool, at pointer: PillPointer, tracker: Tracker) -> PillClick? {
         guard onStatusItem else { return nil }
