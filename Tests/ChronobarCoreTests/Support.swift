@@ -69,6 +69,10 @@ func projectsFile(_ root: URL) -> URL {
     root.appendingPathComponent("projects.txt")
 }
 
+func archivedFile(_ root: URL) -> URL {
+    root.appendingPathComponent("archived.txt")
+}
+
 func contents(_ url: URL) -> String? {
     try? String(contentsOf: url, encoding: .utf8)
 }

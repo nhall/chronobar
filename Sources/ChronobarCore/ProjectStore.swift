@@ -1,14 +1,16 @@
 import Foundation
 
-/// The Project list in `<root>/projects.txt`: UTF-8, one active Project per line. Users edit it by hand.
+/// A list of Projects in a text file under `root`: UTF-8, one Project per line. Users edit it by hand.
+/// `projects.txt` holds the Pinned Projects, `archived.txt` the archived ones.
 struct ProjectStore {
     struct Malformed: Error {}
 
     let root: URL
+    var fileName = "projects.txt"
 
-    var url: URL { root.appendingPathComponent("projects.txt") }
+    var url: URL { root.appendingPathComponent(fileName) }
 
-    /// The active Projects, trimmed, without blank lines; none if the file doesn't exist yet.
+    /// The listed Projects, trimmed, without blank lines; none if the file doesn't exist yet.
     /// Throws `Malformed` if the file isn't UTF-8, so a write never replaces it.
     func load() throws -> [String] {
         guard FileManager.default.fileExists(atPath: url.path) else { return [] }
@@ -39,10 +41,19 @@ public enum ProjectName {
 public enum ProjectMatch: Equatable, Sendable {
     /// Nothing yet: starting or logging it creates a Project.
     case new
-    /// A Project on the Project list, as the list spells it.
+    /// A Project the suggestions list (pinned, or used in the last 30 days and not archived), as they spell it.
     case active(String)
-    /// An archived Project with time in the Day files, as its most recent Entry spells it.
+    /// A Project the suggestions leave out, archived or not used for 30 days, as `archived.txt` or its most
+    /// recent Entry spells it. Starting or logging it brings it back.
     case archived(String)
+
+    /// The existing Project's name; nil for a new one.
+    public var project: String? {
+        switch self {
+        case .new: nil
+        case .active(let project), .archived(let project): project
+        }
+    }
 }
 
 /// A Project name that is empty after trimming whitespace.

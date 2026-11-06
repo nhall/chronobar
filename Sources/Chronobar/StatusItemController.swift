@@ -41,6 +41,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                 self?.perform { try tracker.adjust(project, input, on: day) } ?? false
             },
             archive: { [weak self] project in self?.perform { try tracker.archiveProject(project) } },
+            pin: { [weak self] project in self?.perform { try tracker.pinProject(project) } },
             openDataFolder: { [weak self] in
                 self?.popover.performClose(nil)
                 // The folder only exists after the first write.
