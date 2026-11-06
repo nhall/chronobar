@@ -133,7 +133,8 @@ Each day is one JSON file with one entry per line:
 
 - `date` must match the file name.
 - A **timed** entry has `start` and `end` as ISO 8601 times with a UTC offset, to the second. `end` is
-  `null` only for the one running timer.
+  `null` only for a running timer, at most one per project. An optional `source` says who started it:
+  `"app"` or `"agent"`. Chronobar writes it only for `"agent"`; an entry without it is the app's.
 - A **manual** entry has a whole number of `seconds`, negative for subtractions. `note` is `manual`
   for time logged with ＋ and `adjustment` for a corrected total; it is a marker, not free text.
 - A project's total for the day is the sum of its timed durations and manual seconds, never shown

@@ -9,9 +9,11 @@ enum DayFile {
         let dates = dateStyle(timeZone)
         let lines = entries.map { entry -> String in
             switch entry {
-            case .timed(let project, let start, let end):
+            case .timed(let project, let start, let end, let source):
                 let endText = end.map { string($0.formatted(dates)) } ?? "null"
-                return #"{ "project": \#(string(project)), "start": \#(string(start.formatted(dates))), "end": \#(endText) }"#
+                // `app` is what a missing `source` reads as, so it is left out and v1 files keep their shape.
+                let sourceText = source == .app ? "" : #", "source": \#(string(source.rawValue))"#
+                return #"{ "project": \#(string(project)), "start": \#(string(start.formatted(dates))), "end": \#(endText)\#(sourceText) }"#
             case .manual(let project, let seconds, let note):
                 return #"{ "project": \#(string(project)), "seconds": \#(seconds), "note": \#(string(note.rawValue)) }"#
             }
@@ -25,7 +27,7 @@ enum DayFile {
               let day = Day(file.date) else { throw Malformed() }
         let entries = try file.entries.map { raw -> Entry in
             if let seconds = raw.seconds {
-                guard raw.start == nil, raw.end == nil,
+                guard raw.start == nil, raw.end == nil, raw.source == nil,
                       let note = ManualNote(rawValue: raw.note ?? "") else { throw Malformed() }
                 return .manual(project: raw.project, seconds: seconds, note: note)
             }
@@ -35,7 +37,12 @@ enum DayFile {
                 guard let date = parseDate(text) else { throw Malformed() }
                 end = date
             }
-            return .timed(project: raw.project, start: start, end: end)
+            var source = EntrySource.app
+            if let text = raw.source {
+                guard let parsed = EntrySource(rawValue: text) else { throw Malformed() }
+                source = parsed
+            }
+            return .timed(project: raw.project, start: start, end: end, source: source)
         }
         return (day, entries)
     }
@@ -51,6 +58,7 @@ enum DayFile {
         let end: String?
         let seconds: Int?
         let note: String?
+        let source: String?
     }
 
     private static func dateStyle(_ timeZone: TimeZone) -> Date.ISO8601FormatStyle {

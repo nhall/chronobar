@@ -1,16 +1,16 @@
 import Foundation
 import Observation
 
-/// The running timer.
-public struct Running: Equatable, Sendable {
-    public let project: String
-    public let start: Date
-}
-
-/// Core's single entry point: the timer, totals and the Day files behind them.
+/// Core's single entry point: the timers, totals and the Day files behind them.
 @MainActor @Observable
 public final class Tracker {
-    public private(set) var running: Running?
+    /// Every running timer, each an open Entry in the loaded Day's file. Every start still pauses the
+    /// others, so for now at most one runs.
+    public private(set) var timers = RunningTimers()
+
+    /// Compatibility view for callers written for a single timer: the newest running timer. Callers
+    /// move to `timers` as the app learns to show several; then this goes.
+    public var running: Running? { timers.newest }
     /// The Project ▶ starts: the one most recently started. Kept in `defaults` across launches.
     public private(set) var selectedProject: String? {
         didSet { defaults?.set(selectedProject, forKey: Self.selectedProjectKey) }
@@ -34,7 +34,7 @@ public final class Tracker {
     private static let selectedProjectKey = "selectedProject"
     private static let heartbeatKey = "heartbeat"
 
-    /// Reads today's file. An open Entry there is the running timer, so a timer survives a relaunch.
+    /// Reads today's file. Each open Entry there is a running timer, so timers survive a relaunch.
     /// With no `defaults`, the Selected Project is kept in memory only.
     public init(clock: TimeSource, storageRoot: URL, defaults: UserDefaults? = nil) {
         self.clock = clock
@@ -53,16 +53,17 @@ public final class Tracker {
 
     /// Retries deferred writes, then re-reads today's file and the Project list, and other Days' files
     /// when next asked for. A Day file that won't parse is flagged in `malformedDays` and its last good
-    /// read is kept (for a Day not read before, just its deferred writes), so a running timer keeps running.
+    /// read is kept (for a Day not read before, just its deferred writes), so running timers keep running.
     public func reload() {
         now = clock.now
         projects = (try? projectStore.load()) ?? []
-        let known = running
+        let known = timers
         files.load(today)
         let reparsed = files.takeReparsed()
         let open = files.loadedEntries.compactMap(\.openTimer)
-        // An open Entry in a file that just parsed again is left for `recover(reparsed:)`.
-        running = open.first { $0 == known } ?? (reparsed.contains(today) ? nil : open.first)
+        // An open Entry in a file that just parsed again is left for `recover(reparsed:)`, unless it is
+        // one of Core's own timers.
+        timers = RunningTimers(reparsed.contains(today) ? open.filter { known.contains($0) } : open)
         // A running Project that was archived keeps running but isn't selected again.
         if let running, projects.contains(where: { ProjectName.matches($0, running.project) }) {
             selectedProject = storedName(running.project)
@@ -75,56 +76,63 @@ public final class Tracker {
     /// Whether `day`'s file failed to parse when last read. The Panel warns about it.
     public func isMalformed(_ day: Day) -> Bool { malformedDays.contains(day) }
 
-    /// Starts a timer for `project`, pausing any running one first. A new name creates a Project.
-    /// Refused, leaving any running timer alone, while today's file is malformed. Timers run only today:
+    /// Starts a timer for `project`, pausing every running one first. A new name creates a Project.
+    /// Refused, leaving the running timers alone, while today's file is malformed. Timers run only today:
     /// unlike `log` and `adjust` this takes no Day, so no Day other than today ever gets a timer.
     /// Returns the Project's name as `addProject` resolves it, the name its row is shown under.
     @discardableResult
-    public func start(_ name: String) throws -> String {
+    public func start(_ name: String, source: EntrySource = .app) throws -> String {
         now = clock.now
         files.retryPending()
         _ = try files.read(today)
         let project = try addProject(name)
         try pause()
-        let start = now
-        try files.update(today) { $0.append(.timed(project: project, start: start, end: nil)) }
-        running = Running(project: project, start: start)
+        let timer = Running(project: project, start: now, source: source)
+        try files.update(today) { $0.append(.timed(project: project, start: timer.start, end: nil, source: source)) }
+        timers.insert(timer)
         selectedProject = project
         return project
     }
 
-    /// Closes the running Entry. If today's file is malformed the timer still stops, and closing the
-    /// Entry waits until the file parses again.
+    /// Pauses every running timer, closing their Entries. If today's file is malformed the timers still
+    /// stop, and closing the Entries waits until the file parses again.
     public func pause() throws {
         catchUp()
-        guard running != nil else { return }
+        guard !timers.isEmpty else { return }
         let end = now
         try files.update(today, deferringIfMalformed: true) { Self.close(&$0, at: end) }
-        running = nil
+        timers = RunningTimers()
+    }
+
+    /// Pauses `name`'s timer, if it runs, leaving any others running. Deferred like `pause()`.
+    public func pause(_ name: String) throws {
+        catchUp()
+        guard let timer = timers[name] else { return }
+        let end = now
+        try files.update(today, deferringIfMalformed: true) { Self.close(&$0, at: end, only: timer.project) }
+        timers.remove(timer.project)
     }
 
     /// Whether `toggle()` has a timer to pause or a Selected Project to start.
-    public var canToggle: Bool { running != nil || selectedProject != nil }
+    public var canToggle: Bool { !timers.isEmpty || selectedProject != nil }
 
-    /// Pauses the running timer, or starts the Selected Project. Does nothing with no Selected Project;
-    /// the UI opens the ＋ form instead.
+    /// Pauses every running timer, or with none running starts the Selected Project. Does nothing with no
+    /// Selected Project; the UI opens the ＋ form instead.
     public func toggle() throws {
-        if running != nil {
+        if !timers.isEmpty {
             try pause()
         } else if let selectedProject {
             try start(selectedProject)
         }
     }
 
-    /// Whether `name`'s timer is the one running.
-    public func isRunning(_ name: String) -> Bool {
-        running.map { ProjectName.matches($0.project, name) } ?? false
-    }
+    /// Whether `name`'s timer is running.
+    public func isRunning(_ name: String) -> Bool { timers.contains(name) }
 
-    /// A Panel row's ▶/⏸: pauses `name` if it is running, otherwise starts it, pausing any other timer.
+    /// A Panel row's ▶/⏸: pauses `name` if it is running, otherwise starts it, pausing every other timer.
     public func toggle(_ name: String) throws {
         if isRunning(name) {
-            try pause()
+            try pause(name)
         } else {
             try start(name)
         }
@@ -146,52 +154,53 @@ public final class Tracker {
         pendingIdle = PendingIdle(since: idle.since, until: idle.until)
     }
 
-    /// Records the clock's time as the last moment Chronobar was alive, while a timer runs. The UI calls
+    /// Records the clock's time as the last moment Chronobar was alive, while any timer runs. The UI calls
     /// it every minute and on sleep; `recoverAfterLaunch()` reads it after a crash.
     public func heartbeat() {
-        guard running != nil else { return }
+        guard !timers.isEmpty else { return }
         defaults?.set(clock.now, forKey: Self.heartbeatKey)
     }
 
-    /// Called once at launch. Quitting closes the running Entry, so an Entry still open means Chronobar
-    /// crashed or the Mac was forced off. Returns when it was last known alive (the later of the Entry's
-    /// start and the last Heartbeat) so the UI can ask about the time since with the idle alert; nil if
-    /// nothing was left open. An Entry open on a past Day becomes the running timer and is split across
-    /// the Days since, as after waking from sleep, so the idle removal can cut it. The same goes for an
-    /// Entry found open later in a Day file that was malformed at launch, once it parses.
+    /// Called once at launch. Quitting closes the running Entries, so an Entry still open means Chronobar
+    /// crashed or the Mac was forced off. Returns when it was last known alive (the later of the earliest
+    /// open Entry's start and the last Heartbeat) so the UI can ask about the time since with the idle
+    /// alert; nil if nothing was left open. Entries open on a past Day become running timers and are split
+    /// across the Days since, as after waking from sleep, so the idle removal can cut them. The same goes
+    /// for Entries found open later in a Day file that was malformed at launch, once it parses.
     @discardableResult
     public func recoverAfterLaunch() -> Date? {
         now = clock.now
-        if let running {
-            recover(running, on: files.loadedDay)
-        } else if let (day, entries) = lastTimedDay(), let open = entries.lazy.compactMap(\.openTimer).first {
-            recover(open, on: day)
+        if !timers.isEmpty {
+            recover(Array(timers), on: files.loadedDay)
+        } else if let (day, entries) = lastTimedDay() {
+            recover(entries.compactMap(\.openTimer), on: day)
         }
         return pendingIdle?.since
     }
 
-    /// Recovers open Entries in Day files that were malformed and now parse. Core's own running Entry is
-    /// left alone; any other one was left by a crash.
+    /// Recovers open Entries in Day files that were malformed and now parse. Core's own running timers are
+    /// left alone; any other open Entry was left by a crash.
     private func recover(reparsed days: Set<Day>) {
         for day in days.sorted() where !files.hasPending(day) {
-            for timer in files.entries(on: day).compactMap(\.openTimer)
-            where !(day == files.loadedDay && timer == running) {
-                recover(timer, on: day)
-            }
+            let found = files.entries(on: day).compactMap(\.openTimer)
+            recover(found.filter { !(day == files.loadedDay && timers.contains($0)) }, on: day)
         }
     }
 
-    /// Makes an Entry left open by a crash the running timer, split across the Days since, with the time
-    /// since it was last alive pending as Idle time. If another timer runs already, the Entry is closed
-    /// when Chronobar launched (or at the end of its Day) and only the time before that is pending.
-    private func recover(_ timer: Running, on day: Day) {
-        let lastAlive = max(timer.start, lastAlive ?? timer.start)
-        if running == nil || running == timer {
+    /// Makes Entries left open on `day` by a crash running timers, split across the Days since, with the
+    /// time since each was last alive pending as Idle time. If other timers run already, the Entries are
+    /// closed when Chronobar launched (or at the end of their Day) and only the time before that is pending.
+    private func recover(_ found: [Running], on day: Day) {
+        guard !found.isEmpty else { return }
+        if timers.allSatisfy(found.contains) {
             files.move(to: day)
-            running = timer
-            noteIdle(PendingIdle(since: lastAlive))
+            timers = RunningTimers(found)
+            for timer in found { noteIdle(PendingIdle(since: max(timer.start, lastAlive ?? timer.start))) }
             rollOver()
-        } else {
+            return
+        }
+        for timer in found {
+            let lastAlive = max(timer.start, lastAlive ?? timer.start)
             let end = max(timer.start, min(launched, calendar.dateInterval(of: .day, for: timer.start)!.end))
             try? files.update(day, deferringIfMalformed: true) { entries in
                 entries = entries.map { $0.openTimer == timer ? $0.closed(at: end) : $0 }
@@ -218,15 +227,15 @@ public final class Tracker {
 
     /// Answers the idle alert. `remove` and `removeAndStop` drop the time from `idleStart` to `idleEnd`
     /// (nil: now) from every Day it covers: a timed Entry straddling either end is cut there, timed Entries
-    /// inside are deleted and manual Entries stay. `remove` then restarts the running Project from now if
-    /// the cut stopped it; `removeAndStop` leaves it stopped. If any of those Day files won't parse,
-    /// nothing is changed.
+    /// inside are deleted and manual Entries stay. `remove` then restarts from now each running timer the
+    /// cut stopped, with its source; `removeAndStop` leaves them all stopped. If any of those Day files
+    /// won't parse, nothing is changed.
     public func resolveIdle(since idleStart: Date, until idleEnd: Date? = nil, choice: IdleChoice) throws {
         catchUp()
         guard choice != .keep else { return pendingIdle = nil }
         let idleEnd = idleEnd.map { min($0, now) }
         let idleStart = min(idleStart, idleEnd ?? now)
-        let project = running?.project
+        let running = timers
         let firstDay = Day(containing: idleStart, in: calendar)
         let lastDay = idleEnd.map { Day(containing: $0, in: calendar) } ?? today
         let days = Set(files.days().filter { $0 >= firstDay && $0 <= lastDay } + [today]).sorted()
@@ -252,24 +261,30 @@ public final class Tracker {
         reload()
         if choice == .removeAndStop {
             try pause()
-        } else if running == nil, let project {
-            let start = now
-            try files.update(today) { $0.append(.timed(project: project, start: start, end: nil)) }
-            running = Running(project: project, start: start)
+            return
         }
+        let stopped = running.filter { !timers.contains($0.project) }
+        guard !stopped.isEmpty else { return }
+        let start = now
+        try files.update(today) { entries in
+            for timer in stopped {
+                entries.append(.timed(project: timer.project, start: start, end: nil, source: timer.source))
+            }
+        }
+        for timer in stopped { timers.insert(Running(project: timer.project, start: start, source: timer.source)) }
     }
 
     /// `entries` without their timed time from `cut` to `resume` (nil: no end); an open Entry counts up to
     /// `now`. An Entry running on past `resume` carries on from there.
     private static func removing(_ entries: [Entry], from cut: Date, to resume: Date?, asOf now: Date) -> [Entry] {
         entries.flatMap { entry -> [Entry] in
-            guard case .timed(let project, let start, let end) = entry else { return [entry] }
+            guard case .timed(let project, let start, let end, let source) = entry else { return [entry] }
             if (end ?? now) <= cut { return [entry] }
             if let resume, start >= resume { return [entry] }
             var pieces: [Entry] = []
-            if start < cut { pieces.append(.timed(project: project, start: start, end: cut)) }
+            if start < cut { pieces.append(.timed(project: project, start: start, end: cut, source: source)) }
             if let resume, end.map({ $0 > resume }) ?? true {
-                pieces.append(.timed(project: project, start: resume, end: end))
+                pieces.append(.timed(project: project, start: resume, end: end, source: source))
             }
             return pieces
         }
@@ -436,27 +451,32 @@ public final class Tracker {
         rollOver()
     }
 
-    /// After midnight, splits a running timer at the start of each new Day so every Day's file holds only
-    /// that Day's time, then loads today. Writes to a file that won't parse wait until it does.
+    /// After midnight, splits every running timer at the start of each new Day so every Day's file holds
+    /// only that Day's time, then loads today. Writes to a file that won't parse wait until it does.
     private func rollOver() {
         guard files.loadedDay != today else { return }
-        while let running, files.loadedDay < today {
-            let midnight = calendar.dateInterval(of: .day, for: running.start)!.end
+        while !timers.isEmpty, files.loadedDay < today {
+            let midnight = calendar.dateInterval(of: .day, for: files.loadedDay.noon(in: calendar))!.end
             let next = Day(containing: midnight, in: calendar)
-            let project = running.project
+            let carried = timers.map { Running(project: $0.project, start: midnight, source: $0.source) }
             try? files.update(files.loadedDay, deferringIfMalformed: true) { Self.close(&$0, at: midnight) }
-            try? files.update(next, deferringIfMalformed: true) {
-                $0.append(.timed(project: project, start: midnight, end: nil))
+            try? files.update(next, deferringIfMalformed: true) { entries in
+                for timer in carried {
+                    entries.append(.timed(project: timer.project, start: midnight, end: nil, source: timer.source))
+                }
             }
             // Load the new Day as written, or as its deferred writes leave it if its file won't parse.
             files.move(to: next)
-            self.running = Running(project: running.project, start: midnight)
+            timers = RunningTimers(carried)
         }
         reload()
     }
 
-    /// Ends every open Entry at `end`.
-    private static func close(_ entries: inout [Entry], at end: Date) {
-        entries = entries.map { $0.closed(at: end) }
+    /// Ends every open Entry at `end`, or with `project` only that Project's.
+    private static func close(_ entries: inout [Entry], at end: Date, only project: String? = nil) {
+        entries = entries.map { entry in
+            if let project, !ProjectName.matches(entry.project, project) { return entry }
+            return entry.closed(at: end)
+        }
     }
 }
