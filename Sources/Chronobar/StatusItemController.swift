@@ -74,9 +74,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             }
             return taken ? nil : event
         }
-        // The global shortcut does exactly what a click on the square does.
+        // The global shortcut does exactly what a click on the square does, and tells VoiceOver what that was.
         KeyboardShortcuts.onKeyUp(for: .toggleTimer) { [weak self] in
-            self?.run(PillClick.square(tracker: tracker))
+            guard let self else { return }
+            let action = PillClick.square(tracker: tracker)
+            let before = tracker.running
+            run(action)
+            announce(ShortcutAnnouncement.text(for: action, before: before, after: tracker))
         }
         refresh()
     }
@@ -146,6 +150,15 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         case .openPanel: showPanel(newProject: false)
         case .openNewProjectForm: showPanel(newProject: true)
         }
+    }
+
+    /// Has VoiceOver speak `text`, with VoiceOver running. The shortcut works from any app and moves
+    /// VoiceOver's attention nowhere, so nothing else tells a VoiceOver user what it did.
+    private func announce(_ text: String?) {
+        guard let text, NSWorkspace.shared.isVoiceOverEnabled else { return }
+        NSAccessibility.post(
+            element: NSApp as Any, notification: .announcementRequested,
+            userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
     }
 
     func showPanel(newProject: Bool = false) {
