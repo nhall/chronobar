@@ -22,12 +22,17 @@ public struct RowPresentation: Equatable, Sendable {
     public let nameLabel: String
     /// The ▶/⏸ button's label and help tag: "Start Website Redesign" or "Pause Website Redesign".
     public let toggleLabel: String
+    /// The help tag of the terminal icon on a row whose timer an agent started; nil for no icon.
+    public let agentMark: String?
 
-    public init(row: Row, isRunning: Bool) {
+    /// `source` is who started the row's running timer.
+    public init(row: Row, isRunning: Bool, source: EntrySource = .app) {
+        let byAgent = isRunning && source == .agent
         isHighlighted = isRunning
         toggle = isRunning ? .pause : .start
         toggleTone = isRunning ? .primary : .secondary
-        nameLabel = isRunning ? "\(row.project), running" : row.project
+        nameLabel = isRunning ? "\(row.project), running\(byAgent ? ", started by an agent" : "")" : row.project
         toggleLabel = "\(TimerToggle.name(isRunning: isRunning)) \(row.project)"
+        agentMark = byAgent ? "Started by an agent; not paused for idle time" : nil
     }
 }

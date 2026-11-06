@@ -3,7 +3,7 @@ import Foundation
 /// A list of Projects in a text file under `root`: UTF-8, one Project per line. Users edit it by hand.
 /// `projects.txt` holds the Pinned Projects, `archived.txt` the archived ones.
 struct ProjectStore {
-    struct Malformed: Error {}
+    struct Malformed: MalformedFileError {}
 
     let root: URL
     var fileName = "projects.txt"

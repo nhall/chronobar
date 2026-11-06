@@ -1,5 +1,6 @@
 import AppKit
 import ChronobarCore
+import ChronobarOperations
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -10,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var idleMonitor: IdleMonitor!
     private var timer: Timer?
     private var heartbeat: Timer?
+    /// The socket the `chronobar` command reaches the Operations layer on.
+    private var channel: ChannelServer?
     /// `nil` when the Info.plist names a bad data folder; the app then refuses to start.
     private var variant: BuildVariant?
 
@@ -47,6 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         idleMonitor = IdleMonitor(tracker: tracker, preferences: preferences) { [weak self] in
             self?.statusItem.refresh()
         }
+        serveOperations(in: storageRoot)
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -163,6 +167,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferences.startPausesOthers
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeStartPausesOthers() }
+        }
+    }
+
+    /// Answers the `chronobar` command (and through it MCP) on the socket in the data folder. Requests run
+    /// on the main actor like the Panel's own changes, and the Pill shows what they did at once. Without
+    /// the socket the app still runs; only the command line can't reach it.
+    private func serveOperations(in storageRoot: URL) {
+        let operations = Operations(tracker: tracker)
+        do {
+            channel = try ChannelServer(url: Channel.socketURL(storageRoot: storageRoot)) { [weak self] line in
+                let reply = operations.respond(to: line)
+                self?.statusItem.refresh()
+                return reply
+            }
+        } catch {
+            reportFailure(error, category: "channel", beep: false)
         }
     }
 

@@ -107,13 +107,16 @@ public final class Tracker {
         timers = RunningTimers()
     }
 
-    /// Pauses `name`'s timer, if it runs, leaving any others running. Deferred like `pause()`.
-    public func pause(_ name: String) throws {
+    /// Pauses `name`'s timer, if it runs, leaving any others running. Deferred like `pause()`. Returns the
+    /// timer it stopped, whose Entry now ends at `now`; nil if `name` wasn't running.
+    @discardableResult
+    public func pause(_ name: String) throws -> Running? {
         catchUp()
-        guard let timer = timers[name] else { return }
+        guard let timer = timers[name] else { return nil }
         let end = now
         try files.update(today, deferringIfMalformed: true) { Self.close(&$0, at: end, only: timer.project) }
         timers.remove(timer.project)
+        return timer
     }
 
     /// Whether `name`'s timer is running.
