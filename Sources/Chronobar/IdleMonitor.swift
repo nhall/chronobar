@@ -94,7 +94,7 @@ final class IdleMonitor {
         alert.addButton(withTitle: "Remove idle time")
         alert.addButton(withTitle: "Remove & stop")
         alert.addButton(withTitle: "Keep").keyEquivalent = "\u{1b}"
-        NSApp.activate()
+        NSApp.comeToFront()
 
         let choice: IdleChoice = switch alert.runModal() {
         case .alertFirstButtonReturn: .remove
@@ -123,7 +123,7 @@ final class IdleMonitor {
         alert.informativeText = "The file for \(date) (days/\(day).json) can't be read, so it can't be "
             + "changed. Fix it by hand in the data folder and you'll be asked again. Until then the idle "
             + "time still counts."
-        NSApp.activate()
+        NSApp.comeToFront()
         alert.runModal()
     }
 

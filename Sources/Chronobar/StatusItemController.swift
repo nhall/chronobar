@@ -12,7 +12,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
     private let anchor = PanelAnchor()
-    private let cover = PillCover()
+    private let coverPlacer: PillCoverPlacer
     private let pill: NSHostingView<PillView>
     private var press = PillPress()
     private var focusObserver: NSObjectProtocol?
@@ -26,6 +26,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         self.tracker = tracker
         pill = ClickThroughHostingView(
             rootView: PillView(tracker: tracker, preferences: preferences, badge: variant.badge))
+        coverPlacer = PillCoverPlacer(statusItem: statusItem)
         super.init()
 
         popover.behavior = .transient
@@ -70,7 +71,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                 guard let self, let button = self.statusItem.button else { return false }
                 // With another app frontmost the app never sees ⌘ go down, so the cover can still be over
                 // the Pill; it goes now, so the next press reaches the menu bar for its ⌘-drag.
-                self.placeCover(pressCommandKey: commandKey)
+                self.coverPlacer.place(pressCommandKey: commandKey)
                 guard let action = self.press.mouseDown(
                     onPill: self.isOnPill(window), at: Self.pointer(over: button), commandKey: commandKey,
                     panelOpen: self.popover.isShown, tracker: self.tracker) else { return false }
@@ -81,13 +82,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         }
         // The cover goes over the Pill while the pointer is on it, so a press reaches the app without the
         // menu bar drawing its highlight. Its mouse-up stands in for the button's action.
-        cover.onMouseUp = { [weak self] overPill in
+        coverPlacer.cover.onMouseUp = { [weak self] overPill in
             guard let self, let action = self.press.mouseUp(overPill: overPill, tracker: self.tracker) else { return }
             self.run(action, by: .pointer)
         }
         // Pointer moves and ⌘ over other apps, then over this one.
         let followPointer: (NSEvent) -> Void = { [weak self] _ in
-            MainActor.assumeIsolated { self?.placeCover() }
+            MainActor.assumeIsolated { self?.coverPlacer.place() }
         }
         NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .flagsChanged], handler: followPointer)
         NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .flagsChanged]) { event in
@@ -98,10 +99,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         // Keyboard navigation on or off. A key that would edit text in a focused field passes through.
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             let window = event.window
-            let key = PanelKey.Key(event)
+            let keyCode = event.keyCode
             let modifiers = PanelKey.Modifiers(event.modifierFlags)
             let taken = MainActor.assumeIsolated {
-                self?.handlePanelKey(key, modifiers: modifiers, in: window) ?? false
+                self?.handlePanelKey(keyCode, modifiers: modifiers, in: window) ?? false
             }
             return taken ? nil : event
         }
@@ -117,7 +118,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 
     /// Resizes the status item to fit the Pill, whose time segment widens past `9:59`, and keeps an open
-    /// Panel's anchor over it.
+    /// Panel's anchor and the cover over it.
     func refresh() {
         let width = ceil(pill.fittingSize.width)
         if statusItem.length != width { statusItem.length = width }
@@ -125,22 +126,15 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             anchor.place(over: button)
             capPanel()
         }
+        coverPlacer.place()
         describe()
     }
 
     /// Caps the Panel's height at the room under the Pill on the Pill's screen (`PanelHeight`).
     private func capPanel() {
-        guard let (pill, screen) = pillScreen() else { return }
+        guard let (pill, screen) = statusItem.frameOnScreen else { return }
         let available = PanelHeight.available(under: pill, visible: screen.visibleFrame, chrome: panelChrome)
         if panel.availableHeight != available { panel.availableHeight = available }
-    }
-
-    /// The status item's frame on screen, and the screen it is on.
-    private func pillScreen() -> (pill: CGRect, screen: NSScreen)? {
-        guard let button = statusItem.button, let window = button.window, let screen = window.screen else {
-            return nil
-        }
-        return (window.convertToScreen(button.convert(button.bounds, to: nil)), screen)
     }
 
     /// The points the popover's window takes under the Pill besides the Panel: its arrow above the Panel and
@@ -195,20 +189,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// over it, which has the same frame.
     private func isOnPill(_ window: NSWindow?) -> Bool {
         guard let window else { return false }
-        return window === statusItem.button?.window || window === cover
-    }
-
-    /// Puts the cover over the Pill while the pointer is on it, and takes it away otherwise
-    /// (`PillCoverArea`). Run on every pointer move, so it follows the status item wherever it goes, and on
-    /// every mouse-down. At a mouse-down, `pressCommandKey` is whether that press had ⌘ held, and the cover
-    /// can go even from under it.
-    private func placeCover(pressCommandKey: Bool? = nil) {
-        let duringPress = pressCommandKey != nil
-        guard let (item, screen) = pillScreen() else { return cover.remove(duringPress: duringPress) }
-        let frame = PillCoverArea.frame(
-            item: item, screen: screen.frame, visible: screen.visibleFrame, pointer: NSEvent.mouseLocation,
-            commandKey: pressCommandKey ?? NSEvent.modifierFlags.contains(.command))
-        if let frame { cover.place(at: frame) } else { cover.remove(duringPress: duringPress) }
+        return window === statusItem.button?.window || coverPlacer.isCover(window)
     }
 
     /// The pointer's x from the button's leading edge, over the status item when it is within the status
@@ -223,15 +204,15 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
 
     /// Runs the Panel command for a key pressed in the Panel or the (i) Time Summary it shows, and returns
     /// whether it ran. Any key pressed there, command or not, shows the focus ring.
-    private func handlePanelKey(_ key: PanelKey.Key?, modifiers: PanelKey.Modifiers, in window: NSWindow?) -> Bool {
+    private func handlePanelKey(_ keyCode: UInt16, modifiers: PanelKey.Modifiers, in window: NSWindow?) -> Bool {
         guard popover.isShown, let window,
               let panelWindow = popover.contentViewController?.view.window,
               window === panelWindow || window.parent === panelWindow else { return false }
         panel.keyPressed()
-        guard let key else { return false }
         // A focused text field edits through its field editor, a text view.
         let editingText = (window.firstResponder as? NSTextView)?.isEditable ?? false
-        guard let command = PanelKey.command(for: key, modifiers: modifiers, editingText: editingText)
+        guard let command = PanelKey.command(
+            keyCode: keyCode, modifiers: modifiers, layout: PanelKey.currentLayout(), editingText: editingText)
         else { return false }
         panel.perform(command, today: tracker.today, calendar: tracker.calendar)
         return true
@@ -273,11 +254,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         panel.viewedDay = nil
         panel.showingSummary = false
         refresh()
-        // Not the cooperative `activate()`: when a press reaches the status item through the menu bar, as it
-        // does when the cover isn't over the Pill, the system refuses that request. The Panel still becomes
-        // key, but the app only really activates on the next click in it, and that activation closes the ⚙
-        // menu the click just opened.
-        NSApp.activate(ignoringOtherApps: true)
+        // Not a plain `activate()`, which macOS turns down when the press reached the status item through the
+        // menu bar or came from VoiceOver: the first click in the Panel would then activate the app for real
+        // and close the ⚙ menu it opened (#23).
+        NSApp.comeToFront()
         anchor.place(over: button)
         capPanel()
         sizer?.fitBeforeShowing()
@@ -300,7 +280,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// again if it changed.
     private func measureChrome() {
         guard let view = popover.contentViewController?.view, let window = view.window,
-              let pill = pillScreen()?.pill,
+              let pill = statusItem.frameOnScreen?.frame,
               let chrome = PanelHeight.chrome(window: window.frame.height,
                                               panel: view.convert(view.bounds, to: nil).height,
                                               pillBottom: pill.minY),

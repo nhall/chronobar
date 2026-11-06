@@ -2,16 +2,28 @@ import AppKit
 import Carbon.HIToolbox
 import ChronobarCore
 
-/// A key-down as the Panel's key equivalents see it.
-extension PanelKey.Key {
-    /// The arrows by key code, anything else by its character ignoring modifiers.
-    init?(_ event: NSEvent) {
-        switch Int(event.keyCode) {
-        case kVK_LeftArrow: self = .leftArrow
-        case kVK_RightArrow: self = .rightArrow
-        default:
-            guard let characters = event.charactersIgnoringModifiers else { return nil }
-            self = .character(characters)
+extension PanelKey {
+    /// What keys type on the keyboard layout selected now, read from the layout itself so that
+    /// `PanelKey.command` can ask what a key types with and without each modifier, which an event alone
+    /// doesn't tell. Nil when the input source has no layout data.
+    static func currentLayout() -> Layout? {
+        guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+              let property = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
+        else { return nil }
+        let data = Unmanaged<CFData>.fromOpaque(property).takeUnretainedValue() as Data
+        let keyboardType = UInt32(LMGetKbdType())
+        return { keyCode, modifiers in
+            data.withUnsafeBytes { raw in
+                guard let layout = raw.bindMemory(to: UCKeyboardLayout.self).baseAddress else { return nil }
+                var deadKeys: UInt32 = 0
+                var characters = [UniChar](repeating: 0, count: 4)
+                var length = 0
+                let status = UCKeyTranslate(
+                    layout, keyCode, UInt16(kUCKeyActionDown), modifiers.carbonKeyState, keyboardType,
+                    OptionBits(kUCKeyTranslateNoDeadKeysMask), &deadKeys, characters.count, &length, &characters)
+                guard status == noErr else { return nil }
+                return String(utf16CodeUnits: characters, count: length)
+            }
         }
     }
 }
@@ -23,5 +35,17 @@ extension PanelKey.Modifiers {
         if flags.contains(.shift) { insert(.shift) }
         if flags.contains(.option) { insert(.option) }
         if flags.contains(.control) { insert(.control) }
+        if flags.contains(.capsLock) { insert(.capsLock) }
+    }
+
+    /// The modifiers as `UCKeyTranslate` takes them: Carbon's modifier bits, shifted down a byte. Caps Lock
+    /// never gets here: `PanelKey.command` drops it before asking the layout.
+    var carbonKeyState: UInt32 {
+        var keys = 0
+        if contains(.command) { keys |= cmdKey }
+        if contains(.shift) { keys |= shiftKey }
+        if contains(.option) { keys |= optionKey }
+        if contains(.control) { keys |= controlKey }
+        return UInt32(keys >> 8) & 0xFF
     }
 }
