@@ -21,7 +21,7 @@ import ChronobarCore
         let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         #expect(relaunched.recoverAfterLaunch() == FakeClock("2026-11-03T10:59:00").now)
         #expect(relaunched.pendingIdle == PendingIdle(since: FakeClock("2026-11-03T10:59:00").now))
-        #expect(relaunched.running?.project == "Website Redesign")
+        #expect(relaunched.timers.newest?.project == "Website Redesign")
     }
 
     /// Crashed before the first Heartbeat: idle since the Entry's start, so removing drops all of it.
@@ -44,7 +44,7 @@ import ChronobarCore
         }
 
         """)
-        #expect(relaunched.running == nil)
+        #expect(relaunched.timers.isEmpty)
     }
 
     /// A Heartbeat left by an earlier timer is older than the open Entry, so the Entry's start wins.
@@ -81,7 +81,7 @@ import ChronobarCore
         let since = try #require(relaunched.recoverAfterLaunch())
         #expect(since == FakeClock("2026-11-03T23:30:00").now)
         // Until the alert is answered the timer runs on in today's file, as after waking from sleep.
-        #expect(relaunched.running?.project == "Website Redesign")
+        #expect(relaunched.timers.newest?.project == "Website Redesign")
         #expect(relaunched.today == Day(year: 2026, month: 11, day: 5))
         #expect(relaunched.total("Website Redesign", on: relaunched.today) == 9 * 3600)
 
@@ -111,7 +111,7 @@ import ChronobarCore
         }
 
         """)
-        #expect(relaunched.running?.start == clock.now)
+        #expect(relaunched.timers.newest?.start == clock.now)
     }
 
     /// Without a Heartbeat the past Day's Entry is reported from its start.
@@ -122,7 +122,7 @@ import ChronobarCore
         clock.set("2026-11-04T08:00:00")
         let relaunched = Tracker(clock: clock, storageRoot: root)
         #expect(relaunched.recoverAfterLaunch() == FakeClock("2026-11-03T22:00:00").now)
-        #expect(relaunched.running?.start == FakeClock("2026-11-04T00:00:00").now)
+        #expect(relaunched.timers.newest?.start == FakeClock("2026-11-04T00:00:00").now)
     }
 
     /// Crashed at about 10:00, and today's file had a typo at relaunch. Once it's fixed the open Entry is
@@ -141,17 +141,17 @@ import ChronobarCore
         clock.set("2026-11-03T13:00:00")
         let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         #expect(relaunched.recoverAfterLaunch() == nil)
-        #expect(relaunched.running == nil)
+        #expect(relaunched.timers.isEmpty)
 
         try good.write(to: dayFile(root, "2026-11-03"), atomically: true, encoding: .utf8)
         clock.set("2026-11-03T14:00:00")
         relaunched.reload()
         #expect(relaunched.pendingIdle == PendingIdle(since: FakeClock("2026-11-03T10:00:00").now))
-        #expect(relaunched.running?.project == "Website Redesign")
+        #expect(relaunched.timers.newest?.project == "Website Redesign")
 
         try relaunched.resolveIdle(since: FakeClock("2026-11-03T10:00:00").now, choice: .removeAndStop)
         #expect(relaunched.pendingIdle == nil)
-        #expect(relaunched.running == nil)
+        #expect(relaunched.timers.isEmpty)
         #expect(relaunched.total("Website Redesign", on: relaunched.today) == 3600)
     }
 
@@ -178,7 +178,7 @@ import ChronobarCore
         _ = relaunched.weekTotals(containing: relaunched.today)
         relaunched.tick()
         #expect(relaunched.pendingIdle == PendingIdle(since: FakeClock("2026-11-03T23:30:00").now))
-        #expect(relaunched.running?.project == "Website Redesign")
+        #expect(relaunched.timers.newest?.project == "Website Redesign")
         #expect(relaunched.total("Website Redesign", on: Day("2026-11-03")!) == 2 * 3600)
 
         try relaunched.resolveIdle(since: FakeClock("2026-11-03T23:30:00").now, choice: .removeAndStop)
@@ -191,7 +191,7 @@ import ChronobarCore
         }
 
         """)
-        #expect(relaunched.running == nil)
+        #expect(relaunched.timers.isEmpty)
         #expect(relaunched.dayTotal(relaunched.today) == 0)
     }
 
@@ -220,13 +220,13 @@ import ChronobarCore
         relaunched.tick()
         let midnight = FakeClock("2026-11-04T00:00:00").now
         #expect(relaunched.pendingIdle == PendingIdle(since: FakeClock("2026-11-03T23:30:00").now, until: midnight))
-        #expect(relaunched.running?.project == "Internal")
+        #expect(relaunched.timers.newest?.project == "Internal")
         #expect(relaunched.total("Website Redesign", on: Day("2026-11-03")!) == 2 * 3600)
 
         try relaunched.resolveIdle(since: FakeClock("2026-11-03T23:30:00").now, until: midnight, choice: .remove)
         #expect(relaunched.total("Website Redesign", on: Day("2026-11-03")!) == 90 * 60)
-        #expect(relaunched.running?.project == "Internal")
-        #expect(relaunched.running?.start == FakeClock("2026-11-05T09:00:00").now)
+        #expect(relaunched.timers.newest?.project == "Internal")
+        #expect(relaunched.timers.newest?.start == FakeClock("2026-11-05T09:00:00").now)
         #expect(relaunched.total("Internal", on: relaunched.today) == 3600)
         #expect(relaunched.pendingIdle == nil)
     }

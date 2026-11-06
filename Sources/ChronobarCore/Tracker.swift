@@ -6,10 +6,6 @@ import Observation
 public final class Tracker {
     /// Every running timer, each an open Entry in the loaded Day's file, at most one per Project.
     public private(set) var timers = RunningTimers()
-
-    /// Compatibility view for callers written for a single timer: the newest running timer. Callers
-    /// move to `timers` as the app learns to show several; then this goes.
-    public var running: Running? { timers.newest }
     /// Whether `start` pauses every other running timer, whatever started them. The Settings toggle
     /// "Starting a timer pauses the others"; off by default.
     public var startPausesOthers = false

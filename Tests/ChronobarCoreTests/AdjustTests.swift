@@ -82,7 +82,7 @@ import ChronobarCore
 
         #expect(tracker.rows(past) == [Row(project: "Internal", total: 2 * 60 * 60)])
         #expect(tracker.rows(tracker.today) == [Row(project: "Website Redesign", total: 60 * 60)])
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
         #expect(contents(dayFile(root, "2026-10-28"))?
             .contains(#"{ "project": "Internal", "seconds": 5400, "note": "adjustment" }"#) == true)
     }
@@ -94,8 +94,8 @@ import ChronobarCore
 
         try tracker.adjust("Website Redesign", "1:30", on: tracker.today)
 
-        #expect(tracker.running?.project == "Website Redesign")
-        #expect(tracker.running?.start == clock.now - 3600)
+        #expect(tracker.timers.newest?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.start == clock.now - 3600)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 90 * 60)
         clock.set("2026-11-03T10:20:00")
         tracker.tick()

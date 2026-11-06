@@ -57,15 +57,15 @@ import ChronobarCore
         clock.set("2026-11-03T10:00:00")
 
         try tracker.archiveProject("Website Redesign")
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
 
         tracker.reload()
-        #expect(tracker.running?.project == "Website Redesign")
-        #expect(Tracker(clock: clock, storageRoot: root).running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
+        #expect(Tracker(clock: clock, storageRoot: root).timers.newest?.project == "Website Redesign")
 
         clock.set("2026-11-03T10:30:00")
         try tracker.toggle("Website Redesign")
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 90 * 60)
         #expect(tracker.projects == [])
     }
@@ -167,7 +167,7 @@ import ChronobarCore
     @Test func aBlankNameIsRefused() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         #expect(throws: EmptyProjectName.self) { try tracker.start("   ") }
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(contents(projectsFile(root)) == nil)
     }
 
@@ -179,7 +179,7 @@ import ChronobarCore
         #expect(throws: (any Error).self) { try tracker.start("Internal") }
         #expect(throws: (any Error).self) { try tracker.archiveProject("Internal") }
         #expect(try Data(contentsOf: projectsFile(root)) == bytes)
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
     }
 
     @Test func aNameFromAPastDayRevivesWithThatDaysSpelling() throws {
@@ -195,7 +195,7 @@ import ChronobarCore
         tracker.tick()
 
         #expect(tracker.suggestions(for: "") == ["Mobile App"])
-        #expect(tracker.running?.project == "Mobile App")
+        #expect(tracker.timers.newest?.project == "Mobile App")
         #expect(tracker.total("Mobile App", on: tracker.today) == 30 * 60)
     }
 

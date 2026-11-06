@@ -158,6 +158,6 @@ import ChronobarCore
         #expect(throws: (any Error).self) { try tracker.start("Internal") }
         #expect(try Data(contentsOf: archivedFile(root)) == bytes)
         #expect(contents(projectsFile(root)) == "Internal\n")
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
     }
 }

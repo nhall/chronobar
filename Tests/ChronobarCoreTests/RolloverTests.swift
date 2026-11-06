@@ -31,8 +31,8 @@ import ChronobarCore
 
         """)
         #expect(tracker.today == Day(year: 2026, month: 11, day: 4))
-        #expect(tracker.running?.project == "Website Redesign")
-        #expect(tracker.running?.start == clock.now - 15 * 60)
+        #expect(tracker.timers.newest?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.start == clock.now - 15 * 60)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 15 * 60)
     }
 
@@ -203,7 +203,7 @@ import ChronobarCore
         }
 
         """)
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 20 * 60)
     }
 
@@ -232,6 +232,6 @@ import ChronobarCore
             Row(project: "Vacation", total: 60 * 60),
             Row(project: "Website Redesign", total: 15 * 60),
         ])
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
     }
 }

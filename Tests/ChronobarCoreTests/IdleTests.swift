@@ -22,8 +22,8 @@ import ChronobarCore
         }
 
         """)
-        #expect(tracker.running?.project == "Website Redesign")
-        #expect(tracker.running?.start == clock.now)
+        #expect(tracker.timers.newest?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.start == clock.now)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 70 * 60)
     }
 
@@ -43,7 +43,7 @@ import ChronobarCore
         }
 
         """)
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 70 * 60)
     }
 
@@ -56,7 +56,7 @@ import ChronobarCore
         try tracker.resolveIdle(since: clock.now - 50 * 60, choice: .keep)
 
         #expect(contents(dayFile(root, "2026-11-03")) == before)
-        #expect(tracker.running?.start == clock.now - 2 * 3600)
+        #expect(tracker.timers.newest?.start == clock.now - 2 * 3600)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 2 * 3600)
     }
 
@@ -87,7 +87,7 @@ import ChronobarCore
 
         """)
         #expect(tracker.today == Day(year: 2026, month: 11, day: 4))
-        #expect(tracker.running?.start == clock.now)
+        #expect(tracker.timers.newest?.start == clock.now)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 0)
         #expect(tracker.total("Website Redesign", on: Day(year: 2026, month: 11, day: 3)) == 40 * 60)
     }
@@ -137,7 +137,7 @@ import ChronobarCore
         }
 
         """)
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
     }
 
     /// Asleep across two midnights without a tick: the removal still splits first, then cuts every Day.
@@ -173,7 +173,7 @@ import ChronobarCore
         }
 
         """)
-        #expect(tracker.running?.start == clock.now)
+        #expect(tracker.timers.newest?.start == clock.now)
     }
 
     /// Other Projects' timed Entries after the idle start go too: the user wasn't there for them either.
@@ -205,7 +205,7 @@ import ChronobarCore
         try tracker.pause()
         try tracker.resolveIdle(since: FakeClock("2026-11-03T09:45:00").now, choice: .remove)
 
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 45 * 60)
     }
 
@@ -224,7 +224,7 @@ import ChronobarCore
         #expect(contents(dayFile(root, "2026-11-03")) == before)
         #expect(contents(dayFile(root, "2026-11-04")) == "{ oops")
         #expect(tracker.isMalformed(Day(year: 2026, month: 11, day: 4)))
-        #expect(tracker.running?.start == FakeClock("2026-11-05T00:00:00").now)
+        #expect(tracker.timers.newest?.start == FakeClock("2026-11-05T00:00:00").now)
     }
 
     /// A refused removal names the malformed Day and keeps the Idle time pending, up to when it was
@@ -259,6 +259,6 @@ import ChronobarCore
         #expect(tracker.total("Website Redesign", on: Day("2026-11-03")!) == 30 * 60)
         // Worked since the alert was first answered at 08:00, so that time stays.
         #expect(tracker.total("Website Redesign", on: tracker.today) == 2 * 3600)
-        #expect(tracker.running?.start == answered)
+        #expect(tracker.timers.newest?.start == answered)
     }
 }

@@ -46,12 +46,12 @@ import ChronobarCore
         clock.set("2026-11-03T10:02:11")
 
         let relaunched = Tracker(clock: clock, storageRoot: root)
-        #expect(relaunched.running?.project == "Website Redesign")
+        #expect(relaunched.timers.newest?.project == "Website Redesign")
         #expect(relaunched.total("Website Redesign", on: relaunched.today) == 3600)
 
         clock.set("2026-11-03T10:32:11")
         try relaunched.pause()
-        #expect(relaunched.running == nil)
+        #expect(relaunched.timers.isEmpty)
         #expect(relaunched.total("Website Redesign", on: relaunched.today) == 90 * 60)
     }
 
