@@ -22,8 +22,8 @@ can read and edit. There are no accounts, no sync and no integrations.
   project's timer; every running row is highlighted and shows ⏸ to pause just that timer. Use ＋, under the
   rows, to start a new project or to log time you forgot to track: its form opens just above it, and a
   new project's row appears at the bottom of the rows, right above the form. The header keeps the
-  date, the day's total, (i) and ⚙. ‹ › move a week back or forward without limit; on any
-  day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
+  date, the day's total with its elapsed time beside it (`3:00 · 1:00 elapsed`), (i) and ⚙. ‹ ›
+  move a week back or forward without limit; on any day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
   vacation ahead. While you view another day, a Today button under the strip brings you back, as
   does clicking the date. On a day with more rows than fit, the Panel stops just above the bottom of
   the screen and only the rows scroll; the header, the strip and ＋ stay in view.
@@ -111,7 +111,8 @@ Everything lives in `~/Library/Application Support/Chronobar`. The ⚙ menu has 
 
 ```
 Chronobar/
-  projects.txt          the project list, one project per line
+  projects.txt          pinned projects, one per line
+  archived.txt          archived projects, one per line
   days/
     2026-11-02.json
     2026-11-03.json     one file per day, named by local date
@@ -141,6 +142,10 @@ Each day is one JSON file with one entry per line:
   for time logged with ＋ and `adjustment` for a corrected total; it is a marker, not free text.
 - A project's total for the day is the sum of its timed durations and manual seconds, never shown
   below `0:00`, and displayed as hours and minutes rounded down.
+- A day's elapsed time is the clock time covered by at least one timed entry, a running one counted up
+  to now. Time two timers share counts once, so with timers running side by side it is less than the
+  day's total; manual entries count toward the total only. The (i) Time Summary's elapsed times are the
+  sums of their days'.
 - Any Day can have a file, past or future: time logged ahead, such as a vacation, goes in that Day's
   file in the same format. Timers run only today, so a day ahead holds only manual entries until it
   arrives.
@@ -153,9 +158,22 @@ leaves it untouched and refuses to change that day until you fix it.
 
 ### Project list
 
-`projects.txt` is UTF-8 text with one active project per line. Archiving a project removes its line;
-its history in the day files stays. Names match regardless of case and surrounding spaces, so
-`internal ` and `Internal` are the same project.
+The ＋ form suggests every project with time on today or the 29 days before it, plus your pinned
+projects, minus archived ones. Starting or logging a project doesn't add it to a list; it is suggested
+for 30 days after it was last used, then drops out until you type it again.
+
+`projects.txt` is UTF-8 text with one pinned project per line: pinned projects are always suggested.
+`archived.txt`, in the same format, lists archived projects, which are never suggested. Right-click a
+suggestion, or use the buttons under the field, to pin it (adding its line to `projects.txt`) or archive
+it (moving its line to `archived.txt`). Starting, logging or pinning an archived project takes it off
+`archived.txt`, with the spelling stored there. Neither list touches the day files, so archiving never
+loses time. Names match regardless of case and surrounding spaces, so `internal ` and `Internal` are the
+same project. Chronobar re-reads both files when the Panel opens, and leaves a file that isn't UTF-8
+untouched, refusing to pin or archive until you fix it.
+
+Upgrading from an earlier version: every project in your old `projects.txt` becomes pinned. Projects you archived
+before have no line in `archived.txt`, so any of them used in the last 30 days is suggested again until
+you archive it once more.
 
 ### Settings
 
@@ -214,17 +232,25 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] With two timers running before midnight, wait past it (or set the clock): both entries end at
       midnight in the old day's file and both continue in the new day's file.
 - [ ] Clicking a row's time still opens the field to change its total; ▶/⏸ does not.
-- [ ] ＋, click ▾ in the Project field (or press ↓): every project is listed, most recently used first,
-      and the list scrolls when long. Type part of a name: the list narrows to names containing it, those
+- [ ] ＋, click ▾ in the Project field (or press ↓): projects used in the last 30 days and pinned ones
+      are listed, most recently used first, and the list scrolls when long. Type part of a name: the list narrows to names containing it, those
       starting with it first. Clicking one, or ↓ to it and Return, fills the field, closes the list and
       starts nothing; Start (or Return) then starts it.
 - [ ] With `test`, `test 2` and `test 3` (started in that order), type `test`: `test` is listed first and
       the field keeps `test`; Return starts `test`.
-- [ ] The line under the field reads New Project for a new name and Existing Project for a listed or
-      archived one. Archive, shown for a listed project, removes it from the list and empties the field.
+- [ ] The line under the field reads New Project for a new name and Existing Project for a suggested,
+      archived or long-unused one. Pin, shown for one not pinned, adds its line to `projects.txt`.
+      Archive, shown for a suggested project, moves it to `archived.txt`, drops it from the list and
+      empties the field; its rows and totals stay.
+- [ ] With the list open, right-click a name: the menu offers Pin (unless it is pinned) and Archive.
+      Archive drops it from the open list; Pin keeps it there, and it is still listed after 30 days
+      without use. The field keeps what was typed unless it held the archived name.
+- [ ] Type an archived project in different case and Start: its row uses the spelling it was archived
+      with, it is listed again, and its line is gone from `archived.txt`.
+- [ ] Add a name to `archived.txt` by hand and reopen the Panel: it is no longer listed.
 - [ ] With VoiceOver on, the Project field is announced as a combo box, with whether its list is open and
       each item as you move through it; New Project / Existing Project is read when it changes; Tab
-      reaches Archive with keyboard navigation on.
+      reaches Pin and Archive with keyboard navigation on.
 - [ ] Type a project name in different case with extra spaces: it starts on the existing row.
 - [ ] The Pill reads clearly in light and dark menu bars and on a notched display.
 - [ ] In Settings, open Running color in light and in dark mode: each option's dot is the color it
@@ -250,11 +276,11 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] With VoiceOver on and another app in front, press the global shortcut with one timer running:
       VoiceOver says "Paused" and the project; with two, "Paused 2 timers". With nothing running it says
       "New Project" as the ＋ form opens. With VoiceOver off, the shortcut says nothing.
-- [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day, Time
-      Summary, Menu, Previous week and Next week, each Day in the Week strip with its date, total, and
+- [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day (with its
+      elapsed time), Time Summary, Menu, Previous week and Next week, each Day in the Week strip with its date, total, and
       "today" or "viewed" (the viewed Day also reads as selected), each row's name (with "running" on
       the running row), its total and Start or Pause, then, with the ＋ form open, Duration in the form,
-      and last Start or log time (＋) under it. Each Time Summary line reads as one: "This week, 12 hours 5 minutes".
+      and last Start or log time (＋) under it. Each Time Summary line reads as one: "This week, 12 hours 5 minutes, 9 hours elapsed".
 - [ ] With Differentiate Without Color on, view a Day other than today: the viewed Day has a ring and
       today's date is bold, so they differ without color.
 - [ ] With Increase Contrast on, the Pill's time segment is opaque, darker, and outlined; with Reduce
@@ -295,7 +321,12 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       rows and the week containing today show, and the button is gone.
 - [ ] From a past or future Day, click the date header instead: it also returns to today.
 - [ ] Repeat with the longest weekday (Wednesday) and a two-digit total: the header, strip and Today
-      button fit without truncating or overlapping.
+      button fit without truncating or overlapping. Where `· 1:00 elapsed` has no room it reads
+      `· 1:00`, and the help tag on the total still says "elapsed".
+- [ ] With two timers running side by side for 10 minutes, the header reads `0:20 · 0:10 elapsed`; with
+      no overlap the two times match, and logging `1:00` with ＋ raises the total only. Open (i): each
+      line shows its elapsed time beside the total in smaller gray text, and VoiceOver reads it as one:
+      "Today, 20 minutes, 10 minutes elapsed".
 - [ ] Click a row's time, type `1:15`, Return: the row reads `1:15`. Try `+15` and `-10` too.
 - [ ] `-9:00` on a short row stops at `0:00`; a typo like `1:7x` beeps and changes nothing.
 - [ ] Adjusting the running row keeps the timer running from the new total.

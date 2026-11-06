@@ -31,7 +31,7 @@ import ChronobarCore
 
         #expect(tracker.running == nil)
         #expect(tracker.rows(tracker.today) == [Row(project: "Website Redesign", total: 45 * 60)])
-        #expect(tracker.projects == ["Website Redesign"])
+        #expect(tracker.projects.isEmpty)
         #expect(contents(dayFile(root, "2026-11-03")) == """
         {
           "date": "2026-11-03",
