@@ -139,7 +139,7 @@ struct PanelView: View {
                 Button {
                     panel.showingSummary.toggle()
                 } label: {
-                    Image(systemName: "info.circle").contentShape(Rectangle())
+                    Image(systemName: "info.circle")
                 }
                 .iconButton(.primary)
                 .help(PanelCommand.timeSummary.help("Time Summary"))
@@ -239,15 +239,17 @@ struct PanelView: View {
             Button {
                 panel.showingNewProject.toggle()
             } label: {
-                Image(systemName: "plus").contentShape(Rectangle())
+                Image(systemName: "plus")
             }
             .iconButton(.primary)
             .help(PanelCommand.newProject.help(isToday ? "Start or log time" : "Log time"))
             .accessibilityLabel(isToday ? "Start or log time" : "Log time")
         }
         .padding()
-        .frame(width: 300)
+        .frame(width: Self.width)
     }
+
+    static let width: CGFloat = 300
 
     /// "Today, 03 Nov" or "Wednesday, 28 Oct", in the system locale.
     private func title(_ day: Day, isToday: Bool) -> String {
@@ -282,7 +284,7 @@ private struct WeekStrip: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Button { move(.previousWeek) } label: { Image(systemName: "chevron.left").contentShape(Rectangle()) }
+            Button { move(.previousWeek) } label: { Image(systemName: "chevron.left") }
                 .iconButton(.secondary)
                 .help(PanelCommand.previousWeek.help("Previous week"))
                 .accessibilityLabel("Previous week")
@@ -295,7 +297,7 @@ private struct WeekStrip: View {
                         item, today: today, viewed: viewed, calendar: calendar, locale: .autoupdatingCurrent))
                     .accessibilityAddTraits(item.day == viewed ? .isSelected : [])
             }
-            Button { move(.nextWeek) } label: { Image(systemName: "chevron.right").contentShape(Rectangle()) }
+            Button { move(.nextWeek) } label: { Image(systemName: "chevron.right") }
                 .iconButton(.secondary)
                 .help(PanelCommand.nextWeek.help("Next week"))
                 .accessibilityLabel("Next week")
@@ -405,7 +407,6 @@ private struct RowView: View {
                 Button(action: toggle) {
                     Image(systemName: presentation.toggle == .pause ? "pause.fill" : "play.fill")
                         .frame(width: 16)
-                        .contentShape(Rectangle())
                 }
                 .iconButton(presentation.toggleTone.style)
                 .help(presentation.toggleLabel)
@@ -433,9 +434,10 @@ private extension RowPresentation.Tone {
 
 private extension View {
     /// A button drawn as its bare label, in `style`, so its color is chosen here. Not `.borderless`, which
-    /// leaves its label's color to the system and can draw it in the accent color.
+    /// leaves its label's color to the system and can draw it in the accent color. The whole of its frame
+    /// takes clicks, not only the glyph's strokes, as a plain button's label otherwise would.
     func iconButton(_ style: HierarchicalShapeStyle) -> some View {
-        buttonStyle(.plain).foregroundStyle(style)
+        buttonStyle(.plain).foregroundStyle(style).contentShape(Rectangle())
     }
 }
 
@@ -455,7 +457,7 @@ private struct LoginHint: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilitySortPriority(3)
                 Button(action: dismiss) {
-                    Image(systemName: "xmark").contentShape(Rectangle())
+                    Image(systemName: "xmark")
                 }
                 .iconButton(.secondary)
                 .help("Dismiss")
