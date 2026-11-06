@@ -6,7 +6,7 @@ import ChronobarCore
 /// `ChannelServer` brings it requests from the socket. Timers it starts are the `agent`'s.
 @MainActor
 public final class Operations {
-    private let tracker: Tracker
+    let tracker: Tracker
 
     public init(tracker: Tracker) {
         self.tracker = tracker
@@ -26,6 +26,11 @@ public final class Operations {
             case .status: return .success(.status(status()))
             case .start(let label): return .success(.start(try start(label)))
             case .stop(let label): return .success(.stop(try stop(label)))
+            case .day(let date): return .success(.day(try day(date)))
+            case .summary: return .success(.summary(summary()))
+            case .labels(let query): return .success(.labels(labels(query)))
+            case .pin(let label): return .success(.pin(try pin(label)))
+            case .archive(let label): return .success(.archive(try archive(label)))
             }
         } catch {
             return .failure(error)
@@ -89,7 +94,7 @@ public final class Operations {
     }
 
     /// Runs a Core call, turning what it throws into an `OperationError`.
-    private func core<T>(_ call: () throws -> T) throws(OperationError) -> T {
+    func core<T>(_ call: () throws -> T) throws(OperationError) -> T {
         do {
             return try call()
         } catch is EmptyProjectName {
@@ -123,5 +128,5 @@ public final class Operations {
     }
 
     /// Whole seconds, rounded down like every total Chronobar shows.
-    private func seconds(_ interval: TimeInterval) -> Int { Int(interval.rounded(.down)) }
+    func seconds(_ interval: TimeInterval) -> Int { Int(interval.rounded(.down)) }
 }

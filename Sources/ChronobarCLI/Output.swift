@@ -22,6 +22,11 @@ enum Output {
                          + "(\(total(entry.totalSeconds)) today)."]
             if !stopped.running.isEmpty { lines += ["Still running:", list(stopped.running)] }
             return (lines + [day(stopped.today)]).joined(separator: "\n")
+        case .day(let day): return rows(day)
+        case .summary(let summary): return periods(summary)
+        case .labels(let labels): return list(labels)
+        case .pin(let pinned): return pinnedText(pinned)
+        case .archive(let archived): return archivedText(archived)
         }
     }
 
@@ -40,7 +45,7 @@ enum Output {
         "Today: \(total(day.totalSeconds)) · \(total(day.elapsedSeconds)) elapsed"
     }
 
-    private static func total(_ seconds: Int) -> String { DurationFormat.hoursMinutes(TimeInterval(seconds)) }
+    static func total(_ seconds: Int) -> String { DurationFormat.hoursMinutes(TimeInterval(seconds)) }
 
     private static func clock(_ date: Date) -> String {
         date.formatted(.dateTime.locale(Locale(identifier: "en_GB")).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))

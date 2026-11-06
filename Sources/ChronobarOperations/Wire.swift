@@ -79,6 +79,11 @@ public enum Wire {
             case "status": .status(try container.decode(StatusResult.self, forKey: .result))
             case "start": .start(try container.decode(StartResult.self, forKey: .result))
             case "stop": .stop(try container.decode(StopResult.self, forKey: .result))
+            case "day": .day(try container.decode(DayRowsResult.self, forKey: .result))
+            case "summary": .summary(try container.decode(SummaryResult.self, forKey: .result))
+            case "labels": .labels(try container.decode(LabelsResult.self, forKey: .result))
+            case "pin": .pin(try container.decode(PinResult.self, forKey: .result))
+            case "archive": .archive(try container.decode(ArchiveResult.self, forKey: .result))
             default: nil
             }
         }
@@ -92,6 +97,11 @@ public enum Wire {
             case .status(let result): try container.encode(result, forKey: .result)
             case .start(let result): try container.encode(result, forKey: .result)
             case .stop(let result): try container.encode(result, forKey: .result)
+            case .day(let result): try container.encode(result, forKey: .result)
+            case .summary(let result): try container.encode(result, forKey: .result)
+            case .labels(let result): try container.encode(result, forKey: .result)
+            case .pin(let result): try container.encode(result, forKey: .result)
+            case .archive(let result): try container.encode(result, forKey: .result)
             case nil: break
             }
         }

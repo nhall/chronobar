@@ -13,6 +13,11 @@ enum Invocation: Equatable {
           status            List the running timers and today's totals.
           start <label>     Start a timer for <label>, or keep the one it has.
           stop [<label>]    Stop <label>'s timer; with no label, the only running one.
+          day [<date>]      List a Day's labels and totals; <date> is YYYY-MM-DD, else today.
+          summary           Show today, yesterday, this week and this month.
+          labels [<query>]  List the suggested labels, or those containing <query>.
+          pin <label>       Keep <label> in the suggestions.
+          archive <label>   Unpin <label> and hide it from the suggestions, keeping its time.
           help              Show this help.
 
         Options:
@@ -20,7 +25,7 @@ enum Invocation: Equatable {
           --dev             Talk to the development copy (Chronobar Dev) instead of Chronobar.
           --                End of options: everything after it is the label.
 
-        The words after start or stop are joined into one label, so quotes are optional.
+        The words after a command are joined into one label or query, so quotes are optional.
         Chronobar is launched if it isn't running. Exit status: 0 done, 1 refused,
         2 usage error, 3 Chronobar couldn't be reached.
         """
@@ -56,6 +61,16 @@ enum Invocation: Equatable {
             guard !rest.isEmpty else { throw OperationError(.usage, "start needs a label.") }
             request = .start(label: rest)
         case "stop": request = .stop(label: rest.isEmpty ? nil : rest)
+        case "day":
+            guard words.count <= 2 else { throw OperationError(.usage, "day takes one date, YYYY-MM-DD.") }
+            request = .day(date: rest.isEmpty ? nil : rest)
+        case "summary":
+            guard rest.isEmpty else { throw OperationError(.usage, "summary takes no arguments.") }
+            request = .summary
+        case "labels": request = .labels(query: rest.isEmpty ? nil : rest)
+        case "pin", "archive":
+            guard !rest.isEmpty else { throw OperationError(.usage, "\(command) needs a label.") }
+            request = command == "pin" ? .pin(label: rest) : .archive(label: rest)
         default: throw OperationError(.usage, "Unknown command \(command).")
         }
         self = .request(request, json: json, copy: copy)
