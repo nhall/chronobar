@@ -285,7 +285,7 @@ struct PanelView: View {
 }
 
 /// Seven Days with their totals, ‹ › to move a week back or forward without limit. Today has a
-/// `TodayCircle`, the viewed Day a gray one.
+/// `TodayCircle`, the viewed Day a `ViewedDayCircle`.
 private struct WeekStrip: View {
     let week: [DayTotal]
     let today: Day
@@ -333,10 +333,11 @@ private struct WeekStrip: View {
                 .foregroundStyle(.secondary)
             Text(date.formatted(style.day()))
                 .font(.callout.monospacedDigit().weight(isToday && marksShape ? .bold : .regular))
-                .foregroundStyle(isToday ? TodayCircle.date(in: environment.colorScheme) : Color.primary)
+                .foregroundStyle(isToday ? TodayCircle.date(in: environment.colorScheme)
+                    : isViewed ? ViewedDayCircle.date : Color.primary)
                 .frame(width: 24, height: 24)
-                .background(Circle().fill(
-                    isToday ? TodayCircle.fill : isViewed ? Color.gray.opacity(0.35) : Color.clear))
+                .background(Circle().fill(isToday ? TodayCircle.fill
+                    : isViewed ? ViewedDayCircle.fill(in: environment.colorScheme) : Color.clear))
                 .overlay(Circle().strokeBorder(
                     Color.primary.opacity(isViewed && !isToday && marksShape ? 1 : 0), lineWidth: 1.5))
             Text(DurationFormat.hoursMinutes(item.total))
