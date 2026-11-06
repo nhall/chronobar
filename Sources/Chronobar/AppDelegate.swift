@@ -106,17 +106,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Leaving the Dock deactivates the app, which would drop the Settings window behind other apps, so the
-    /// app comes back to the front. macOS hands the front to another app in two steps, the second about
-    /// 70 ms after the switch (seen on macOS 27), and undoes a request made before then. So the app asks once
-    /// that is over; too short a wait would leave Settings behind, as before.
+    /// app comes back to the front. macOS hands the front to another app a moment after the switch (about
+    /// 70 ms, seen on macOS 27) and undoes a request made before then, so the app waits until another app
+    /// has been made active, or `dockLeaveTimeout` if none is.
     private func comeBackAfterLeavingDock() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.dockLeaveSettling) {
-            MainActor.assumeIsolated { NSApp.comeToFront() }
+        endDockLeave()
+        let current = NSRunningApplication.current.processIdentifier
+        dockLeaveObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] notification in
+            let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            guard app?.processIdentifier != current else { return }
+            MainActor.assumeIsolated { self?.comeBackNow() }
         }
+        let timeout = Timer(timeInterval: Self.dockLeaveTimeout, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.comeBackNow() }
+        }
+        RunLoop.main.add(timeout, forMode: .common)
+        dockLeaveTimer = timeout
     }
 
-    /// How long `comeBackAfterLeavingDock` waits: several times what macOS was seen to take.
-    private static let dockLeaveSettling: TimeInterval = 0.3
+    private func comeBackNow() {
+        endDockLeave()
+        NSApp.comeToFront()
+    }
+
+    private func endDockLeave() {
+        if let dockLeaveObserver { NSWorkspace.shared.notificationCenter.removeObserver(dockLeaveObserver) }
+        dockLeaveObserver = nil
+        dockLeaveTimer?.invalidate()
+        dockLeaveTimer = nil
+    }
+
+    /// While `comeBackAfterLeavingDock` waits: its observer, and the timer that stops it waiting.
+    private var dockLeaveObserver: NSObjectProtocol?
+    private var dockLeaveTimer: Timer?
+
+    /// How long `comeBackAfterLeavingDock` waits for another app to be made active, in case none is.
+    private static let dockLeaveTimeout: TimeInterval = 0.5
 
     private func observeShowInDock() {
         withObservationTracking {
