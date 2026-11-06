@@ -249,7 +249,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         panel.viewedDay = nil
         panel.showingSummary = false
         refresh()
-        NSApp.activate()
+        // Not the cooperative `activate()`: when a press reaches the status item through the menu bar, as it
+        // does when the cover isn't over the Pill, the system refuses that request. The Panel still becomes
+        // key, but the app only really activates on the next click in it, and that activation closes the ⚙
+        // menu the click just opened.
+        NSApp.activate(ignoringOtherApps: true)
         anchor.place(over: button)
         popover.show(relativeTo: anchor.view.bounds, of: anchor.view, preferredEdge: .minY)
         if let window = popover.contentViewController?.view.window { settleFocus(in: window, newProject: newProject) }
