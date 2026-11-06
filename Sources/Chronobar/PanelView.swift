@@ -175,7 +175,7 @@ struct PanelView: View {
                     dismiss: { preferences.loginHintDismissed = true })
             }
             WeekStrip(week: tracker.weekTotals(containing: day), today: today, viewed: day,
-                      calendar: tracker.calendar, runningColor: preferences.runningColor,
+                      calendar: tracker.calendar,
                       view: { panel.apply(.viewing($0, today: today)) },
                       move: { panel.perform($0, today: today, calendar: tracker.calendar) })
             // Under the strip, as the title row has no room for it at the Panel's width and above the
@@ -251,14 +251,13 @@ struct PanelView: View {
     }
 }
 
-/// Seven Days with their totals, ‹ › to move a week back or forward without limit. Today has a filled
-/// running-color circle, the viewed Day a gray one.
+/// Seven Days with their totals, ‹ › to move a week back or forward without limit. Today has a
+/// `TodayCircle`, the viewed Day a gray one.
 private struct WeekStrip: View {
     let week: [DayTotal]
     let today: Day
     let viewed: Day
     let calendar: Calendar
-    let runningColor: RunningColor
     @Environment(\.self) private var environment
     let view: (Day) -> Void
     /// ‹ and ›: `.previousWeek` or `.nextWeek`.
@@ -301,11 +300,10 @@ private struct WeekStrip: View {
                 .foregroundStyle(.secondary)
             Text(date.formatted(style.day()))
                 .font(.callout.monospacedDigit().weight(isToday && marksShape ? .bold : .regular))
-                .foregroundStyle(isToday
-                    ? runningColor.foregroundColor(for: .text, in: environment) : Color.primary)
+                .foregroundStyle(isToday ? TodayCircle.date(in: environment.colorScheme) : Color.primary)
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(
-                    isToday ? runningColor.color : isViewed ? Color.gray.opacity(0.35) : Color.clear))
+                    isToday ? TodayCircle.fill : isViewed ? Color.gray.opacity(0.35) : Color.clear))
                 .overlay(Circle().strokeBorder(
                     Color.primary.opacity(isViewed && !isToday && marksShape ? 1 : 0), lineWidth: 1.5))
             Text(DurationFormat.hoursMinutes(item.total))
