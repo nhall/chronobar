@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var tracker: Tracker!
     private var statusItem: StatusItemController!
     private var idleMonitor: IdleMonitor!
+    private var longRunningNotifier: LongRunningNotifier!
     private var timer: Timer?
     private var heartbeat: Timer?
     /// The socket the `chronobar` command reaches the Operations layer on.
@@ -50,6 +51,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         idleMonitor = IdleMonitor(tracker: tracker, preferences: preferences) { [weak self] in
             self?.statusItem.refresh()
         }
+        longRunningNotifier = LongRunningNotifier(tracker: tracker) { [weak self] in
+            self?.statusItem.refresh()
+        }
+        observeLongRunningThreshold()
         serveOperations(in: storageRoot)
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
@@ -84,10 +89,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         idleMonitor.poll()
     }
 
-    /// Quitting stops the running timer at the quit time.
+    /// Quitting stops the timers started in the app at the quit time; agents' timers stay open.
     func applicationWillTerminate(_ notification: Notification) {
         do {
-            try tracker?.pause()
+            try tracker?.quit()
         } catch {
             reportFailure(error, category: "quit", beep: false)
         }
@@ -101,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func tick() {
-        tracker.tick()
+        longRunningNotifier.warn(tracker.tick(), threshold: preferences.longRunningThreshold)
         idleMonitor.poll()
         statusItem.refresh()
     }
@@ -167,6 +172,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferences.startPausesOthers
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeStartPausesOthers() }
+        }
+    }
+
+    /// Keeps Core's long-running threshold in step with the Settings pop-up.
+    private func observeLongRunningThreshold() {
+        tracker.longRunningThreshold = withObservationTracking {
+            preferences.longRunningThreshold.seconds
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeLongRunningThreshold() }
         }
     }
 

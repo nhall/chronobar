@@ -15,7 +15,7 @@ import ChronobarCore
         clock.set("2026-11-03T10:15:00")
         tracker.tick()
 
-        #expect(tracker.running?.project == "Internal")
+        #expect(tracker.timers.newest?.project == "Internal")
         #expect(tracker.total("Website Redesign", on: tracker.today) == 60 * 60)
         #expect(tracker.total("Internal", on: tracker.today) == 15 * 60)
         #expect(contents(dayFile(root, "2026-11-03")) == """

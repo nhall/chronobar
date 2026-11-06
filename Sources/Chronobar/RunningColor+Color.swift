@@ -27,7 +27,7 @@ extension RunningColor {
         return SRGB(red: Double(resolved.red), green: Double(resolved.green), blue: Double(resolved.blue))
     }
 
-    /// White or black, whichever ▶ or ⏸ is readable in on this color in `environment`.
+    /// White or black, whichever the running count is readable in on this color in `environment`.
     func foreground(in environment: EnvironmentValues) -> Foreground {
         Foreground.on(background(in: environment))
     }

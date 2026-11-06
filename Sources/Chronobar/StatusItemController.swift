@@ -3,8 +3,7 @@ import SwiftUI
 import ChronobarCore
 import KeyboardShortcuts
 
-/// The Pill's AppKit shell: an `NSStatusItem` hosting `PillView`, split into two click zones.
-/// The square toggles the timer; the time segment opens the Panel.
+/// The Pill's AppKit shell: an `NSStatusItem` hosting `PillView`. Any click on it opens the Panel.
 @MainActor
 final class StatusItemController: NSObject, NSPopoverDelegate {
     private let tracker: Tracker
@@ -18,8 +17,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private var focusObserver: NSObjectProtocol?
     /// Hosts the Panel in the popover, at its content's height.
     private var sizer: PanelSizer?
-    /// What VoiceOver was last given for the Pill.
-    private var described: PillAccessibility?
 
     init(tracker: Tracker, variant: BuildVariant, storageRoot: URL, preferences: Preferences,
          loginItem: LoginItem) {
@@ -63,29 +60,26 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         button.target = self
         button.action = #selector(clicked(_:))
         // Every left mouse-down in the app passes through here, before the status item's button or the
-        // Panel's own handling. With the Panel open, one on the square runs at once and is dropped before it
-        // reaches the button. One with ⌘ held is the start of a ⌘-drag, and does nothing.
+        // Panel's own handling, and goes on to them. With the Panel open, one on the Pill closes it. One with
+        // ⌘ held is the start of a ⌘-drag, and opens nothing.
         NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
             let window = event.window
             let commandKey = event.modifierFlags.contains(.command)
-            let taken = MainActor.assumeIsolated {
-                guard let self, let button = self.statusItem.button else { return false }
+            MainActor.assumeIsolated {
+                guard let self else { return }
                 // With another app frontmost the app never sees ⌘ go down, so the cover can still be over
                 // the Pill; it goes now, so the next press reaches the menu bar for its ⌘-drag.
                 self.coverPlacer.place(pressCommandKey: commandKey)
-                guard let action = self.press.mouseDown(
-                    onPill: self.isOnPill(window), at: Self.pointer(over: button), commandKey: commandKey,
-                    panelOpen: self.popover.isShown, tracker: self.tracker) else { return false }
-                self.run(action, by: .pointer)
-                return true
+                self.press.mouseDown(onPill: self.isOnPill(window), commandKey: commandKey,
+                                     panelOpen: self.popover.isShown)
             }
-            return taken ? nil : event
+            return event
         }
         // The cover goes over the Pill while the pointer is on it, so a press reaches the app without the
         // menu bar drawing its highlight. Its mouse-up stands in for the button's action.
         coverPlacer.cover.onMouseUp = { [weak self] overPill in
-            guard let self, let action = self.press.mouseUp(overPill: overPill, tracker: self.tracker) else { return }
-            self.run(action, by: .pointer)
+            guard let self, self.press.mouseUp(overPill: overPill) else { return }
+            self.showPanel(by: .pointer)
         }
         // Pointer moves and ⌘ over other apps, then over this one.
         let followPointer: (NSEvent) -> Void = { [weak self] _ in
@@ -107,13 +101,11 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             }
             return taken ? nil : event
         }
-        // The global shortcut does exactly what a click on the square does, and tells VoiceOver what that was.
-        KeyboardShortcuts.onKeyUp(for: .toggleTimer) { [weak self] in
+        // The global shortcut opens the Panel, as a click on the Pill does, and tells VoiceOver so.
+        KeyboardShortcuts.onKeyUp(for: .openPanel) { [weak self] in
             guard let self else { return }
-            let action = PillClick.square(tracker: tracker)
-            let before = tracker.timers
-            run(action, by: .keyboard)
-            announce(ShortcutAnnouncement.text(for: action, before: before, after: tracker))
+            showPanel(by: .keyboard)
+            announce(ShortcutAnnouncement.text(tracker: tracker))
         }
         refresh()
     }
@@ -144,46 +136,22 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// measure, what the popover took when this was written.
     private var panelChrome = 27.0
 
-    /// VoiceOver lands on the status item's button, so the button carries what the Pill shows and the
-    /// actions a click on each segment takes. Its own press opens the Panel. The actions are only replaced
-    /// when their names change, so VoiceOver's actions menu isn't rebuilt every second.
+    /// VoiceOver lands on the status item's button, so the button carries what the Pill shows. Its own
+    /// press opens the Panel, as a click does; there is nothing else to offer as an action.
     private func describe() {
         guard let button = statusItem.button else { return }
-        let description = PillAccessibility(tracker: tracker)
-        if button.accessibilityLabel() != description.label { button.setAccessibilityLabel(description.label) }
-        guard description.squareAction != described?.squareAction else { return }
-        described = description
-        button.setAccessibilityCustomActions([
-            NSAccessibilityCustomAction(name: description.squareAction) { [weak self] in
-                guard let self else { return false }
-                run(PillClick.square(tracker: tracker), by: .keyboard)
-                return true
-            },
-            NSAccessibilityCustomAction(name: PillAccessibility.openPanelAction) { [weak self] in
-                self?.showPanel(by: .keyboard)
-                return self != nil
-            },
-        ])
+        let label = PillAccessibility(tracker: tracker).label
+        if button.accessibilityLabel() != label { button.setAccessibilityLabel(label) }
     }
 
     /// The status item's button action: a click on the Pill with the Panel closed, or a press from VoiceOver
-    /// or the keyboard. The menu bar hands the app its mouse events at the status item's
-    /// centre wherever the click was, so the zone comes from the pointer's position at the mouse-down.
+    /// or the keyboard.
     @objc private func clicked(_ button: NSStatusBarButton) {
         let event = NSApp.currentEvent
         let byMouse = event.map { [.leftMouseDown, .leftMouseUp].contains($0.type) && $0.window === button.window }
-        if let action = press.buttonAction(byMouse: byMouse ?? false, tracker: tracker) {
-            run(action, by: byMouse == true ? .pointer : .keyboard)
+        if press.buttonAction(byMouse: byMouse ?? false) {
+            showPanel(by: byMouse == true ? .pointer : .keyboard)
         }
-    }
-
-    /// The transient Panel would close on the mouse-down of a click on the square, before that mouse-down
-    /// reaches the event monitor. A click on the time segment or anywhere else still closes it.
-    func popoverShouldClose(_ popover: NSPopover) -> Bool {
-        guard let event = NSApp.currentEvent, event.type == .leftMouseDown,
-              let button = statusItem.button else { return true }
-        return PillPress.closesPanel(
-            onPill: isOnPill(event.window), at: Self.pointer(over: button), tracker: tracker)
     }
 
     /// Whether a mouse-down in `window` is on the Pill: in the status item's own window, or in the cover
@@ -191,16 +159,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private func isOnPill(_ window: NSWindow?) -> Bool {
         guard let window else { return false }
         return window === statusItem.button?.window || coverPlacer.isCover(window)
-    }
-
-    /// The pointer's x from the button's leading edge, over the status item when it is within the status
-    /// item's window, padding included. Read from the pointer's screen position rather than an event's,
-    /// which the menu bar places at the status item's centre.
-    private static func pointer(over button: NSStatusBarButton) -> PillPointer {
-        guard let window = button.window else { return .away }
-        let x = button.convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil).x
-        let leading = button.convert(NSPoint.zero, from: nil).x
-        return PillPointer(x: x, within: leading...(leading + window.frame.width))
     }
 
     /// Runs the Panel command for a key pressed in the Panel or the (i) Time Summary it shows, and returns
@@ -217,15 +175,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         else { return false }
         panel.perform(command, today: tracker.today, calendar: tracker.calendar)
         return true
-    }
-
-    /// Runs a Pill action from a click, or from the keyboard or VoiceOver.
-    private func run(_ action: PillClick, by opening: PanelOpening) {
-        switch action {
-        case .pauseTimers: perform { try tracker.pause() }
-        case .openPanel: showPanel(newProject: false, by: opening)
-        case .openNewProjectForm: showPanel(newProject: true, by: opening)
-        }
     }
 
     /// Has VoiceOver speak `text`, with VoiceOver running. The shortcut works from any app and moves

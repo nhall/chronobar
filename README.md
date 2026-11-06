@@ -14,9 +14,10 @@ can read and edit. There are no accounts, no sync and no integrations.
 
 ## How it works
 
-- **The Pill** sits in the menu bar. Its left square shows ▶ on gray when stopped and ⏸ on a colored
-  background while any timer runs. Click ⏸ to pause every running timer, or ▶ to open the ＋ form. The
-  right side shows today's total across all projects (`1:23`); click it to open the Panel.
+- **The Pill** sits in the menu bar. Its left square shows how many timers are running (`1`, `2`, …) on
+  a colored background, or ▶ on gray when none are. The right side shows today's total across all
+  projects (`1:23`), ticking while any timer runs. Any click on the Pill opens the Panel, where you start
+  and pause timers; so does the global shortcut you can record in Settings.
 - **The Panel** shows the day you are viewing, a strip with the week's daily totals, and one row per
   project with its total for that day. Each of today's rows ends with a ▶ button that starts that
   project's timer; every running row is highlighted and shows ⏸ to pause just that timer. Use ＋, under the
@@ -39,6 +40,8 @@ can read and edit. There are no accounts, no sync and no integrations.
   Settings to have each start pause every other timer instead.
 - If you come back to a running timer after the Mac slept, locked, or sat with no input, Chronobar asks
   whether to remove the time you were away.
+- A timer still running after 4 hours raises a notification naming its project, once per run, with a
+  Stop button that stops it then. Nothing is cut on its own. Pick 2 to 8 hours, or Off, in Settings.
 - **Agents and scripts** start and stop timers with the `chronobar` command (see
   [The command line](#the-command-line)). A row whose timer an agent started shows a small terminal
   icon; hover over it for "Started by an agent; not paused for idle time".
@@ -210,7 +213,7 @@ you archive it once more.
 
 ### Settings
 
-Settings and the app's last-alive time are kept in the app's preferences
+Settings, the app's last-alive time and the long-running timers it has warned about are kept in the app's preferences
 (`io.github.nhall.chronobar`), not in the data folder.
 
 ## Manual test checklist
@@ -223,8 +226,9 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 
 **Start, pause, switch**
 
-- [ ] With no timer running, ▶ opens the ＋ form.
-- [ ] ＋, type a new project name, Start: the square turns colored with ⏸ and the time starts at `0:00`.
+- [ ] With no timer running, the square shows ▶ on gray. Click it, then the time segment: each opens the
+      Panel, and no timer starts.
+- [ ] ＋, type a new project name, Start: the square turns colored with `1` and the time starts at `0:00`.
       The form closes back to the rows, the new project's row is highlighted, and the Panel stays open.
 - [ ] ＋ sits at the bottom of the Panel, on its left edge: under "No time tracked" on an empty Day, and
       under the last row with one row and with many. The header shows the date, the Day total, (i) and
@@ -242,24 +246,27 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       Repeat with the Pill on a smaller external display, if you have one.
 - [ ] Click outside the Panel: it closes.
 - [ ] After a minute the time reads `0:01`; the day file has one entry with `"end": null`.
-- [ ] Click ⏸: the square goes gray with ▶, the time stays, the entry now has an `end`.
+- [ ] Click the row's ⏸: the square goes gray with ▶, the time stays, the entry now has an `end`.
 - [ ] Click the row's ▶: the same project resumes on its row and its total keeps counting from where it
       was.
-- [ ] With a timer running and the Panel closed, click the square on its edge: the timer pauses and the
-      Panel stays closed. Start it again and click the square's middle: the same.
-- [ ] With the Panel open, do the same: each click on ⏸ pauses, and the Panel stays open.
+- [ ] With a timer running and the Panel closed, click the square on its edge, its middle, the time
+      segment and the gap between them: each click opens the Panel and the timer keeps running. With
+      the Panel open, a click anywhere on the Pill closes it and the timer keeps running.
 - [ ] Repeat both with a trackpad (tap to click and a full press) as well as a mouse.
-- [ ] Click the time segment: the Panel opens.
+- [ ] ⌘-drag the Pill along the menu bar: it moves, and the Panel doesn't open.
 - [ ] Start a second project from ＋: the first keeps running, the day file has two entries with
-      `"end": null`, both rows are highlighted with ⏸, and the Pill's time is the sum of both.
+      `"end": null`, both rows are highlighted with ⏸, the square shows `2`, and the Pill's time is the
+      sum of both, going up by two minutes each minute. Start a third: the square shows `3`.
 - [ ] Each of today's rows shows its time, then ▶ at the far right; every running row shows ⏸ instead
       and is highlighted. Rows on any other Day have no button.
 - [ ] Type a running project's name in ＋ and Start: nothing changes; its row keeps counting, with no
       new entry and no alert.
 - [ ] Click one running row's ⏸: only that timer pauses, its row loses its highlight and shows ▶, and
-      the other keeps running. Pause the last one: the Pill's square goes gray with ▶.
-- [ ] With two timers running and the Panel open, click the Pill's square or press the global
-      shortcut: both rows pause.
+      the other keeps running and the square shows `1`. Pause the last one: the Pill's square goes gray
+      with ▶ and the time stops.
+- [ ] In Settings, the shortcut is labelled "Open Panel shortcut". Record one, and with zero, one and two
+      timers running and another app in front, press it: the Panel opens under the Pill with every timer
+      as it was. A shortcut recorded in an earlier version still works.
 - [ ] In Settings, "Starting a timer pauses the others" is off. Turn it on, start two projects one after
       the other: the first pauses. Turn it off: starting another leaves the running one running.
 - [ ] With two timers running before midnight, wait past it (or set the clock): both entries end at
@@ -290,8 +297,8 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       names, and Accent color's dot matches the accent in System Settings › Appearance, changing
       when you pick another accent there.
 - [ ] With a timer running, pick yellow, mint, blue and Accent color in turn, in light and dark mode
-      and with Increase Contrast on and off: the Pill's ⏸ reads clearly on each (white on dark colors,
-      black on light ones).
+      and with Increase Contrast on and off: the running count in the Pill's square reads clearly on each
+      (white on dark colors, black on light ones, including blue).
 - [ ] In light and dark mode, with Increase Contrast on and off and whatever running color is picked:
       today's date in the Week strip is on a circle in the text color, drawn in the opposite color
       (black on white in dark mode, white on black in light mode), never on the running color.
@@ -302,13 +309,13 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 
 **Accessibility**
 
-- [ ] With VoiceOver on, move to the Pill (⌃F8 or the VoiceOver menu bar commands): it reads what runs
-      and today's total in words: "Website Redesign running, 1 hour 23 minutes today", "2 timers
-      running, …" or "Nothing running, …". VO-Space opens the Panel. VO-⌘-Space lists Pause (New Project
-      with nothing running) and Open Panel; Pause works without opening the Panel, and the label follows.
-- [ ] With VoiceOver on and another app in front, press the global shortcut with one timer running:
-      VoiceOver says "Paused" and the project; with two, "Paused 2 timers". With nothing running it says
-      "New Project" as the ＋ form opens. With VoiceOver off, the shortcut says nothing.
+- [ ] With VoiceOver on, move to the Pill (⌃F8 or the VoiceOver menu bar commands) with zero, one and
+      two timers running: it reads the count and today's total in words: "Nothing running, 45 minutes
+      today", "1 timer running, 1 hour 23 minutes today", "2 timers running, …". VO-Space opens the
+      Panel; VO-⌘-Space offers no actions.
+- [ ] With VoiceOver on and another app in front, press the global shortcut: VoiceOver says "Panel
+      opened" and what the Pill reads ("Panel opened. 2 timers running, 1 hour today"), and no timer
+      changes. With VoiceOver off, the shortcut says nothing.
 - [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day (with its
       elapsed time), Time Summary, Menu, Previous week and Next week, each Day in the Week strip with its date, total, and
       "today" or "viewed" (the viewed Day also reads as selected), each row's name (with "running" on
@@ -416,6 +423,22 @@ Try these against the development copy (`chronobar --dev …`) unless you are ch
 - [ ] On a Mac where the app was never opened, `chronobar status` exits 3 saying it couldn't find
       Chronobar and to open it once.
 - [ ] `chronobar --dev status` reaches only the development copy, with the everyday copy running too.
+
+**Long-running warning**
+
+- [ ] In Settings, Warn when a timer runs for is a pop-up of Off, 2, 3, 4, 6 and 8 hours, 4 on a first
+      launch.
+- [ ] Pick 2 hours and leave a timer running for 2 hours: the first time, macOS asks whether
+      Chronobar may send notifications. Allow: a notification names the project. It doesn't come back
+      while that timer keeps running, nor after quitting and relaunching with it still open (an
+      agent's timer, which quitting leaves running).
+- [ ] Wait a few minutes, then click Stop on the notification: the timer stops at the click, not at
+      the 2-hour mark, and other timers keep running.
+- [ ] Pause and start the timer again: a new notification comes 2 hours after the new start.
+- [ ] Start a timer at 23:00 with 2 hours picked: the notification comes at 01:00, after the midnight
+      split.
+- [ ] With notifications denied in System Settings › Notifications, nothing appears and the timer
+      keeps running. With Off picked, no notification comes.
 
 **Dock**
 

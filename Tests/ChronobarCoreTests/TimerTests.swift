@@ -12,7 +12,7 @@ import ChronobarCore
         clock.set("2026-11-03T10:30:00")
         try tracker.pause()
 
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 90 * 60)
     }
 
@@ -22,7 +22,7 @@ import ChronobarCore
         clock.advance(83 * 60 + 30)
         tracker.tick()
 
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
         #expect(DurationFormat.hoursMinutes(tracker.total("Website Redesign", on: tracker.today)) == "1:23")
     }
 
@@ -142,7 +142,7 @@ import ChronobarCore
         clock.set("2026-11-03T09:45:00")
         try tracker.toggle("  website redesign ")
 
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 45 * 60)
     }
 
@@ -177,7 +177,7 @@ import ChronobarCore
         clock.set("2026-11-03T09:30:00")
         tracker.tick()
 
-        #expect(tracker.running?.project == "Vacation")
+        #expect(tracker.timers.newest?.project == "Vacation")
         #expect(tracker.rows(tracker.today) == [Row(project: "Vacation", total: 30 * 60)])
         #expect(tracker.rows(future) == [Row(project: "Vacation", total: 8 * 60 * 60)])
         #expect(contents(dayFile(root, "2026-11-16"))?.contains(#""start""#) == false)

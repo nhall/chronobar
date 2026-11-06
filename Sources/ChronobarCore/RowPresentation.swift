@@ -32,7 +32,7 @@ public struct RowPresentation: Equatable, Sendable {
         toggle = isRunning ? .pause : .start
         toggleTone = isRunning ? .primary : .secondary
         nameLabel = isRunning ? "\(row.project), running\(byAgent ? ", started by an agent" : "")" : row.project
-        toggleLabel = "\(TimerToggle.name(isRunning: isRunning)) \(row.project)"
+        toggleLabel = "\(isRunning ? "Pause" : "Start") \(row.project)"
         agentMark = byAgent ? "Started by an agent; not paused for idle time" : nil
     }
 }

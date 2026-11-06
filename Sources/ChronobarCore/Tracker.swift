@@ -6,13 +6,12 @@ import Observation
 public final class Tracker {
     /// Every running timer, each an open Entry in the loaded Day's file, at most one per Project.
     public private(set) var timers = RunningTimers()
-
-    /// Compatibility view for callers written for a single timer: the newest running timer. Callers
-    /// move to `timers` as the app learns to show several; then this goes.
-    public var running: Running? { timers.newest }
     /// Whether `start` pauses every other running timer, whatever started them. The Settings toggle
     /// "Starting a timer pauses the others"; off by default.
     public var startPausesOthers = false
+    /// How long a timer runs before `tick()` reports it for the long-running warning; nil for Off. The
+    /// Settings pop-up; nothing is ever cut automatically.
+    public var longRunningThreshold: TimeInterval?
     /// The Pinned Projects, always suggested, in `projects.txt` order.
     public private(set) var projects: [String] = []
     /// The archived Projects, never suggested until typed again, in `archived.txt` order.
@@ -31,8 +30,11 @@ public final class Tracker {
     @ObservationIgnored private let projectStore: ProjectStore
     @ObservationIgnored private let archivedStore: ProjectStore
     @ObservationIgnored private let defaults: UserDefaults?
+    /// The runs `tick()` has reported as long-running, so each is reported once, across relaunches too.
+    @ObservationIgnored private var warned: [LongRunning]
 
     private static let heartbeatKey = "heartbeat"
+    private static let warnedKey = "longRunningWarned"
     /// Where v1 kept the Project ▶ started. Nothing reads it now; it is removed at launch.
     private static let retiredSelectedProjectKey = "selectedProject"
 
@@ -46,6 +48,7 @@ public final class Tracker {
         self.now = clock.now
         self.launched = clock.now
         self.lastAlive = defaults?.object(forKey: Self.heartbeatKey) as? Date
+        self.warned = Self.savedWarnings(in: defaults)
         defaults?.removeObject(forKey: Self.retiredSelectedProjectKey)
         reload()
     }
@@ -119,6 +122,32 @@ public final class Tracker {
         return timer
     }
 
+    /// The long-running warning's Stop: pauses `run`'s timer now, unless that run has already ended, so a
+    /// late click never stops a timer started again since.
+    public func pause(_ run: LongRunning) throws {
+        catchUp()
+        guard let timer = timers[run.project], runStart(of: timer) == run.since else { return }
+        try pause(timer.project)
+    }
+
+    /// Called when Chronobar quits: pauses the timers started in the app and leaves agents' timers open,
+    /// so quitting by habit never stops an agent's timing. Deferred like `pause()`.
+    public func quit() throws {
+        try pauseAppTimers()
+    }
+
+    /// Pauses every timer started in the app, leaving agents' timers running. Deferred like `pause()`.
+    private func pauseAppTimers() throws {
+        catchUp()
+        let app = timers.filter { $0.source == .app }
+        guard !app.isEmpty else { return }
+        let end = now
+        try files.update(today, deferringIfMalformed: true) { entries in
+            for timer in app { Self.close(&entries, at: end, only: timer.project) }
+        }
+        for timer in app { timers.remove(timer.project) }
+    }
+
     /// Whether `name`'s timer is running.
     public func isRunning(_ name: String) -> Bool { timers.contains(name) }
 
@@ -132,12 +161,58 @@ public final class Tracker {
     }
 
     /// Called every second by the UI so running totals advance, and on wake. Rolls over to a new Day and
-    /// retries deferred writes, then recovers any Entry left open in a Day file that parsed again.
-    public func tick() {
+    /// retries deferred writes, then recovers any Entry left open in a Day file that parsed again. Returns
+    /// the timers that have now run for `longRunningThreshold`, each once per run.
+    @discardableResult
+    public func tick() -> [LongRunning] {
         catchUp()
         files.retryPending()
         recover(reparsed: files.takeReparsed())
         unblockPendingIdle()
+        return newlyLongRunning()
+    }
+
+    /// The timers that ran past `longRunningThreshold` since last asked, each marked as warned.
+    private func newlyLongRunning() -> [LongRunning] {
+        guard let threshold = longRunningThreshold else { return [] }
+        let passed = timers.compactMap { timer -> LongRunning? in
+            let run = LongRunning(project: timer.project, since: runStart(of: timer))
+            guard now.timeIntervalSince(run.since) >= threshold, !warned.contains(run) else { return nil }
+            return run
+        }
+        guard !passed.isEmpty else { return [] }
+        // Runs that ended are dropped, so the list holds only timers still running.
+        let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
+        warned = warned.filter(running.contains) + passed
+        defaults?.set(warned.map { ["project": $0.project, "since": $0.since] }, forKey: Self.warnedKey)
+        return passed
+    }
+
+    /// The runs reported before the last quit, as `newlyLongRunning` saved them.
+    private static func savedWarnings(in defaults: UserDefaults?) -> [LongRunning] {
+        let saved = defaults?.array(forKey: warnedKey) as? [[String: Any]] ?? []
+        return saved.compactMap { run in
+            guard let project = run["project"] as? String, let since = run["since"] as? Date else { return nil }
+            return LongRunning(project: project, since: since)
+        }
+    }
+
+    /// When `timer`'s run began: its start, or for a timer carried over at midnight, the start of the Entry
+    /// it was split from on the Day before, followed back as far as the splits go.
+    private func runStart(of timer: Running) -> Date {
+        var start = timer.start
+        var day = Day(containing: start, in: calendar)
+        while start == calendar.startOfDay(for: day.noon(in: calendar)) {
+            day = day.adding(days: -1, in: calendar)
+            let split = files.entries(on: day).lazy.compactMap { entry -> Date? in
+                guard case .timed(let project, let from, start?, _) = entry,
+                      ProjectName.matches(project, timer.project) else { return nil }
+                return from
+            }.first
+            guard let split else { break }
+            start = split
+        }
+        return start
     }
 
     /// Clears `pendingIdle.blockedBy` once that Day's file parses and its deferred writes have landed.
@@ -154,12 +229,13 @@ public final class Tracker {
         defaults?.set(clock.now, forKey: Self.heartbeatKey)
     }
 
-    /// Called once at launch. Quitting closes the running Entries, so an Entry still open means Chronobar
+    /// Called once at launch. Quitting closes the app-started Entries, so one still open means Chronobar
     /// crashed or the Mac was forced off. Returns when it was last known alive (the later of the earliest
-    /// open Entry's start and the last Heartbeat) so the UI can ask about the time since with the idle
-    /// alert; nil if nothing was left open. Entries open on a past Day become running timers and are split
-    /// across the Days since, as after waking from sleep, so the idle removal can cut them. The same goes
-    /// for Entries found open later in a Day file that was malformed at launch, once it parses.
+    /// open app-started Entry's start and the last Heartbeat) so the UI can ask about the time since with
+    /// the idle alert; nil if none was left open. Agents' open Entries become running timers with no Idle
+    /// time, whether a crash or quitting left them. Entries open on a past Day become running timers and
+    /// are split across the Days since, as after waking from sleep, so the idle removal can cut them. The
+    /// same goes for Entries found open later in a Day file that was malformed at launch, once it parses.
     @discardableResult
     public func recoverAfterLaunch() -> Date? {
         now = clock.now
@@ -180,15 +256,19 @@ public final class Tracker {
         }
     }
 
-    /// Makes Entries left open on `day` by a crash running timers, split across the Days since, with the
-    /// time since each was last alive pending as Idle time. If other timers run already, the Entries are
-    /// closed when Chronobar launched (or at the end of their Day) and only the time before that is pending.
+    /// Makes Entries left open on `day` by a crash (or by quitting, for agents' timers) running timers,
+    /// split across the Days since. For timers started in the app the time since each was last alive is
+    /// pending as Idle time; agents' timers just keep running. If other timers run already, the Entries are
+    /// closed when Chronobar launched (or at the end of their Day) and only the app-started time before
+    /// that is pending.
     private func recover(_ found: [Running], on day: Day) {
         guard !found.isEmpty else { return }
         if timers.allSatisfy(found.contains) {
             files.move(to: day)
             timers = RunningTimers(found)
-            for timer in found { noteIdle(PendingIdle(since: max(timer.start, lastAlive ?? timer.start))) }
+            for timer in found where timer.source == .app {
+                noteIdle(PendingIdle(since: max(timer.start, lastAlive ?? timer.start)))
+            }
             rollOver()
             return
         }
@@ -198,7 +278,7 @@ public final class Tracker {
             try? files.update(day, deferringIfMalformed: true) { entries in
                 entries = entries.map { $0.openTimer == timer ? $0.closed(at: end) : $0 }
             }
-            noteIdle(PendingIdle(since: min(lastAlive, end), until: end))
+            if timer.source == .app { noteIdle(PendingIdle(since: min(lastAlive, end), until: end)) }
         }
     }
 
@@ -218,11 +298,12 @@ public final class Tracker {
         return nil
     }
 
-    /// Answers the idle alert. `remove` and `removeAndStop` drop the time from `idleStart` to `idleEnd`
-    /// (nil: now) from every Day it covers: a timed Entry straddling either end is cut there, timed Entries
-    /// inside are deleted and manual Entries stay. `remove` then restarts from now each running timer the
-    /// cut stopped, with its source; `removeAndStop` leaves them all stopped. If any of those Day files
-    /// won't parse, nothing is changed.
+    /// Answers the idle alert, for the timers started in the app only: agents kept working while the user
+    /// was away, so their Entries and timers are left alone. `remove` and `removeAndStop` drop the time
+    /// from `idleStart` to `idleEnd` (nil: now) from every Day it covers: an app-started timed Entry
+    /// straddling either end is cut there, those inside are deleted and manual Entries stay. `remove` then
+    /// restarts from now each app timer the cut stopped; `removeAndStop` leaves every app timer stopped. If
+    /// any of those Day files won't parse, nothing is changed.
     public func resolveIdle(since idleStart: Date, until idleEnd: Date? = nil, choice: IdleChoice) throws {
         catchUp()
         guard choice != .keep else { return pendingIdle = nil }
@@ -252,11 +333,8 @@ public final class Tracker {
         }
         pendingIdle = nil
         reload()
-        if choice == .removeAndStop {
-            try pause()
-            return
-        }
-        let stopped = running.filter { !timers.contains($0.project) }
+        if choice == .removeAndStop { return try pauseAppTimers() }
+        let stopped = running.filter { $0.source == .app && !timers.contains($0.project) }
         guard !stopped.isEmpty else { return }
         let start = now
         try files.update(today) { entries in
@@ -267,11 +345,14 @@ public final class Tracker {
         for timer in stopped { timers.insert(Running(project: timer.project, start: start, source: timer.source)) }
     }
 
-    /// `entries` without their timed time from `cut` to `resume` (nil: no end); an open Entry counts up to
-    /// `now`. An Entry running on past `resume` carries on from there.
+    /// `entries` without their app-started time from `cut` to `resume` (nil: no end); an open Entry counts
+    /// up to `now`. An Entry running on past `resume` carries on from there. Agents worked on while the
+    /// user was away, so their Entries stay whole.
     private static func removing(_ entries: [Entry], from cut: Date, to resume: Date?, asOf now: Date) -> [Entry] {
         entries.flatMap { entry -> [Entry] in
-            guard case .timed(let project, let start, let end, let source) = entry else { return [entry] }
+            guard case .timed(let project, let start, let end, let source) = entry, source == .app else {
+                return [entry]
+            }
             if (end ?? now) <= cut { return [entry] }
             if let resume, start >= resume { return [entry] }
             var pieces: [Entry] = []
