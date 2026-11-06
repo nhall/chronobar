@@ -107,4 +107,33 @@ import ChronobarCore
 
         #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
     }
+
+    // MARK: The Pill's cover: the press never reaches the menu bar, so the mouse-up ends it
+
+    @Test func aPressOnTheCoverActsOnItsMouseUpFromWhereItBegan() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+
+        #expect(press.mouseUp(overPill: true, tracker: tracker) == .toggleTimer)
+    }
+
+    /// Its mouse-down closed the Panel; the mouse-up mustn't open it again.
+    @Test func aPressOnTheCoverThatClosedThePanelDoesNothingMore() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+        _ = press.mouseDown(onStatusItem: true, at: timeSegment, panelOpen: true, tracker: tracker)
+
+        #expect(press.mouseUp(overPill: true, tracker: tracker) == nil)
+    }
+
+    /// As with a button, a press let go away from the Pill is called off.
+    @Test func aPressOnTheCoverReleasedAwayFromThePillDoesNothing() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+
+        #expect(press.mouseUp(overPill: false, tracker: tracker) == nil)
+        #expect(press.mouseUp(overPill: true, tracker: tracker) == nil)
+    }
 }
