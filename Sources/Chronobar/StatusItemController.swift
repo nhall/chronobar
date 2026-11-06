@@ -292,11 +292,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
               let panelWindow = popover.contentViewController?.view.window,
               window === panelWindow || window.parent === panelWindow else { return false }
         panel.keyPressed()
-        guard let layout = PanelKey.currentLayout() else { return false }
         // A focused text field edits through its field editor, a text view.
         let editingText = (window.firstResponder as? NSTextView)?.isEditable ?? false
         guard let command = PanelKey.command(
-            keyCode: keyCode, modifiers: modifiers, layout: layout, editingText: editingText)
+            keyCode: keyCode, modifiers: modifiers, layout: PanelKey.currentLayout(), editingText: editingText)
         else { return false }
         panel.perform(command, today: tracker.today, calendar: tracker.calendar)
         return true

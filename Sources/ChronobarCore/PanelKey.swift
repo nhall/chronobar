@@ -69,8 +69,8 @@ public enum PanelChange: Equatable, Sendable {
 /// types `[`, such as ⌘⌥5 on German, and ⌘T is ⌘ with the key that types `t` there.
 public enum PanelKey {
     /// The arrows' key codes (`kVK_LeftArrow`, `kVK_RightArrow`), the same keys on every layout.
-    static let leftArrow: UInt16 = 0x7B
-    static let rightArrow: UInt16 = 0x7C
+    public static let leftArrow: UInt16 = 0x7B
+    public static let rightArrow: UInt16 = 0x7C
 
     public struct Modifiers: OptionSet, Sendable {
         public let rawValue: Int
@@ -80,28 +80,32 @@ public enum PanelKey {
         public static let shift = Modifiers(rawValue: 1 << 1)
         public static let option = Modifiers(rawValue: 1 << 2)
         public static let control = Modifiers(rawValue: 1 << 3)
+        /// Caps Lock on. The keys ignore it: they go by the lowercase letter it would capitalize.
+        public static let capsLock = Modifiers(rawValue: 1 << 4)
     }
 
-    /// What the key at a key code types on the keyboard layout in use with `Modifiers` held, ⌘ included,
-    /// ignoring Caps Lock; nil or empty for nothing. With ⌘ held a layout can type something else, as
-    /// Russian types US letters.
+    /// What the key at a key code types on the keyboard layout in use with `Modifiers` held, ⌘ included;
+    /// nil or empty for nothing. With ⌘ held a layout can type something else, as Russian types US
+    /// letters.
     public typealias Layout = (_ keyCode: UInt16, _ modifiers: Modifiers) -> String?
 
     /// The command for the key at `keyCode` pressed with `modifiers`, or nil to let the key through.
-    /// `editingText` is whether a text field has focus.
+    /// `editingText` is whether a text field has focus. `layout` is nil when the input source has no
+    /// layout data; the arrows still work then, as they are the same keys everywhere.
     ///
     /// The ⌘ keys go by the character the press types, so ⇧ or ⌥ count when the layout needs them for
     /// that character and make it someone else's key when it doesn't: ⌘⌥5 is ⌘[ on German, while ⌘⇧T
     /// and ⌘⌥[ pass through on US even where the layout still types `t` or `[` with them held.
     public static func command(
-        keyCode: UInt16, modifiers: Modifiers, layout: Layout, editingText: Bool
+        keyCode: UInt16, modifiers: Modifiers, layout: Layout?, editingText: Bool
     ) -> PanelCommand? {
+        let modifiers = modifiers.subtracting(.capsLock)
         switch (keyCode, modifiers) {
         case (leftArrow, []): return editingText ? nil : .previousDay
         case (rightArrow, []): return editingText ? nil : .nextDay
         default: break
         }
-        guard modifiers.contains(.command), !modifiers.contains(.control),
+        guard let layout, modifiers.contains(.command), !modifiers.contains(.control),
               let character = layout(keyCode, modifiers) else { return nil }
         for modifier: Modifiers in [.shift, .option] where modifiers.contains(modifier) {
             if layout(keyCode, modifiers.subtracting(modifier)) == character { return nil }

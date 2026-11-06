@@ -20,7 +20,7 @@ extension PanelKey {
                 var length = 0
                 let status = UCKeyTranslate(
                     layout, keyCode, UInt16(kUCKeyActionDown), modifiers.carbonKeyState, keyboardType,
-                    OptionBits(kUCKeyTranslateNoDeadKeysBit), &deadKeys, characters.count, &length, &characters)
+                    OptionBits(kUCKeyTranslateNoDeadKeysMask), &deadKeys, characters.count, &length, &characters)
                 guard status == noErr else { return nil }
                 return String(utf16CodeUnits: characters, count: length)
             }
@@ -29,16 +29,17 @@ extension PanelKey {
 }
 
 extension PanelKey.Modifiers {
-    /// Caps Lock is left out: the keys go by the lowercase letter it would capitalize.
     init(_ flags: NSEvent.ModifierFlags) {
         self = []
         if flags.contains(.command) { insert(.command) }
         if flags.contains(.shift) { insert(.shift) }
         if flags.contains(.option) { insert(.option) }
         if flags.contains(.control) { insert(.control) }
+        if flags.contains(.capsLock) { insert(.capsLock) }
     }
 
-    /// The modifiers as `UCKeyTranslate` takes them: Carbon's modifier bits, shifted down a byte.
+    /// The modifiers as `UCKeyTranslate` takes them: Carbon's modifier bits, shifted down a byte. Caps Lock
+    /// never gets here: `PanelKey.command` drops it before asking the layout.
     var carbonKeyState: UInt32 {
         var keys = 0
         if contains(.command) { keys |= cmdKey }
