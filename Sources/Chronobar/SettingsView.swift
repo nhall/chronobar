@@ -39,6 +39,11 @@ struct SettingsView: View {
                     Text(threshold.minutes.map { "\($0) minutes" } ?? "Off").tag(threshold)
                 }
             }
+            Picker("Warn when a timer runs for", selection: $preferences.longRunningThreshold) {
+                ForEach(LongRunningThreshold.presets, id: \.self) { threshold in
+                    Text(threshold.hours.map { "\($0) hours" } ?? "Off").tag(threshold)
+                }
+            }
         }
         .formStyle(.grouped)
         .frame(width: 400)

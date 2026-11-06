@@ -39,6 +39,8 @@ can read and edit. There are no accounts, no sync and no integrations.
   Settings to have each start pause every other timer instead.
 - If you come back to a running timer after the Mac slept, locked, or sat with no input, Chronobar asks
   whether to remove the time you were away.
+- A timer still running after 4 hours raises a notification naming its project, once per run, with a
+  Stop button that stops it then. Nothing is cut on its own. Pick 2 to 8 hours, or Off, in Settings.
 
 ## Install
 
@@ -177,7 +179,7 @@ you archive it once more.
 
 ### Settings
 
-Settings and the app's last-alive time are kept in the app's preferences
+Settings, the app's last-alive time and the long-running timers it has warned about are kept in the app's preferences
 (`io.github.nhall.chronobar`), not in the data folder.
 
 ## Manual test checklist
@@ -358,6 +360,21 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       the alert covers the time since.
 - [ ] Repeat, but break today's day file by hand before relaunching: no alert and no timer. Fix the
       file and open the Panel: the idle alert appears for the time since the kill.
+
+**Long-running warning**
+
+- [ ] In Settings, Warn when a timer runs for is a pop-up of Off, 2, 3, 4, 6 and 8 hours, 4 on a first
+      launch.
+- [ ] Pick 2 hours and leave a timer running for 2 hours: the first time, macOS asks whether
+      Chronobar may send notifications. Allow: a notification names the project. It doesn't come back
+      while that timer keeps running, nor after quitting and relaunching with it still open.
+- [ ] Wait a few minutes, then click Stop on the notification: the timer stops at the click, not at
+      the 2-hour mark, and other timers keep running.
+- [ ] Pause and start the timer again: a new notification comes 2 hours after the new start.
+- [ ] Start a timer at 23:00 with 2 hours picked: the notification comes at 01:00, after the midnight
+      split.
+- [ ] With notifications denied in System Settings › Notifications, nothing appears and the timer
+      keeps running. With Off picked, no notification comes.
 
 **Dock**
 
