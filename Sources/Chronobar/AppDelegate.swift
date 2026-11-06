@@ -84,9 +84,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Clicking the Dock icon opens the Panel under the Pill. The reopen request doesn't say whether that
-    /// was a click or Full Keyboard Access in the Dock, so the Panel keeps its focus ring.
+    /// was a click, ⌘-Tab or Full Keyboard Access in the Dock, so the Panel keeps its focus ring.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        statusItem?.showPanel(by: .keyboard)
+        statusItem?.showPanel(by: .appReopen)
         return false
     }
 

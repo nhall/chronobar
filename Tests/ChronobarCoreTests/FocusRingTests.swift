@@ -24,6 +24,31 @@ import ChronobarCore
         #expect(ring.isVisible)
     }
 
+    /// The Dock icon or ⌘-Tab: the request doesn't say which, and ⌘-Tab is a key press.
+    @Test func aReopenOfTheAppShowsTheRing() {
+        var ring = FocusRing()
+        ring.panelOpened(by: .pointer)
+        ring.panelOpened(by: .appReopen)
+        #expect(ring.isVisible)
+    }
+
+    /// The global shortcut with the Panel already open is a key press like one in the Panel.
+    @Test(arguments: [PanelOpening.keyboard, .appReopen])
+    func askingFromTheKeyboardWithThePanelOpenShowsTheRing(opening: PanelOpening) {
+        var ring = FocusRing()
+        ring.panelOpened(by: .pointer)
+        ring.askedToOpenWhileOpen(by: opening)
+        #expect(ring.isVisible)
+    }
+
+    /// A click on the Pill's time with the Panel open is no key press.
+    @Test func aClickWithThePanelOpenLeavesTheRingHidden() {
+        var ring = FocusRing()
+        ring.panelOpened(by: .pointer)
+        ring.askedToOpenWhileOpen(by: .pointer)
+        #expect(!ring.isVisible)
+    }
+
     /// Each opening starts again: keys pressed while the Panel was last open don't count.
     @Test func eachClickOpenHidesTheRingAgain() {
         var ring = FocusRing()

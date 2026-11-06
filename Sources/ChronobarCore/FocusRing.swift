@@ -4,6 +4,9 @@ public enum PanelOpening: Equatable, Sendable {
     case pointer
     /// The keyboard or VoiceOver: the global shortcut, or a press on the Pill's accessibility element.
     case keyboard
+    /// The app reopened, from a click on its Dock icon, ⌘-Tab, or Full Keyboard Access in the Dock. The
+    /// request doesn't say which, so it counts as the keyboard.
+    case appReopen
 }
 
 /// Whether the Panel draws its focus ring, like CSS `:focus-visible`. Opening the Panel always puts focus
@@ -14,7 +17,13 @@ public struct FocusRing: Equatable, Sendable {
     public init() {}
 
     public mutating func panelOpened(by opening: PanelOpening) {
-        isVisible = opening == .keyboard
+        isVisible = opening != .pointer
+    }
+
+    /// The Panel was asked to open while already open. From the keyboard that is a key press like one in
+    /// the Panel; a click changes nothing.
+    public mutating func askedToOpenWhileOpen(by opening: PanelOpening) {
+        if opening != .pointer { keyPressed() }
     }
 
     public mutating func keyPressed() {
