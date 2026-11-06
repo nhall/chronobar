@@ -6,7 +6,7 @@ import ChronobarCore
 /// `ChannelServer` brings it requests from the socket. Timers it starts are the `agent`'s.
 @MainActor
 public final class Operations {
-    private let tracker: Tracker
+    let tracker: Tracker
 
     public init(tracker: Tracker) {
         self.tracker = tracker
@@ -25,7 +25,11 @@ public final class Operations {
             switch request {
             case .status: return .success(.status(status()))
             case .start(let label): return .success(.start(try start(label)))
-            case .stop(let label): return .success(.stop(try stop(label)))
+            case .stop(let label, nil): return .success(.stop(try stop(label)))
+            case .stop(let label, let end?): return .success(.stop(try stop(label, at: end)))
+            case .setStart(let label, let start): return .success(.setStart(try setStart(label, at: start)))
+            case .addEntry(let label, let span): return .success(.addEntry(try addEntry(label, span)))
+            case .adjust(let label, let input, let day): return .success(.adjust(try adjust(label, input, on: day)))
             }
         } catch {
             return .failure(error)
@@ -56,25 +60,26 @@ public final class Operations {
     }
 
     /// `label` trimmed; refused if that leaves nothing.
-    private func named(_ label: String) throws(OperationError) -> String {
+    func named(_ label: String) throws(OperationError) -> String {
         let label = ProjectName.trimmed(label)
         guard !label.isEmpty else { throw emptyLabel }
         return label
     }
 
-    /// The Label of the one running timer, for a request that names none.
-    private func onlyRunningLabel() throws(OperationError) -> String {
+    /// The Label of the one running timer, for a request that names none. `verb` says what the request
+    /// would do to it, for the error with several running.
+    func onlyRunningLabel(to verb: String = "stop") throws(OperationError) -> String {
         switch tracker.timers.count {
         case 0: throw OperationError(.nothingRunning, "No timer is running.", running: [])
         case 1: return tracker.timers[0].project
         default:
-            throw OperationError(.ambiguous, "\(tracker.timers.count) timers are running, so say which to stop."
+            throw OperationError(.ambiguous, "\(tracker.timers.count) timers are running, so say which to \(verb)."
                                  + runningList(), running: runningTimers())
         }
     }
 
     /// " Running: A, B." naming the running timers, or "" with none.
-    private func runningList() -> String {
+    func runningList() -> String {
         tracker.timers.isEmpty ? "" : " Running: \(tracker.timers.map(\.project).joined(separator: ", "))."
     }
 
@@ -83,45 +88,53 @@ public final class Operations {
     }
 
     /// `timer` as the Entry it became when it stopped at `end`.
-    private func closed(_ timer: Running, at end: Date) -> EntryResult {
+    func closed(_ timer: Running, at end: Date) -> EntryResult {
         EntryResult(label: timer.project, start: timer.start, end: end, source: timer.source,
                     totalSeconds: seconds(tracker.total(timer.project, on: tracker.today)))
     }
 
     /// Runs a Core call, turning what it throws into an `OperationError`.
-    private func core<T>(_ call: () throws -> T) throws(OperationError) -> T {
+    func core<T>(_ call: () throws -> T) throws(OperationError) -> T {
         do {
             return try call()
         } catch is EmptyProjectName {
             throw emptyLabel
+        } catch let error as MalformedDayFile {
+            throw malformed(error.day)
         } catch is MalformedFileError {
             throw malformed()
         } catch {
-            throw OperationError(.failed, "Chronobar couldn't save the change: \(error.localizedDescription)")
+            throw correctionError(error)
+                ?? OperationError(.failed, "Chronobar couldn't save the change: \(error.localizedDescription)")
         }
     }
 
-    /// Which file is malformed: today's Day file, else one of the Label lists.
-    private func malformed() -> OperationError {
-        let file = tracker.isMalformed(tracker.today)
-            ? "Today's Day file (days/\(tracker.today).json) isn't valid JSON"
-            : "projects.txt or archived.txt isn't UTF-8 text"
+    /// Which file is malformed: `day`'s Day file, else today's, else one of the Label lists.
+    private func malformed(_ day: Day? = nil) -> OperationError {
+        let day = day ?? (tracker.isMalformed(tracker.today) ? tracker.today : nil)
+        let file = if let day {
+            day == tracker.today
+                ? "Today's Day file (days/\(day).json) isn't valid JSON"
+                : "The Day file days/\(day).json isn't valid JSON"
+        } else {
+            "projects.txt or archived.txt isn't UTF-8 text"
+        }
         return OperationError(.malformedFile, "\(file), so Chronobar won't change it. Fix it by hand, then try again.")
     }
 
-    private func runningTimers() -> [TimerResult] {
+    func runningTimers() -> [TimerResult] {
         tracker.timers.map { timer in
             TimerResult(label: timer.project, start: timer.start, source: timer.source,
                         totalSeconds: seconds(tracker.total(timer.project, on: tracker.today)))
         }
     }
 
-    private func todayResult() -> DayResult {
+    func todayResult() -> DayResult {
         let today = tracker.today
         return DayResult(date: today.description, totalSeconds: seconds(tracker.dayTotal(today)),
                          elapsedSeconds: seconds(tracker.elapsed(today)))
     }
 
     /// Whole seconds, rounded down like every total Chronobar shows.
-    private func seconds(_ interval: TimeInterval) -> Int { Int(interval.rounded(.down)) }
+    func seconds(_ interval: TimeInterval) -> Int { Int(interval.rounded(.down)) }
 }

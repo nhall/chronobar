@@ -7,6 +7,9 @@ public enum OperationResult: Equatable, Sendable {
     case status(StatusResult)
     case start(StartResult)
     case stop(StopResult)
+    case setStart(SetStartResult)
+    case addEntry(AddEntryResult)
+    case adjust(AdjustResult)
 
     /// The operation this answers, as `Request.operation` names it.
     public var operation: String {
@@ -14,6 +17,9 @@ public enum OperationResult: Equatable, Sendable {
         case .status: "status"
         case .start: "start"
         case .stop: "stop"
+        case .setStart: "set_start"
+        case .addEntry: "add_entry"
+        case .adjust: "adjust"
         }
     }
 }
@@ -38,13 +44,13 @@ public struct TimerResult: Codable, Equatable, Sendable {
     }
 }
 
-/// A timed Entry a request just closed.
+/// A timed Entry a request just closed or added.
 public struct EntryResult: Codable, Equatable, Sendable {
     public let label: String
     public let start: Date
     public let end: Date
     public let source: EntrySource
-    /// The Label's total today, with this Entry.
+    /// The Label's total on the Entry's Day, with this Entry: today, unless a correction reached back.
     public let totalSeconds: Int
 
     public init(label: String, start: Date, end: Date, source: EntrySource, totalSeconds: Int) {

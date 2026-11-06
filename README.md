@@ -58,15 +58,30 @@ chronobar stop "Client A, Ticket 665"   # stop that timer
 chronobar stop                          # stop the only running timer
 ```
 
-The words after `start` or `stop` are joined into one label, so quotes are optional. `stop` with no
-label stops the only running timer; with several running it stops nothing and lists them. Timers started
-this way are recorded as started by an agent.
+Recordings can be fixed after the fact:
+
+```sh
+chronobar stop "Client A" --at 14:40               # stop it back when the work finished
+chronobar set-start "Client A" --at 13:15          # it actually started at 13:15
+chronobar add "Client A" --start 9:00 --end 10:30  # a finished entry, without a timer
+chronobar add "Client A" --duration 1:30 --day 2026-11-02   # or a duration on a day
+chronobar adjust "Client A" 1:15 --day 2026-11-02  # set the day's total; +15 or -10 change it
+```
+
+The words after a command are joined into one label, so quotes are optional; for `adjust` the last word
+is the total or change. `stop` and `set-start` with no label act on the only running timer; with several
+running they change nothing and list them. Times are `HH:MM` today in local time, or ISO 8601 with an
+offset (`2026-11-02T23:15:00-05:00`); `--day` is `YYYY-MM-DD` and defaults to today. Times in the future,
+an end that isn't after its start, and time a label already has (counting it twice) are refused. A stop,
+start or entry that crosses midnight is split so each day file holds its own time. Timers and entries
+added this way are recorded as started by an agent.
 
 `--json` prints the app's JSON response instead of text: `{"ok": true, "op": …, "result": {…}}`, or
 `{"ok": false, "error": {"kind": …, "message": …}}`. Times are ISO 8601 with a UTC offset, as stored in
 the day files, and totals are whole seconds (`total_seconds`, `elapsed_seconds`). The exit status is 0
 when the request was carried out, 1 when Chronobar refused it (for example `not_running`,
-`nothing_running`, `ambiguous`, `invalid_label` or `malformed_file`), 2 for a usage error and 3 when the
+`nothing_running`, `ambiguous`, `invalid_label`, `future_time`, `end_before_start`, `overlap`,
+`invalid_duration` or `malformed_file`), 2 for a usage error and 3 when the
 app couldn't be reached or launched. `--dev` talks to the development copy instead.
 
 The command never writes your data itself: the app is the only writer, and the command talks to it
@@ -423,6 +438,16 @@ Try these against the development copy (`chronobar --dev …`) unless you are ch
 - [ ] On a Mac where the app was never opened, `chronobar status` exits 3 saying it couldn't find
       Chronobar and to open it once.
 - [ ] `chronobar --dev status` reaches only the development copy, with the everyday copy running too.
+- [ ] Start Client A, wait a few minutes, then `chronobar stop client a --at HH:MM` with a minute in
+      between: it prints the stored start and end and Client A's total; the Panel row shows that total.
+      `--at` a minute ahead exits 1 with "is in the future" and the timer keeps running.
+- [ ] `chronobar start "Client A"`, then `chronobar set-start --at HH:MM` an hour earlier: the Panel
+      row jumps by an hour and the Pill's time with it.
+- [ ] `chronobar add Client B --start 9:00 --end 9:30` adds a 0:30 row without a timer;
+      `--end 8:00` exits 1 with "isn't after the start", and running it again for the same times exits
+      1 with "already has time".
+- [ ] `chronobar add Client B --duration 15 --day YYYY-MM-DD` for yesterday: that Day in the Panel
+      shows the extra 0:15. `chronobar adjust Client B -10` takes 0:10 off today's total.
 
 **Long-running warning**
 
