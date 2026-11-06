@@ -12,15 +12,17 @@ public enum PanelCommand: Equatable, Sendable {
     /// The (i) Time Summary.
     case timeSummary
 
-    /// The Day to view after this command from `viewed`, or nil for one that doesn't change the viewed Day.
-    public func day(from viewed: Day, today: Day, calendar: Calendar) -> Day? {
-        switch self {
-        case .previousWeek: viewed.adding(days: -7, in: calendar)
-        case .nextWeek: viewed.adding(days: 7, in: calendar)
-        case .previousDay: viewed.adding(days: -1, in: calendar)
-        case .nextDay: viewed.adding(days: 1, in: calendar)
-        case .today: today
-        case .newProject, .timeSummary: nil
+    /// What this command does to the Panel while it views `viewed`, nil following today.
+    public func change(viewing viewed: Day?, today: Day, calendar: Calendar) -> PanelChange {
+        let day = viewed ?? today
+        return switch self {
+        case .previousWeek: .viewing(day.adding(days: -7, in: calendar), today: today)
+        case .nextWeek: .viewing(day.adding(days: 7, in: calendar), today: today)
+        case .previousDay: .viewing(day.adding(days: -1, in: calendar), today: today)
+        case .nextDay: .viewing(day.adding(days: 1, in: calendar), today: today)
+        case .today: .view(nil)
+        case .newProject: .openNewProject
+        case .timeSummary: .toggleTimeSummary
         }
     }
 
@@ -39,7 +41,27 @@ public enum PanelCommand: Equatable, Sendable {
 
     /// A control's help tag, naming the key that does the same: "Previous week (⌘[)".
     public func help(_ text: String) -> String {
-        "\(text) (\(keyName))"
+        Self.help(text, keys: self)
+    }
+
+    /// A control's help tag naming several keys that do the same: "Move a Day (← →)".
+    public static func help(_ text: String, keys commands: PanelCommand...) -> String {
+        "\(text) (\(commands.map(\.keyName).joined(separator: " ")))"
+    }
+}
+
+/// A change to what the Panel shows, from one of its key equivalents or controls.
+public enum PanelChange: Equatable, Sendable {
+    /// View this Day; nil follows today, including across midnight.
+    case view(Day?)
+    /// Open the ＋ form, with focus in its Project field.
+    case openNewProject
+    /// Open or close the (i) Time Summary.
+    case toggleTimeSummary
+
+    /// View `day`, past or future; today itself goes back to following the clock.
+    public static func viewing(_ day: Day, today: Day) -> PanelChange {
+        .view(day == today ? nil : day)
     }
 }
 

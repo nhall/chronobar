@@ -9,36 +9,42 @@ import ChronobarCore
 
     private func day(_ string: String) -> Day { Day(string)! }
 
+    private func change(_ command: PanelCommand, viewing viewed: String?) -> PanelChange {
+        command.change(viewing: viewed.map(day), today: today, calendar: calendar)
+    }
+
     @Test func dayKeysMoveTheViewedDayOneDay() {
-        #expect(PanelCommand.previousDay.day(from: day("2026-11-03"), today: today, calendar: calendar)
-            == day("2026-11-02"))
-        #expect(PanelCommand.nextDay.day(from: day("2026-11-03"), today: today, calendar: calendar)
-            == day("2026-11-04"))
+        #expect(change(.previousDay, viewing: nil) == .view(day("2026-11-02")))
+        #expect(change(.nextDay, viewing: nil) == .view(day("2026-11-04")))
     }
 
     /// Past the strip's first or last Day, the strip moves to the week the new Day is in.
     @Test func dayKeysCrossWeeksAndMonths() {
-        #expect(PanelCommand.previousDay.day(from: day("2026-11-01"), today: today, calendar: calendar)
-            == day("2026-10-31"))
-        #expect(PanelCommand.nextDay.day(from: day("2026-12-31"), today: today, calendar: calendar)
-            == day("2027-01-01"))
+        #expect(change(.previousDay, viewing: "2026-11-01") == .view(day("2026-10-31")))
+        #expect(change(.nextDay, viewing: "2026-12-31") == .view(day("2027-01-01")))
     }
 
     @Test func weekKeysMoveTheViewedDaySevenDays() {
-        #expect(PanelCommand.previousWeek.day(from: day("2026-11-03"), today: today, calendar: calendar)
-            == day("2026-10-27"))
-        #expect(PanelCommand.nextWeek.day(from: day("2026-10-30"), today: today, calendar: calendar)
-            == day("2026-11-06"))
+        #expect(change(.previousWeek, viewing: nil) == .view(day("2026-10-27")))
+        #expect(change(.nextWeek, viewing: "2026-10-30") == .view(day("2026-11-06")))
     }
 
-    @Test func todayKeyGoesBackToToday() {
-        #expect(PanelCommand.today.day(from: day("2026-09-14"), today: today, calendar: calendar) == today)
+    /// Landing on today, by any key, goes back to following the clock across midnight.
+    @Test func reachingTodayFollowsTheClock() {
+        #expect(change(.today, viewing: "2026-09-14") == .view(nil))
+        #expect(change(.nextDay, viewing: "2026-11-02") == .view(nil))
+        #expect(change(.previousWeek, viewing: "2026-11-10") == .view(nil))
     }
 
-    /// ＋ and (i) leave the viewed Day where it is.
-    @Test func formKeysDontMoveTheViewedDay() {
-        #expect(PanelCommand.newProject.day(from: day("2026-09-14"), today: today, calendar: calendar) == nil)
-        #expect(PanelCommand.timeSummary.day(from: day("2026-09-14"), today: today, calendar: calendar) == nil)
+    @Test func formKeysOpenTheirFormsAndLeaveTheViewedDay() {
+        #expect(change(.newProject, viewing: "2026-09-14") == .openNewProject)
+        #expect(change(.timeSummary, viewing: "2026-09-14") == .toggleTimeSummary)
+    }
+
+    /// A click on a Day in the strip.
+    @Test func viewingADayFollowsTheClockOnlyForToday() {
+        #expect(PanelChange.viewing(today, today: today) == .view(nil))
+        #expect(PanelChange.viewing(day("2026-11-04"), today: today) == .view(day("2026-11-04")))
     }
 
     @Test func eachCommandNamesItsKey() {
@@ -54,6 +60,10 @@ import ChronobarCore
     @Test func aHelpTagEndsWithItsKey() {
         #expect(PanelCommand.previousWeek.help("Previous week") == "Previous week (⌘[)")
         #expect(PanelCommand.timeSummary.help("Time Summary") == "Time Summary (⌘I)")
+    }
+
+    @Test func aHelpTagCanNameSeveralKeys() {
+        #expect(PanelCommand.help("Move a Day", keys: .previousDay, .nextDay) == "Move a Day (← →)")
     }
 
     @Test func commandBracketsMoveAWeek() {
