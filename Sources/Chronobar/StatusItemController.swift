@@ -16,6 +16,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let pill: NSHostingView<PillView>
     private var press = PillPress()
     private var focusObserver: NSObjectProtocol?
+    /// Steps the Panel's height to fit its content.
+    private var resizeTimer: Timer?
     /// What VoiceOver was last given for the Pill.
     private var described: PillAccessibility?
 
@@ -45,10 +47,20 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
                 NSWorkspace.shared.open(storageRoot)
             },
             quit: { NSApp.terminate(nil) })
-        let content = NSHostingController(rootView: PanelView(
+        // The Panel sizes the popover itself (`resizePanel`) rather than through `.preferredContentSize`,
+        // which resizes it in one step, so it grows and shrinks smoothly as the ＋ form opens and closes.
+        // The content stays pinned to the top while the popover catches up with it.
+        let host = NSHostingView(rootView: PanelView(
             tracker: tracker, panel: panel, preferences: preferences, loginItem: loginItem,
-            appName: variant.appName, actions: actions))
-        content.sizingOptions = .preferredContentSize
+            appName: variant.appName, actions: actions)
+            .fixedSize(horizontal: false, vertical: true)
+            .onGeometryChange(for: CGSize.self, of: \.size) { [weak self] size in self?.resizePanel(to: size) }
+            .frame(minHeight: 0, maxHeight: .infinity, alignment: .top))
+        // No Auto Layout constraints from the content, which would resize the window in one step.
+        host.sizingOptions = []
+        host.frame = NSRect(x: 0, y: 0, width: 300, height: 300)
+        let content = NSViewController()
+        content.view = host
         popover.contentViewController = content
 
         guard let button = statusItem.button else { return }
@@ -123,6 +135,33 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         if statusItem.length != width { statusItem.length = width }
         if popover.isShown, let button = statusItem.button { anchor.place(over: button) }
         describe()
+    }
+
+    /// Fits the popover to the Panel's content: at once while it is closed, else a frame at a time
+    /// (`PanelResize`), as NSPopover takes a new `contentSize` in one step.
+    private func resizePanel(to size: CGSize) {
+        let target = CGSize(width: ceil(size.width), height: ceil(size.height))
+        resizeTimer?.invalidate()
+        resizeTimer = nil
+        guard popover.isShown, popover.contentSize.width == target.width else {
+            if popover.contentSize != target { popover.contentSize = target }
+            return
+        }
+        let resize = PanelResize(from: popover.contentSize.height, to: target.height,
+                                 reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+        let began = CACurrentMediaTime()
+        let timer = Timer(timeInterval: 1.0 / 120, repeats: true) { [weak self] timer in
+            let elapsed = CACurrentMediaTime() - began
+            if resize.isFinished(after: elapsed) { timer.invalidate() }
+            MainActor.assumeIsolated {
+                // Whole points, so the popover's edge doesn't wobble a point between steps.
+                self?.popover.contentSize = CGSize(width: target.width,
+                                                   height: resize.height(after: elapsed).rounded())
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        resizeTimer = timer
+        timer.fire()
     }
 
     /// VoiceOver lands on the status item's button, so the button carries what the Pill shows and the
