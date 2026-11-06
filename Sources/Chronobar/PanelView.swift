@@ -32,6 +32,23 @@ final class PanelModel {
         didSet { adjustment = "" }
     }
     var adjustment = ""
+
+    /// Carries out one of the Panel's key equivalents.
+    func perform(_ command: PanelCommand, today: Day, calendar: Calendar) {
+        if let day = command.day(from: viewedDay ?? today, today: today, calendar: calendar) {
+            viewedDay = day == today ? nil : day
+            return
+        }
+        switch command {
+        case .newProject:
+            showingNewProject = true
+            newProjectFocusRequests += 1
+        case .timeSummary:
+            showingSummary.toggle()
+        default:
+            break
+        }
+    }
 }
 
 /// What the Panel asks the app to do.
@@ -75,7 +92,7 @@ struct PanelView: View {
                 .buttonStyle(.plain)
                 .fixedSize()
                 .padding(.horizontal, -4)
-                .help(isToday ? "" : "Back to today")
+                .help(isToday ? "" : PanelCommand.today.help("Back to today"))
                 .accessibilityHint(isToday ? "" : "Back to today")
                 Spacer()
                 Text(DurationFormat.hoursMinutes(tracker.dayTotal(day)))
@@ -89,7 +106,7 @@ struct PanelView: View {
                     Image(systemName: "info.circle")
                 }
                 .buttonStyle(.borderless)
-                .help("Time Summary")
+                .help(PanelCommand.timeSummary.help("Time Summary"))
                 .accessibilityLabel("Time Summary")
                 .popover(isPresented: $panel.showingSummary, arrowEdge: .bottom) {
                     SummaryView(summary: tracker.summary())
@@ -100,7 +117,7 @@ struct PanelView: View {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.borderless)
-                .help(isToday ? "Start or log time" : "Log time")
+                .help(PanelCommand.newProject.help(isToday ? "Start or log time" : "Log time"))
                 .accessibilityLabel(isToday ? "Start or log time" : "Log time")
                 Menu {
                     SettingsLink { Text("Settings…") }
@@ -146,7 +163,7 @@ struct PanelView: View {
                     Spacer()
                     Button("Today", action: showToday)
                         .controlSize(.small)
-                        .help("Back to today")
+                        .help(PanelCommand.today.help("Back to today"))
                 }
             }
             if panel.showingNewProject {
@@ -232,19 +249,21 @@ private struct WeekStrip: View {
         HStack(spacing: 0) {
             Button { move(-1) } label: { Image(systemName: "chevron.left") }
                 .buttonStyle(.borderless)
-                .help("Previous week")
+                .help(PanelCommand.previousWeek.help("Previous week"))
                 .accessibilityLabel("Previous week")
             ForEach(week, id: \.day) { item in
                 Button { view(item.day) } label: { column(item) }
                     .buttonStyle(.plain)
                     .frame(maxWidth: .infinity)
+                    .help("View this Day (\(PanelCommand.previousDay.keyName) \(PanelCommand.nextDay.keyName) "
+                        + "move a Day)")
                     .accessibilityLabel(WeekStripAccessibility.label(
                         item, today: today, viewed: viewed, calendar: calendar, locale: .autoupdatingCurrent))
                     .accessibilityAddTraits(item.day == viewed ? .isSelected : [])
             }
             Button { move(1) } label: { Image(systemName: "chevron.right") }
                 .buttonStyle(.borderless)
-                .help("Next week")
+                .help(PanelCommand.nextWeek.help("Next week"))
                 .accessibilityLabel("Next week")
         }
     }

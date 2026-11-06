@@ -24,6 +24,10 @@ can read and edit. There are no accounts, no sync and no integrations.
   day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
   vacation ahead. While you view another day, a Today button under the strip brings you back, as
   does clicking the date.
+- **Keys in the Panel** work wherever focus is, with or without Keyboard navigation turned on:
+  ⌘[ and ⌘] move a week back or forward, ← and → move a day (unless you're typing in a field, where
+  they move the insertion point), ⌘T goes back to today, ⌘N opens ＋ and ⌘I opens or closes the (i)
+  Time Summary. Each control's help tag names its key.
 - Only one timer runs at a time. Starting a project pauses whichever one was running.
 - If you come back to a running timer after the Mac slept, locked, or sat with no input, Chronobar asks
   whether to remove the time you were away.
@@ -207,6 +211,9 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       Project, its time today in words and whether it is running, or No Project selected. VO-Space opens
       the Panel. VO-⌘-Space lists Start or Pause (New Project with nothing selected) and Open Panel;
       Start and Pause work without opening the Panel, and the label follows.
+- [ ] With VoiceOver on and another app in front, press the global shortcut: VoiceOver says "Started"
+      then the Selected Project, and on the next press "Paused" and the Project. With no Selected Project
+      it says "New Project" as the ＋ form opens. With VoiceOver off, the shortcut says nothing.
 - [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day, Time
       Summary, Start or log time, Menu, Previous week and Next week, each Day in the Week strip with its
       date, total, and "today" or "viewed" (the viewed Day also reads as selected), each row's name
@@ -220,6 +227,16 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       Space, then use Tab, Space and Return alone to: view another Day, move a week each way, go back to
       today, start and pause a row, change a row's total (Escape cancels), open (i) and ＋, Log time,
       open the ⚙ menu and each of its items. Escape closes the Panel.
+- [ ] With Keyboard navigation off (the macOS default), open the Panel and, without the mouse: ← and →
+      move the viewed Day, past the strip's ends into the next or previous week; ⌘[ and ⌘] move a week;
+      ⌘T goes back to today; ⌘N opens ＋ with the Project field focused; ⌘I opens the (i) Time Summary
+      and ⌘I again closes it. Repeat with Keyboard navigation on and focus on a strip Day or a row.
+- [ ] In the ＋ form's Project and duration fields and in a row's adjust field, type some text: ← and →
+      move the insertion point and ⌘← ⌘→ ⇧← ⌥← edit and select as usual, without changing the Day;
+      ⌘A, ⌘C and ⌘V work. ⌘[ ⌘] ⌘T ⌘N ⌘I still work from those fields.
+- [ ] Hover over ‹, ›, a strip Day, the Today button, the date (on another Day), ＋ and (i): each help
+      tag names its key.
+- [ ] With the Settings window in front, the Panel's keys do nothing there.
 
 **Logging and adjusting time**
 
