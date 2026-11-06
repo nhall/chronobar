@@ -124,9 +124,9 @@ struct PanelView: View {
                 Button {
                     panel.showingSummary.toggle()
                 } label: {
-                    Image(systemName: "info.circle")
+                    Image(systemName: "info.circle").contentShape(Rectangle())
                 }
-                .buttonStyle(.borderless)
+                .iconButton(.primary)
                 .help(PanelCommand.timeSummary.help("Time Summary"))
                 .accessibilityLabel("Time Summary")
                 .popover(isPresented: $panel.showingSummary, arrowEdge: .bottom) {
@@ -135,9 +135,9 @@ struct PanelView: View {
                 Button {
                     panel.showingNewProject.toggle()
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: "plus").contentShape(Rectangle())
                 }
-                .buttonStyle(.borderless)
+                .iconButton(.primary)
                 .help(PanelCommand.newProject.help(isToday ? "Start or log time" : "Log time"))
                 .accessibilityLabel(isToday ? "Start or log time" : "Log time")
                 Menu {
@@ -154,6 +154,7 @@ struct PanelView: View {
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
+                .foregroundStyle(.primary)
                 .fixedSize()
                 .help("Settings, data folder and Quit")
                 .accessibilityHint("Settings, data folder and Quit")
@@ -218,8 +219,7 @@ struct PanelView: View {
                     ForEach(rows, id: \.project) { row in
                         // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
                         RowView(row: row, isRunning: isToday && tracker.isRunning(row.project),
-                                canStart: isToday, runningColor: preferences.runningColor,
-                                panel: panel,
+                                canStart: isToday, panel: panel,
                                 toggle: { actions.toggle(row.project) },
                                 adjust: {
                                     if actions.adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
@@ -266,8 +266,8 @@ private struct WeekStrip: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Button { move(.previousWeek) } label: { Image(systemName: "chevron.left") }
-                .buttonStyle(.borderless)
+            Button { move(.previousWeek) } label: { Image(systemName: "chevron.left").contentShape(Rectangle()) }
+                .iconButton(.secondary)
                 .help(PanelCommand.previousWeek.help("Previous week"))
                 .accessibilityLabel("Previous week")
             ForEach(week, id: \.day) { item in
@@ -279,8 +279,8 @@ private struct WeekStrip: View {
                         item, today: today, viewed: viewed, calendar: calendar, locale: .autoupdatingCurrent))
                     .accessibilityAddTraits(item.day == viewed ? .isSelected : [])
             }
-            Button { move(.nextWeek) } label: { Image(systemName: "chevron.right") }
-                .buttonStyle(.borderless)
+            Button { move(.nextWeek) } label: { Image(systemName: "chevron.right").contentShape(Rectangle()) }
+                .iconButton(.secondary)
                 .help(PanelCommand.nextWeek.help("Next week"))
                 .accessibilityLabel("Next week")
         }
@@ -350,18 +350,16 @@ private struct RowView: View {
     let row: Row
     let isRunning: Bool
     let canStart: Bool
-    let runningColor: RunningColor
-    @Environment(\.self) private var environment
     @Bindable var panel: PanelModel
     let toggle: () -> Void
     let adjust: () -> Void
     @FocusState private var focused: Bool
 
     var body: some View {
+        let presentation = RowPresentation(row: row, isRunning: isRunning)
         HStack {
             Text(row.project).lineLimit(1)
-                // The highlight says which row runs; VoiceOver says it in words.
-                .accessibilityLabel(isRunning ? "\(row.project), running" : row.project)
+                .accessibilityLabel(presentation.nameLabel)
             Spacer()
             if panel.adjusting == row.project {
                 TextField(DurationFormat.hoursMinutes(row.total), text: $panel.adjustment)
@@ -390,27 +388,40 @@ private struct RowView: View {
             }
             if canStart {
                 Button(action: toggle) {
-                    Image(systemName: isRunning ? "pause.fill" : "play.fill")
+                    Image(systemName: presentation.toggle == .pause ? "pause.fill" : "play.fill")
                         .frame(width: 16)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.borderless)
-                .foregroundStyle(isRunning ? onRunningColor : Color.secondary)
-                .help(label)
-                .accessibilityLabel(label)
+                .iconButton(presentation.toggleTone.style)
+                .help(presentation.toggleLabel)
+                .accessibilityLabel(presentation.toggleLabel)
             }
         }
-        .foregroundStyle(isRunning ? onRunningColor : Color.primary)
+        .foregroundStyle(.primary)
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
+        // The same quiet fill as the Start at login message, so the Panel never shows the running color.
         .background(
             RoundedRectangle(cornerRadius: 5)
-                .fill(isRunning ? runningColor.color : Color.clear))
+                .fill(presentation.isHighlighted ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear)))
     }
+}
 
-    /// The name, total and ⏸ on the running color: text, so it needs 4.5:1.
-    private var onRunningColor: Color { runningColor.foregroundColor(for: .text, in: environment) }
+private extension RowPresentation.Tone {
+    var style: HierarchicalShapeStyle {
+        switch self {
+        case .primary: .primary
+        case .secondary: .secondary
+        }
+    }
+}
 
-    private var label: String { "\(TimerToggle.name(isRunning: isRunning)) \(row.project)" }
+private extension View {
+    /// A button drawn as its bare label, in `style`, so its color is chosen here. Not `.borderless`, which
+    /// leaves its label's color to the system and can draw it in the accent color.
+    func iconButton(_ style: HierarchicalShapeStyle) -> some View {
+        buttonStyle(.plain).foregroundStyle(style)
+    }
 }
 
 /// The one-time suggestion to turn on Start at login. Either button hides it for good.
@@ -429,9 +440,9 @@ private struct LoginHint: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilitySortPriority(3)
                 Button(action: dismiss) {
-                    Image(systemName: "xmark")
+                    Image(systemName: "xmark").contentShape(Rectangle())
                 }
-                .buttonStyle(.borderless)
+                .iconButton(.secondary)
                 .help("Dismiss")
                 .accessibilityLabel("Dismiss")
                 .accessibilitySortPriority(1)
