@@ -62,13 +62,17 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         button.action = #selector(clicked(_:))
         // Every left mouse-down in the app passes through here, before the status item's button or the
         // Panel's own handling. With the Panel open, one on the square runs at once and is dropped before it
-        // reaches the button.
+        // reaches the button. One with ⌘ held is the start of a ⌘-drag, and does nothing.
         NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
             let window = event.window
+            let commandKey = event.modifierFlags.contains(.command)
             let taken = MainActor.assumeIsolated {
                 guard let self, let button = self.statusItem.button else { return false }
+                // With another app frontmost the app never sees ⌘ go down, so the cover can still be over
+                // the Pill; it goes now, so the next press reaches the menu bar for its ⌘-drag.
+                self.placeCover(duringPress: true)
                 guard let action = self.press.mouseDown(
-                    onPill: self.isOnPill(window), at: Self.pointer(over: button),
+                    onPill: self.isOnPill(window), at: Self.pointer(over: button), commandKey: commandKey,
                     panelOpen: self.popover.isShown, tracker: self.tracker) else { return false }
                 self.run(action)
                 return true
@@ -147,7 +151,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     @objc private func clicked(_ button: NSStatusBarButton) {
         let event = NSApp.currentEvent
         let byMouse = event.map { [.leftMouseDown, .leftMouseUp].contains($0.type) && $0.window === button.window }
-        run(press.buttonAction(byMouse: byMouse ?? false, tracker: tracker))
+        if let action = press.buttonAction(byMouse: byMouse ?? false, tracker: tracker) { run(action) }
     }
 
     /// The transient Panel would close on the mouse-down of a click on the square, before that mouse-down
@@ -167,16 +171,17 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 
     /// Puts the cover over the Pill while the pointer is on it, and takes it away otherwise
-    /// (`PillCoverArea`). Run on every pointer move, so it follows the status item wherever it goes.
-    private func placeCover() {
+    /// (`PillCoverArea`). Run on every pointer move, so it follows the status item wherever it goes, and on
+    /// every mouse-down. `duringPress` takes the cover away even from under the press that is down.
+    private func placeCover(duringPress: Bool = false) {
         guard let button = statusItem.button, let window = button.window, let screen = window.screen else {
-            return cover.remove()
+            return cover.remove(duringPress: duringPress)
         }
         let item = window.convertToScreen(button.convert(button.bounds, to: nil))
         let frame = PillCoverArea.frame(
             item: item, screen: screen.frame, visible: screen.visibleFrame, pointer: NSEvent.mouseLocation,
             commandKey: NSEvent.modifierFlags.contains(.command))
-        if let frame { cover.place(at: frame) } else { cover.remove() }
+        if let frame { cover.place(at: frame) } else { cover.remove(duringPress: duringPress) }
     }
 
     /// The pointer's x from the button's leading edge, over the status item when it is within the status
@@ -341,9 +346,9 @@ private final class PillCover: NSPanel {
         orderFrontRegardless()
     }
 
-    /// Takes the cover away, unless a press on it is still held.
-    func remove() {
-        guard isVisible, NSEvent.pressedMouseButtons & 1 == 0 else { return }
+    /// Takes the cover away, unless a press on it is still held and `duringPress` is false.
+    func remove(duringPress: Bool = false) {
+        guard isVisible, duringPress || NSEvent.pressedMouseButtons & 1 == 0 else { return }
         orderOut(nil)
     }
 

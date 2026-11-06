@@ -42,8 +42,18 @@ public enum PillClick: Equatable, Sendable {
 /// With the Panel closed the status item's button sends its action after the mouse-down, which this
 /// remembers until then. With the Panel open the button sends no action: a mouse-down on the square acts at
 /// once and keeps the Panel open, and one anywhere else closes the Panel.
+///
+/// A press on the Pill with ⌘ held is the start of a ⌘-drag, which moves the status item, so it is never a
+/// click: it toggles nothing and opens nothing.
 public struct PillPress: Sendable {
-    private var pressed: PillPointer?
+    private enum Pressed: Equatable, Sendable {
+        /// A click, with the pointer where its mouse-down was.
+        case click(PillPointer)
+        /// ⌘ was held: not a click.
+        case commandDrag
+    }
+
+    private var pressed: Pressed?
 
     public init() {}
 
@@ -53,21 +63,30 @@ public struct PillPress: Sendable {
         squareAction(onPill: onPill, at: pointer, tracker: tracker) == nil
     }
 
-    /// A left mouse-down anywhere in the app. Returns the action to run now, with the event dropped, or nil
-    /// to let the event through.
+    /// A left mouse-down anywhere in the app, with or without ⌘ held. Returns the action to run now, with
+    /// the event dropped, or nil to let the event through.
     @MainActor
-    public mutating func mouseDown(onPill: Bool, at pointer: PillPointer, panelOpen: Bool,
-                                   tracker: Tracker) -> PillClick? {
-        pressed = onPill && !panelOpen ? pointer : nil
+    public mutating func mouseDown(onPill: Bool, at pointer: PillPointer, commandKey: Bool = false,
+                                   panelOpen: Bool, tracker: Tracker) -> PillClick? {
+        if onPill && commandKey {
+            pressed = .commandDrag
+            return nil
+        }
+        pressed = onPill && !panelOpen ? .click(pointer) : nil
         return panelOpen ? Self.squareAction(onPill: onPill, at: pointer, tracker: tracker) : nil
     }
 
-    /// The status item's button sent its action. `byMouse` is false for a press from VoiceOver or the
-    /// keyboard, which opens the Panel wherever the pointer is.
+    /// The status item's button sent its action, or nil after a press with ⌘ held. `byMouse` is false for a
+    /// press from VoiceOver or the keyboard, which opens the Panel wherever the pointer is.
     @MainActor
-    public mutating func buttonAction(byMouse: Bool, tracker: Tracker) -> PillClick {
+    public mutating func buttonAction(byMouse: Bool, tracker: Tracker) -> PillClick? {
         defer { pressed = nil }
-        return PillClick.action(at: byMouse ? pressed ?? .away : .away, tracker: tracker)
+        guard byMouse else { return PillClick.action(at: .away, tracker: tracker) }
+        switch pressed {
+        case .commandDrag: return nil
+        case .click(let pointer): return PillClick.action(at: pointer, tracker: tracker)
+        case nil: return PillClick.action(at: .away, tracker: tracker)
+        }
     }
 
     /// The mouse-up of a press on the Pill's cover, which takes the press before the menu bar can, so there
@@ -75,8 +94,8 @@ public struct PillPress: Sendable {
     @MainActor
     public mutating func mouseUp(overPill: Bool, tracker: Tracker) -> PillClick? {
         defer { pressed = nil }
-        guard overPill, let pressed else { return nil }
-        return PillClick.action(at: pressed, tracker: tracker)
+        guard overPill, case .click(let pointer) = pressed else { return nil }
+        return PillClick.action(at: pointer, tracker: tracker)
     }
 
     @MainActor

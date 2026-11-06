@@ -136,4 +136,43 @@ import ChronobarCore
         #expect(press.mouseUp(overPill: false, tracker: tracker) == nil)
         #expect(press.mouseUp(overPill: true, tracker: tracker) == nil)
     }
+
+    // MARK: ⌘ held: the press is the start of a ⌘-drag, never a click
+
+    /// With another app frontmost the app can't see ⌘ go down, so the cover can still be over the Pill.
+    @Test func aPressWithCommandHeldOnTheCoverDoesNothing() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+
+        #expect(press.mouseDown(onPill: true, at: square, commandKey: true, panelOpen: false, tracker: tracker)
+            == nil)
+        #expect(press.mouseUp(overPill: true, tracker: tracker) == nil)
+    }
+
+    @Test func aPressWithCommandHeldThroughTheMenuBarDoesNothing() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+        _ = press.mouseDown(onPill: true, at: timeSegment, commandKey: true, panelOpen: false, tracker: tracker)
+
+        #expect(press.buttonAction(byMouse: true, tracker: tracker) == nil)
+    }
+
+    @Test func withThePanelOpenAPressWithCommandHeldOnTheSquareDoesNothing() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+
+        #expect(press.mouseDown(onPill: true, at: square, commandKey: true, panelOpen: true, tracker: tracker)
+            == nil)
+    }
+
+    /// Each press is decided on its own: one with ⌘ held leaves nothing behind for the next.
+    @Test func aPressWithCommandHeldDoesNotStopTheNextClick() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+        _ = press.mouseDown(onPill: true, at: square, commandKey: true, panelOpen: false, tracker: tracker)
+        _ = press.mouseUp(overPill: true, tracker: tracker)
+
+        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
+        #expect(press.mouseUp(overPill: true, tracker: tracker) == .toggleTimer)
+    }
 }
