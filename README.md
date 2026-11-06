@@ -39,6 +39,35 @@ can read and edit. There are no accounts, no sync and no integrations.
   Settings to have each start pause every other timer instead.
 - If you come back to a running timer after the Mac slept, locked, or sat with no input, Chronobar asks
   whether to remove the time you were away.
+- **Agents and scripts** start and stop timers with the `chronobar` command (see
+  [The command line](#the-command-line)). A row whose timer an agent started shows a small terminal
+  icon; hover over it for "Started by an agent; not paused for idle time".
+
+## The command line
+
+`chronobar` sends one request to the running app and prints the answer. If Chronobar isn't running, it
+launches it in the background first.
+
+```sh
+chronobar start "Client A, Ticket 665"   # start a timer, or keep the one it has
+chronobar status                        # the running timers and today's totals
+chronobar stop "Client A, Ticket 665"   # stop that timer
+chronobar stop                          # stop the only running timer
+```
+
+The words after `start` or `stop` are joined into one label, so quotes are optional. `stop` with no
+label stops the only running timer; with several running it stops nothing and lists them. Timers started
+this way are recorded as started by an agent.
+
+`--json` prints the app's JSON response instead of text: `{"ok": true, "op": …, "result": {…}}`, or
+`{"ok": false, "error": {"kind": …, "message": …}}`. Times are ISO 8601 with a UTC offset, as stored in
+the day files, and totals are whole seconds (`total_seconds`, `elapsed_seconds`). The exit status is 0
+when the request was carried out, 1 when Chronobar refused it (for example `not_running`,
+`nothing_running`, `ambiguous`, `invalid_label` or `malformed_file`), 2 for a usage error and 3 when the
+app couldn't be reached or launched. `--dev` talks to the development copy instead.
+
+The command never writes your data itself: the app is the only writer, and the command talks to it
+over `chronobar.sock` in the data folder, which only your user can open.
 
 ## Install
 
@@ -73,9 +102,11 @@ want it gone.
 ```sh
 git clone https://github.com/nhall/chronobar.git
 cd chronobar
-scripts/bundle-app.sh            # builds build/Chronobar.app
+scripts/bundle-app.sh            # builds build/Chronobar.app and build/bin/chronobar
 open build/Chronobar.app
 ```
+
+Put `build/bin` on your `PATH`, or call `build/bin/chronobar` directly.
 
 `swift test` runs the tests. The test suite needs Xcode, because Swift Testing isn't usable with the
 Command Line Tools alone; building the app doesn't.
@@ -97,6 +128,7 @@ It runs next to the everyday copy and shares nothing with it:
 | Bundle ID (settings, start at login) | `io.github.nhall.chronobar` | `io.github.nhall.chronobar.dev` |
 | Data folder | `~/Library/Application Support/Chronobar` | `~/Library/Application Support/Chronobar Dev` |
 | Process (for `killall`) | `Chronobar` | `ChronobarDev` |
+| Command line | `chronobar …` | `chronobar --dev …` |
 
 Its Pill ends in an orange **DEV** mark, its Dock icon carries a **DEV** badge, and its ⚙ menu reads
 **Quit Chronobar Dev**, so with both running you can tell which Pill to click. The everyday copy's Pill
@@ -113,6 +145,7 @@ Everything lives in `~/Library/Application Support/Chronobar`. The ⚙ menu has 
 Chronobar/
   projects.txt          pinned projects, one per line
   archived.txt          archived projects, one per line
+  chronobar.sock        the socket the chronobar command reaches the app on
   days/
     2026-11-02.json
     2026-11-03.json     one file per day, named by local date
@@ -358,6 +391,31 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       the alert covers the time since.
 - [ ] Repeat, but break today's day file by hand before relaunching: no alert and no timer. Fix the
       file and open the Panel: the idle alert appears for the time since the kill.
+
+**Command line**
+
+Try these against the development copy (`chronobar --dev …`) unless you are checking the Homebrew build.
+
+- [ ] With the app running, `chronobar start "Client A"` prints `Started Client A at HH:MM.` and the
+      Panel shows a highlighted Client A row with a terminal icon after the name; hovering over the
+      icon shows "Started by an agent; not paused for idle time". The day file's entry has
+      `"source": "agent"`.
+- [ ] `chronobar status` lists Client A with its time and "started by an agent", then today's total and
+      elapsed time. A timer started with ▶ in the Panel is listed too, without "started by an agent",
+      and its row has no terminal icon.
+- [ ] `chronobar start "client a"` again: "Client A was already running, since …"; there is still one row.
+- [ ] With two timers running, `chronobar stop` stops nothing, exits 1 and lists both;
+      `chronobar stop client a` stops just that one, and the Pill and Panel update within a second.
+- [ ] With one timer running, `chronobar stop` stops it; with none, it exits 1 with "No timer is running."
+- [ ] `chronobar --json status` prints one line of JSON with `"ok":true` and times with a UTC offset;
+      `chronobar --json stop` with nothing running prints `"ok":false` and `"kind":"nothing_running"`.
+- [ ] `ls -l` on the data folder shows `chronobar.sock` as `srw-------`.
+- [ ] Quit the app, then run `chronobar status`: the app launches in the background without coming to
+      the front, and the status prints. The same with the app never opened since a restart.
+- [ ] While the idle alert is open, `chronobar status` still answers.
+- [ ] On a Mac where the app was never opened, `chronobar status` exits 3 saying it couldn't find
+      Chronobar and to open it once.
+- [ ] `chronobar --dev status` reaches only the development copy, with the everyday copy running too.
 
 **Dock**
 
