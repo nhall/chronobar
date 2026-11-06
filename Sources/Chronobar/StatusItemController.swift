@@ -338,11 +338,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         panel.viewedDay = nil
         panel.showingSummary = false
         refresh()
-        // Not the cooperative `activate()`: when a press reaches the status item through the menu bar, as it
-        // does when the cover isn't over the Pill, the system refuses that request. The Panel still becomes
-        // key, but the app only really activates on the next click in it, and that activation closes the ⚙
-        // menu the click just opened.
-        NSApp.activate(ignoringOtherApps: true)
+        // Not a plain `activate()`, which macOS turns down when the press reached the status item through the
+        // menu bar or came from VoiceOver: the first click in the Panel would then activate the app for real
+        // and close the ⚙ menu it opened (#23).
+        NSApp.comeToFront()
         anchor.place(over: button)
         capPanel()
         sizer?.fitBeforeShowing()

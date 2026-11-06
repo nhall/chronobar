@@ -102,9 +102,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(policy)
         // The Dock tile is new each time the app enters the Dock, so its badge goes back on.
         if policy == .regular && NSApp.isRunning { showDockBadge() }
-        // Leaving the Dock deactivates the app, which would drop the Settings window behind other apps.
-        if policy == .accessory && NSApp.isRunning { NSApp.activate() }
+        if policy == .accessory && NSApp.isRunning { comeBackAfterLeavingDock() }
     }
+
+    /// Leaving the Dock deactivates the app, which would drop the Settings window behind other apps, so the
+    /// app comes back to the front. macOS hands the front to another app in two steps, the second about
+    /// 70 ms after the switch (seen on macOS 27), and undoes a request made before then. So the app asks once
+    /// that is over; too short a wait would leave Settings behind, as before.
+    private func comeBackAfterLeavingDock() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.dockLeaveSettling) {
+            MainActor.assumeIsolated { NSApp.comeToFront() }
+        }
+    }
+
+    /// How long `comeBackAfterLeavingDock` waits: several times what macOS was seen to take.
+    private static let dockLeaveSettling: TimeInterval = 0.3
 
     private func observeShowInDock() {
         withObservationTracking {
