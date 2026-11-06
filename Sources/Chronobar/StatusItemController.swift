@@ -68,7 +68,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             let taken = MainActor.assumeIsolated {
                 guard let self, let button = self.statusItem.button else { return false }
                 guard let action = self.press.mouseDown(
-                    onStatusItem: self.isStatusItem(window), at: Self.pointer(over: button),
+                    onPill: self.isOnPill(window), at: Self.pointer(over: button),
                     panelOpen: self.popover.isShown, tracker: self.tracker) else { return false }
                 self.run(action)
                 return true
@@ -156,12 +156,12 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         guard let event = NSApp.currentEvent, event.type == .leftMouseDown,
               let button = statusItem.button else { return true }
         return PillPress.closesPanel(
-            onStatusItem: isStatusItem(event.window), at: Self.pointer(over: button), tracker: tracker)
+            onPill: isOnPill(event.window), at: Self.pointer(over: button), tracker: tracker)
     }
 
     /// Whether a mouse-down in `window` is on the Pill: in the status item's own window, or in the cover
     /// over it, which has the same frame.
-    private func isStatusItem(_ window: NSWindow?) -> Bool {
+    private func isOnPill(_ window: NSWindow?) -> Bool {
         guard let window else { return false }
         return window === statusItem.button?.window || window === cover
     }

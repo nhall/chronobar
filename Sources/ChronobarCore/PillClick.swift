@@ -49,17 +49,17 @@ public struct PillPress: Sendable {
 
     /// Whether a mouse-down with the Panel open closes it: true unless it is on the square.
     @MainActor
-    public static func closesPanel(onStatusItem: Bool, at pointer: PillPointer, tracker: Tracker) -> Bool {
-        squareAction(onStatusItem: onStatusItem, at: pointer, tracker: tracker) == nil
+    public static func closesPanel(onPill: Bool, at pointer: PillPointer, tracker: Tracker) -> Bool {
+        squareAction(onPill: onPill, at: pointer, tracker: tracker) == nil
     }
 
     /// A left mouse-down anywhere in the app. Returns the action to run now, with the event dropped, or nil
     /// to let the event through.
     @MainActor
-    public mutating func mouseDown(onStatusItem: Bool, at pointer: PillPointer, panelOpen: Bool,
+    public mutating func mouseDown(onPill: Bool, at pointer: PillPointer, panelOpen: Bool,
                                    tracker: Tracker) -> PillClick? {
-        pressed = onStatusItem && !panelOpen ? pointer : nil
-        return panelOpen ? Self.squareAction(onStatusItem: onStatusItem, at: pointer, tracker: tracker) : nil
+        pressed = onPill && !panelOpen ? pointer : nil
+        return panelOpen ? Self.squareAction(onPill: onPill, at: pointer, tracker: tracker) : nil
     }
 
     /// The status item's button sent its action. `byMouse` is false for a press from VoiceOver or the
@@ -80,8 +80,8 @@ public struct PillPress: Sendable {
     }
 
     @MainActor
-    private static func squareAction(onStatusItem: Bool, at pointer: PillPointer, tracker: Tracker) -> PillClick? {
-        guard onStatusItem else { return nil }
+    private static func squareAction(onPill: Bool, at pointer: PillPointer, tracker: Tracker) -> PillClick? {
+        guard onPill else { return nil }
         let action = PillClick.action(at: pointer, tracker: tracker)
         return action == .openPanel ? nil : action
     }
