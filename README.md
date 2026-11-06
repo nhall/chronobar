@@ -25,7 +25,8 @@ can read and edit. There are no accounts, no sync and no integrations.
   date, the day's total, (i) and ⚙. ‹ › move a week back or forward without limit; on any
   day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
   vacation ahead. While you view another day, a Today button under the strip brings you back, as
-  does clicking the date.
+  does clicking the date. On a day with more rows than fit, the Panel stops just above the bottom of
+  the screen and only the rows scroll; the header, the strip and ＋ stay in view.
 - **Keys in the Panel** work wherever focus is, with or without Keyboard navigation turned on:
   ⌘[ and ⌘] move a week back or forward, ← and → move a Day (unless you're typing in a field, where
   they move the insertion point), ⌘T goes back to today, ⌘N opens ＋ and ⌘I opens or closes the (i)
@@ -175,6 +176,13 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       grows smoothly and stays attached to the Pill. Click ＋ again: the form closes and the Panel
       shrinks back smoothly. Start or Log a new project: its row appears last, right above where the
       form was.
+- [ ] With enough rows to pass the bottom of the screen (add projects, or hand-edit a Day file): the
+      Panel stops a little above the bottom of the screen's visible area, above the Dock, still
+      attached to the Pill. The rows scroll with the trackpad or mouse wheel; the header, the Week
+      strip and ＋ stay put, and so does the ＋ form when open. Start or Log a new project: the rows
+      scroll to its row. Tab or ⇧Tab onto a row out of view: the rows scroll to it, and the Panel's
+      keys still work. With a few rows there is no scroll bar and the Panel is as tall as its content.
+      Repeat with the Pill on a smaller external display, if you have one.
 - [ ] Click outside the Panel: it closes.
 - [ ] After a minute the time reads `0:01`; the day file has one entry with `"end": null`.
 - [ ] Click ⏸: the square goes gray with ▶, the time stays, the entry now has an `end`.

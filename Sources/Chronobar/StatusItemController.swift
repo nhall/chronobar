@@ -121,9 +121,30 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     func refresh() {
         let width = ceil(pill.fittingSize.width)
         if statusItem.length != width { statusItem.length = width }
-        if popover.isShown, let button = statusItem.button { anchor.place(over: button) }
+        if popover.isShown, let button = statusItem.button {
+            anchor.place(over: button)
+            capPanel()
+        }
         describe()
     }
+
+    /// Caps the Panel's height at the room under the Pill on the Pill's screen (`PanelHeight`).
+    private func capPanel() {
+        guard let pill = pillFrame(), let screen = statusItem.button?.window?.screen else { return }
+        let available = PanelHeight.available(under: pill, visible: screen.visibleFrame, chrome: panelChrome)
+        if panel.availableHeight != available { panel.availableHeight = available }
+    }
+
+    /// The status item's frame on screen.
+    private func pillFrame() -> CGRect? {
+        guard let button = statusItem.button, let window = button.window else { return nil }
+        return window.convertToScreen(button.convert(button.bounds, to: nil))
+    }
+
+    /// The points the popover's window takes under the Pill besides the Panel: its arrow above the Panel and
+    /// its frame and shadow below, which must stay on screen too or the popover moves off the Pill. Measured
+    /// each time the Panel shows (`popoverDidShow`); until then, what the popover took when this was written.
+    private var panelChrome = 27.0
 
     /// VoiceOver lands on the status item's button, so the button carries what the Pill shows and the
     /// actions a click on each segment takes. Its own press opens the Panel. The actions are only replaced
@@ -180,10 +201,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     /// can go even from under it.
     private func placeCover(pressCommandKey: Bool? = nil) {
         let duringPress = pressCommandKey != nil
-        guard let button = statusItem.button, let window = button.window, let screen = window.screen else {
+        guard let item = pillFrame(), let screen = statusItem.button?.window?.screen else {
             return cover.remove(duringPress: duringPress)
         }
-        let item = window.convertToScreen(button.convert(button.bounds, to: nil))
         let frame = PillCoverArea.frame(
             item: item, screen: screen.frame, visible: screen.visibleFrame, pointer: NSEvent.mouseLocation,
             commandKey: pressCommandKey ?? NSEvent.modifierFlags.contains(.command))
@@ -258,9 +278,20 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         // menu the click just opened.
         NSApp.activate(ignoringOtherApps: true)
         anchor.place(over: button)
+        capPanel()
         sizer?.fitBeforeShowing()
         popover.show(relativeTo: anchor.view.bounds, of: anchor.view, preferredEdge: .minY)
         if let window = popover.contentViewController?.view.window { settleFocus(in: window, newProject: newProject) }
+    }
+
+    /// Measures `panelChrome` from the popover as shown, in case the system draws it differently, and caps
+    /// the Panel again if it changed.
+    func popoverDidShow(_ notification: Notification) {
+        guard let window = popover.contentViewController?.view.window, let pill = pillFrame() else { return }
+        let chrome = (pill.minY - window.frame.minY - popover.contentSize.height).rounded(.up)
+        guard chrome > 0, chrome != panelChrome else { return }
+        panelChrome = chrome
+        capPanel()
     }
 
     func popoverDidClose(_ notification: Notification) {

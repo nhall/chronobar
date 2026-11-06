@@ -38,6 +38,12 @@ final class PanelModel {
         didSet { adjustment = "" }
     }
     var adjustment = ""
+    /// The most the Panel's content can be on the Pill's screen (`PanelHeight.available`), set before the
+    /// Panel opens and whenever the Pill or its screen changes.
+    var availableHeight = Double.infinity
+    /// A Project whose row to scroll into view: one Start or Log just added or changed, or one keyboard
+    /// focus just moved onto.
+    var reveal: String?
 
     /// The Panel opened, by `opening`.
     func opened(by opening: PanelOpening) {
@@ -101,7 +107,7 @@ struct PanelView: View {
         let day = panel.viewedDay ?? today
         let isToday = day == today
         let rows = tracker.rows(day)
-        VStack(alignment: .leading, spacing: 12) {
+        PanelStack(available: panel.availableHeight - 2 * Self.padding) {
             HStack {
                 Button(action: showToday) {
                     // Room around the text for the focus ring Tab gives it, which otherwise sits on the
@@ -198,7 +204,7 @@ struct PanelView: View {
             if rows.isEmpty {
                 Text("No time tracked").foregroundStyle(.secondary)
             } else {
-                VStack(spacing: 2) {
+                RowList(panel: panel) {
                     ForEach(rows, id: \.project) { row in
                         // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
                         RowView(row: row, isRunning: isToday && tracker.isRunning(row.project),
@@ -207,8 +213,10 @@ struct PanelView: View {
                                 adjust: {
                                     if actions.adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
                                 })
+                        .id(row.project)
                     }
                 }
+                .layoutValue(key: PanelStack.Rows.self, value: true)
             }
             // ＋ and its form sit under the rows, where Start or Log adds a new Project's row (rows keep the
             // order their Projects were first tracked in), so the eye stays at the bottom of the Panel.
@@ -225,9 +233,13 @@ struct PanelView: View {
                     start: { project in
                         actions.start(project)
                         panel.showingNewProject = false
+                        panel.reveal = project
                     },
                     log: { project in
-                        if actions.log(project, panel.newProjectDuration, day) { panel.showingNewProject = false }
+                        if actions.log(project, panel.newProjectDuration, day) {
+                            panel.showingNewProject = false
+                            panel.reveal = project
+                        }
                     },
                     // The field empties, so Return can't bring the Project straight back.
                     archive: { project in
@@ -245,11 +257,13 @@ struct PanelView: View {
             .help(PanelCommand.newProject.help(isToday ? "Start or log time" : "Log time"))
             .accessibilityLabel(isToday ? "Start or log time" : "Log time")
         }
-        .padding()
+        .padding(Self.padding)
         .frame(width: Self.width)
     }
 
     static let width: CGFloat = 300
+    /// Around the Panel's content: the system's standard padding, spelled out as the height cap takes it off.
+    private static let padding: CGFloat = 16
 
     /// "Today, 03 Nov" or "Wednesday, 28 Oct", in the system locale.
     private func title(_ day: Day, isToday: Bool) -> String {
@@ -361,6 +375,33 @@ private struct SummaryView: View {
     }
 }
 
+/// The viewed Day's rows, as tall as they are until the Panel would pass the bottom of the Pill's screen;
+/// past that only they scroll (`PanelHeight`). A row Start or Log added or changed, and a row keyboard
+/// focus moves onto, is scrolled into view. Each row's id is its Project.
+private struct RowList<Rows: View>: View {
+    @Bindable var panel: PanelModel
+    @ViewBuilder let content: Rows
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical) {
+                VStack(spacing: 2) { content }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            // A Day's first row needs no scrolling.
+            .onAppear { panel.reveal = nil }
+            .onChange(of: panel.reveal) { _, project in
+                guard let project else { return }
+                panel.reveal = nil
+                withAnimation(reduceMotion ? nil : .easeOut(duration: PanelResize.duration)) {
+                    proxy.scrollTo(project)
+                }
+            }
+        }
+    }
+}
+
 /// One Project's total on the viewed Day. Today's rows end with ▶ to switch to the Project, or ⏸ to pause
 /// it while it runs; rows on any other Day have neither. Clicking the time types over it: a new total
 /// (`1:15`) or a change (`+15`, `-10`). Return applies it, Escape cancels.
@@ -372,6 +413,12 @@ private struct RowView: View {
     let toggle: () -> Void
     let adjust: () -> Void
     @FocusState private var focused: Bool
+    /// Which of the row's buttons has keyboard focus, so a row focus moves onto is scrolled into view.
+    @FocusState private var focusedButton: FocusedButton?
+
+    private enum FocusedButton {
+        case total, toggle
+    }
 
     var body: some View {
         let presentation = RowPresentation(row: row, isRunning: isRunning)
@@ -400,6 +447,7 @@ private struct RowView: View {
                     Text(DurationFormat.hoursMinutes(row.total)).monospacedDigit()
                 }
                 .buttonStyle(.plain)
+                .focused($focusedButton, equals: .total)
                 .help("Change this total")
                 .accessibilityLabel("\(row.project) total, \(DurationFormat.spoken(row.total))")
                 .accessibilityHint("Change this total")
@@ -410,9 +458,13 @@ private struct RowView: View {
                         .frame(width: 16)
                 }
                 .iconButton(presentation.toggleTone.style)
+                .focused($focusedButton, equals: .toggle)
                 .help(presentation.toggleLabel)
                 .accessibilityLabel(presentation.toggleLabel)
             }
+        }
+        .onChange(of: focusedButton) { _, button in
+            if button != nil { panel.reveal = row.project }
         }
         .foregroundStyle(.primary)
         .padding(.horizontal, 6)
