@@ -109,7 +109,8 @@ Everything lives in `~/Library/Application Support/Chronobar`. The ⚙ menu has 
 
 ```
 Chronobar/
-  projects.txt          the project list, one project per line
+  projects.txt          pinned projects, one per line
+  archived.txt          archived projects, one per line
   days/
     2026-11-02.json
     2026-11-03.json     one file per day, named by local date
@@ -151,9 +152,22 @@ leaves it untouched and refuses to change that day until you fix it.
 
 ### Project list
 
-`projects.txt` is UTF-8 text with one active project per line. Archiving a project removes its line;
-its history in the day files stays. Names match regardless of case and surrounding spaces, so
-`internal ` and `Internal` are the same project.
+The ＋ form suggests every project with time on today or the 29 days before it, plus your pinned
+projects, minus archived ones. Starting or logging a project doesn't add it to a list; it is suggested
+for 30 days after it was last used, then drops out until you type it again.
+
+`projects.txt` is UTF-8 text with one pinned project per line: pinned projects are always suggested.
+`archived.txt`, in the same format, lists archived projects, which are never suggested. Right-click a
+suggestion, or use the buttons under the field, to pin it (adding its line to `projects.txt`) or archive
+it (moving its line to `archived.txt`). Starting, logging or pinning an archived project takes it off
+`archived.txt`, with the spelling stored there. Neither list touches the day files, so archiving never
+loses time. Names match regardless of case and surrounding spaces, so `internal ` and `Internal` are the
+same project. Chronobar re-reads both files when the Panel opens, and leaves a file that isn't UTF-8
+untouched, refusing to pin or archive until you fix it.
+
+Upgrading from an earlier version: every project in your old `projects.txt` becomes pinned. Projects you archived
+before have no line in `archived.txt`, so any of them used in the last 30 days is suggested again until
+you archive it once more.
 
 ### Settings
 
@@ -206,17 +220,25 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] With the Panel open, click the Pill's square or press the global shortcut: the row's ⏸ and ▶
       follow it.
 - [ ] Clicking a row's time still opens the field to change its total; ▶/⏸ does not.
-- [ ] ＋, click ▾ in the Project field (or press ↓): every project is listed, most recently used first,
-      and the list scrolls when long. Type part of a name: the list narrows to names containing it, those
+- [ ] ＋, click ▾ in the Project field (or press ↓): projects used in the last 30 days and pinned ones
+      are listed, most recently used first, and the list scrolls when long. Type part of a name: the list narrows to names containing it, those
       starting with it first. Clicking one, or ↓ to it and Return, fills the field, closes the list and
       starts nothing; Start (or Return) then starts it.
 - [ ] With `test`, `test 2` and `test 3` (started in that order), type `test`: `test` is listed first and
       the field keeps `test`; Return starts `test`.
-- [ ] The line under the field reads New Project for a new name and Existing Project for a listed or
-      archived one. Archive, shown for a listed project, removes it from the list and empties the field.
+- [ ] The line under the field reads New Project for a new name and Existing Project for a suggested,
+      archived or long-unused one. Pin, shown for one not pinned, adds its line to `projects.txt`.
+      Archive, shown for a suggested project, moves it to `archived.txt`, drops it from the list and
+      empties the field; its rows and totals stay.
+- [ ] With the list open, right-click a name: the menu offers Pin (unless it is pinned) and Archive.
+      Archive drops it from the open list; Pin keeps it there, and it is still listed after 30 days
+      without use. The field keeps what was typed unless it held the archived name.
+- [ ] Type an archived project in different case and Start: its row uses the spelling it was archived
+      with, it is listed again, and its line is gone from `archived.txt`.
+- [ ] Add a name to `archived.txt` by hand and reopen the Panel: it is no longer listed.
 - [ ] With VoiceOver on, the Project field is announced as a combo box, with whether its list is open and
       each item as you move through it; New Project / Existing Project is read when it changes; Tab
-      reaches Archive with keyboard navigation on.
+      reaches Pin and Archive with keyboard navigation on.
 - [ ] Type a project name in different case with extra spaces: it starts on the existing row.
 - [ ] The Pill reads clearly in light and dark menu bars and on a notched display.
 - [ ] In Settings, open Running color in light and in dark mode: each option's dot is the color it

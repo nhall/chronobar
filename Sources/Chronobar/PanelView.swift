@@ -89,6 +89,7 @@ struct PanelActions {
     /// Returns false when the input was refused, so the field keeps what was typed.
     let adjust: (_ project: String, _ input: String, _ day: Day) -> Bool
     let archive: (String) -> Void
+    let pin: (String) -> Void
     let openDataFolder: () -> Void
     let quit: () -> Void
 }
@@ -243,12 +244,14 @@ struct PanelView: View {
                             panel.projectToReveal = project
                         }
                     },
-                    // The field empties, so Return can't bring the Project straight back.
+                    // The field empties if it holds the Project, so Return can't bring it straight back.
                     archive: { project in
                         actions.archive(project)
-                        panel.newProjectName = ""
+                        if ProjectName.matches(panel.newProjectName, project) { panel.newProjectName = "" }
                         panel.newProjectFocusRequests += 1
-                    })
+                    },
+                    isPinned: { project in tracker.projects.contains { ProjectName.matches($0, project) } },
+                    pin: actions.pin)
             }
             Button {
                 panel.showingNewProject.toggle()
@@ -553,12 +556,13 @@ private struct LoginHint: View {
     }
 }
 
-/// The ＋ form: a Project combo box, a duration and Start. The combo box lists the Project list, most
-/// recently used first, narrowed to what is typed; picking from it fills the name for Start or Log to act on.
-/// With a duration typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without
-/// starting a timer; on any Day other than today it always reads Log and needs a duration. The line under
-/// the field says whether the name is a New Project or an Existing Project, with Archive for one on the
-/// Project list.
+/// The ＋ form: a Project combo box, a duration and Start. The combo box lists the suggested Projects (used
+/// in the last 30 days, or pinned), most recently used first, narrowed to what is typed; picking from it
+/// fills the name for Start or Log to act on, and right-clicking one offers Pin and Archive. With a duration
+/// typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without starting a timer;
+/// on any Day other than today it always reads Log and needs a duration. The line under the field says
+/// whether the name is a New Project or an Existing Project, with Pin for one not pinned and Archive for one
+/// suggested, so both work from the keyboard too.
 private struct NewProjectForm: View {
     @Binding var name: String
     @Binding var duration: String
@@ -570,13 +574,15 @@ private struct NewProjectForm: View {
     let start: (String) -> Void
     let log: (String) -> Void
     let archive: (String) -> Void
+    let isPinned: (String) -> Bool
+    let pin: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 ProjectComboBox(name: $name, isListOpen: $isListOpen, suggestions: suggestions,
                                 focusRequests: focusRequests,
-                                submit: submit)
+                                submit: submit, isPinned: isPinned, pin: pin, archive: archive)
                 TextField("h:mm", text: $duration)
                     .textFieldStyle(.roundedBorder)
                     .monospacedDigit()
@@ -597,10 +603,16 @@ private struct NewProjectForm: View {
                         .font(.callout)
                         .foregroundStyle(.secondary)
                     Spacer()
+                    if let project = match.project, !isPinned(project) {
+                        Button("Pin") { pin(project) }
+                            .controlSize(.small)
+                            .help("Always suggest \(project), however long since it was used.")
+                            .accessibilityLabel("Pin \(project)")
+                    }
                     if case .active(let project) = match {
                         Button("Archive") { archive(project) }
                             .controlSize(.small)
-                            .help("Remove \(project) from the Project list. Its time stays.")
+                            .help("Stop suggesting \(project) until it is typed again. Its time stays.")
                             .accessibilityLabel("Archive \(project)")
                     }
                 }

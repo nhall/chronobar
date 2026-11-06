@@ -46,6 +46,14 @@ public enum ProjectMatch: Equatable, Sendable {
     /// A Project the suggestions leave out, archived or not used for 30 days, as `archived.txt` or its most
     /// recent Entry spells it. Starting or logging it brings it back.
     case archived(String)
+
+    /// The existing Project's name; nil for a new one.
+    public var project: String? {
+        switch self {
+        case .new: nil
+        case .active(let project), .archived(let project): project
+        }
+    }
 }
 
 /// A Project name that is empty after trimming whitespace.
