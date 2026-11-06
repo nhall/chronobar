@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var tracker: Tracker!
     private var statusItem: StatusItemController!
     private var idleMonitor: IdleMonitor!
+    private var longRunningNotifier: LongRunningNotifier!
     private var timer: Timer?
     private var heartbeat: Timer?
     /// `nil` when the Info.plist names a bad data folder; the app then refuses to start.
@@ -47,6 +48,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         idleMonitor = IdleMonitor(tracker: tracker, preferences: preferences) { [weak self] in
             self?.statusItem.refresh()
         }
+        longRunningNotifier = LongRunningNotifier(tracker: tracker) { [weak self] in
+            self?.statusItem.refresh()
+        }
+        observeLongRunningThreshold()
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -97,7 +102,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func tick() {
-        tracker.tick()
+        longRunningNotifier.warn(tracker.tick(), threshold: preferences.longRunningThreshold)
         idleMonitor.poll()
         statusItem.refresh()
     }
@@ -163,6 +168,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferences.startPausesOthers
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeStartPausesOthers() }
+        }
+    }
+
+    /// Keeps Core's long-running threshold in step with the Settings pop-up.
+    private func observeLongRunningThreshold() {
+        tracker.longRunningThreshold = withObservationTracking {
+            preferences.longRunningThreshold.seconds
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeLongRunningThreshold() }
         }
     }
 

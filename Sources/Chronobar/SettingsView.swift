@@ -43,6 +43,11 @@ struct SettingsView: View {
                 // A grouped Form shows a label's second Text as its subtitle.
                 Text("Applies to timers started in the app. Agents' timers keep running.")
             }
+            Picker("Warn when a timer runs for", selection: $preferences.longRunningThreshold) {
+                ForEach(LongRunningThreshold.presets, id: \.self) { threshold in
+                    Text(threshold.hours.map { "\($0) hours" } ?? "Off").tag(threshold)
+                }
+            }
         }
         .formStyle(.grouped)
         .frame(width: 400)
