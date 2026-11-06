@@ -30,26 +30,23 @@ struct Appearance: CustomTestStringConvertible, Sendable {
 /// The accent color is the one currently set in System Settings; `ForegroundTests` covers every other.
 @MainActor @Suite struct RunningColorContrastTests {
     @Test(arguments: RunningColor.allCases, Appearance.all)
-    func textAndGlyphsAreReadableOnEveryRunningColor(color: RunningColor, appearance: Appearance) {
+    func glyphsAreReadableOnEveryRunningColor(color: RunningColor, appearance: Appearance) {
         let background = color.background(in: appearance.environment)
-        for role in [Foreground.Role.text, .glyph] {
-            let foreground = color.foreground(for: role, in: appearance.environment)
-            #expect(Contrast.ratio(foreground.srgb, background) >= role.minimumContrast, "\(role)")
-        }
+        let foreground = color.foreground(in: appearance.environment)
+        #expect(Contrast.ratio(foreground.srgb, background) >= Foreground.minimumContrast)
     }
 
     @Test(arguments: [ColorScheme.light, .dark])
     func whiteWasUnreadableOnYellowAndIsReplaced(scheme: ColorScheme) {
         let environment = Appearance(scheme: scheme, contrast: .standard).environment
         #expect(Contrast.ratio(Foreground.white.srgb, RunningColor.yellow.background(in: environment)) < 2)
-        #expect(RunningColor.yellow.foreground(for: .glyph, in: environment) == .black)
-        #expect(RunningColor.yellow.foreground(for: .text, in: environment) == .black)
+        #expect(RunningColor.yellow.foreground(in: environment) == .black)
     }
 
     @Test func increaseContrastDarkensLightModeYellowEnoughForWhite() {
-        // The accessible light yellow is a dark amber; black would fall below 4.5:1 on it.
+        // The accessible light yellow is a dark amber.
         let environment = Appearance(scheme: .light, contrast: .increased).environment
-        #expect(RunningColor.yellow.foreground(for: .text, in: environment) == .white)
+        #expect(RunningColor.yellow.foreground(in: environment) == .white)
     }
 
     @Test(arguments: Appearance.all)
