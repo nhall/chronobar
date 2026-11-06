@@ -2,8 +2,8 @@ import Foundation
 import Observation
 
 /// Core's view of the Day files: each Day's Entries, read once and kept until the next `load`, and writes
-/// to a malformed file, deferred until it parses. The loaded Day (the running timer's) is held in memory,
-/// so a timer keeps running while its file won't parse.
+/// to a malformed file, deferred until it parses. The loaded Day (the running timers') is held in memory,
+/// so timers keep running while its file won't parse.
 @MainActor @Observable
 final class DayFiles {
     /// Days whose file failed to parse when last read. Writes to them are refused until it parses again.
