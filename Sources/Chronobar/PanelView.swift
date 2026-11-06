@@ -33,20 +33,20 @@ final class PanelModel {
     }
     var adjustment = ""
 
-    /// Carries out one of the Panel's key equivalents.
+    /// Carries out one of the Panel's key equivalents, or a control that does the same.
     func perform(_ command: PanelCommand, today: Day, calendar: Calendar) {
-        if let day = command.day(from: viewedDay ?? today, today: today, calendar: calendar) {
-            viewedDay = day == today ? nil : day
-            return
-        }
-        switch command {
-        case .newProject:
+        apply(command.change(viewing: viewedDay, today: today, calendar: calendar))
+    }
+
+    func apply(_ change: PanelChange) {
+        switch change {
+        case .view(let day):
+            viewedDay = day
+        case .openNewProject:
             showingNewProject = true
             newProjectFocusRequests += 1
-        case .timeSummary:
+        case .toggleTimeSummary:
             showingSummary.toggle()
-        default:
-            break
         }
     }
 }
@@ -92,8 +92,8 @@ struct PanelView: View {
                 .buttonStyle(.plain)
                 .fixedSize()
                 .padding(.horizontal, -4)
-                .help(isToday ? "" : PanelCommand.today.help("Back to today"))
-                .accessibilityHint(isToday ? "" : "Back to today")
+                .help(isToday ? "" : PanelCommand.today.help(Self.backToToday))
+                .accessibilityHint(isToday ? "" : Self.backToToday)
                 Spacer()
                 Text(DurationFormat.hoursMinutes(tracker.dayTotal(day)))
                     .monospacedDigit()
@@ -154,8 +154,8 @@ struct PanelView: View {
             }
             WeekStrip(week: tracker.weekTotals(containing: day), today: today, viewed: day,
                       calendar: tracker.calendar, runningColor: preferences.runningColor,
-                      view: { show($0, today: today) },
-                      move: { show(day.adding(days: 7 * $0, in: tracker.calendar), today: today) })
+                      view: { panel.apply(.viewing($0, today: today)) },
+                      move: { panel.perform($0, today: today, calendar: tracker.calendar) })
             // Under the strip, as the title row has no room for it at the Panel's width and above the
             // strip it would push ‹ › away from the pointer.
             if !isToday {
@@ -163,7 +163,7 @@ struct PanelView: View {
                     Spacer()
                     Button("Today", action: showToday)
                         .controlSize(.small)
-                        .help(PanelCommand.today.help("Back to today"))
+                        .help(PanelCommand.today.help(Self.backToToday))
                 }
             }
             if panel.showingNewProject {
@@ -222,14 +222,11 @@ struct PanelView: View {
         return date.formatted(style.weekday(.wide).day(.twoDigits).month(.abbreviated))
     }
 
+    private static let backToToday = "Back to today"
+
     /// Today's rows and the week containing it, for the date header and the Today button alike.
     private func showToday() {
-        panel.viewedDay = nil
-    }
-
-    /// Views `day`, past or future; today itself goes back to following the clock.
-    private func show(_ day: Day, today: Day) {
-        panel.viewedDay = day == today ? nil : day
+        panel.perform(.today, today: tracker.today, calendar: tracker.calendar)
     }
 }
 
@@ -243,11 +240,12 @@ private struct WeekStrip: View {
     let runningColor: RunningColor
     @Environment(\.self) private var environment
     let view: (Day) -> Void
-    let move: (Int) -> Void
+    /// ‹ and ›: `.previousWeek` or `.nextWeek`.
+    let move: (PanelCommand) -> Void
 
     var body: some View {
         HStack(spacing: 0) {
-            Button { move(-1) } label: { Image(systemName: "chevron.left") }
+            Button { move(.previousWeek) } label: { Image(systemName: "chevron.left") }
                 .buttonStyle(.borderless)
                 .help(PanelCommand.previousWeek.help("Previous week"))
                 .accessibilityLabel("Previous week")
@@ -255,13 +253,12 @@ private struct WeekStrip: View {
                 Button { view(item.day) } label: { column(item) }
                     .buttonStyle(.plain)
                     .frame(maxWidth: .infinity)
-                    .help("View this Day (\(PanelCommand.previousDay.keyName) \(PanelCommand.nextDay.keyName) "
-                        + "move a Day)")
+                    .help(PanelCommand.help("View this Day. Move a Day", keys: .previousDay, .nextDay))
                     .accessibilityLabel(WeekStripAccessibility.label(
                         item, today: today, viewed: viewed, calendar: calendar, locale: .autoupdatingCurrent))
                     .accessibilityAddTraits(item.day == viewed ? .isSelected : [])
             }
-            Button { move(1) } label: { Image(systemName: "chevron.right") }
+            Button { move(.nextWeek) } label: { Image(systemName: "chevron.right") }
                 .buttonStyle(.borderless)
                 .help(PanelCommand.nextWeek.help("Next week"))
                 .accessibilityLabel("Next week")

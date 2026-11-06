@@ -22,7 +22,7 @@ import ChronobarCore
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
 
-        #expect(press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker) == nil)
+        #expect(press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker) == nil)
         // The pointer is over the time segment by the mouse-up; only the mouse-down counts.
         #expect(press.buttonAction(byMouse: true, tracker: tracker) == .toggleTimer)
     }
@@ -31,7 +31,7 @@ import ChronobarCore
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
 
-        _ = press.mouseDown(onStatusItem: true, at: timeSegment, panelOpen: false, tracker: tracker)
+        _ = press.mouseDown(onPill: true, at: timeSegment, panelOpen: false, tracker: tracker)
 
         #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
     }
@@ -40,7 +40,7 @@ import ChronobarCore
     @Test func aPressNotByTheMouseOpensThePanel() throws {
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
-        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
 
         #expect(press.buttonAction(byMouse: false, tracker: tracker) == .openPanel)
     }
@@ -48,7 +48,7 @@ import ChronobarCore
     @Test func eachMouseDownIsUsedOnce() throws {
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
-        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
         _ = press.buttonAction(byMouse: true, tracker: tracker)
 
         #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
@@ -57,9 +57,9 @@ import ChronobarCore
     @Test func aMouseDownElsewhereIsNotAPressOnThePill() throws {
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
-        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
 
-        #expect(press.mouseDown(onStatusItem: false, at: square, panelOpen: false, tracker: tracker) == nil)
+        #expect(press.mouseDown(onPill: false, at: square, panelOpen: false, tracker: tracker) == nil)
         #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
     }
 
@@ -69,15 +69,15 @@ import ChronobarCore
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
 
-        #expect(!PillPress.closesPanel(onStatusItem: true, at: square, tracker: tracker))
-        #expect(press.mouseDown(onStatusItem: true, at: square, panelOpen: true, tracker: tracker) == .toggleTimer)
+        #expect(!PillPress.closesPanel(onPill: true, at: square, tracker: tracker))
+        #expect(press.mouseDown(onPill: true, at: square, panelOpen: true, tracker: tracker) == .toggleTimer)
     }
 
     @Test func withThePanelOpenTheSquareOpensTheNewProjectFormWithNothingToStart() {
         let tracker = Tracker(clock: clock, storageRoot: root)
         var press = PillPress()
 
-        #expect(press.mouseDown(onStatusItem: true, at: square, panelOpen: true, tracker: tracker)
+        #expect(press.mouseDown(onPill: true, at: square, panelOpen: true, tracker: tracker)
             == .openNewProjectForm)
     }
 
@@ -85,25 +85,25 @@ import ChronobarCore
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
 
-        #expect(PillPress.closesPanel(onStatusItem: true, at: timeSegment, tracker: tracker))
-        #expect(press.mouseDown(onStatusItem: true, at: timeSegment, panelOpen: true, tracker: tracker) == nil)
+        #expect(PillPress.closesPanel(onPill: true, at: timeSegment, tracker: tracker))
+        #expect(press.mouseDown(onPill: true, at: timeSegment, panelOpen: true, tracker: tracker) == nil)
     }
 
     @Test func withThePanelOpenAMouseDownElsewhereClosesIt() throws {
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
 
-        #expect(PillPress.closesPanel(onStatusItem: false, at: square, tracker: tracker))
-        #expect(press.mouseDown(onStatusItem: false, at: square, panelOpen: true, tracker: tracker) == nil)
+        #expect(PillPress.closesPanel(onPill: false, at: square, tracker: tracker))
+        #expect(press.mouseDown(onPill: false, at: square, panelOpen: true, tracker: tracker) == nil)
     }
 
     /// A mouse-down with the Panel open never reaches the button's action, so it isn't kept for one.
     @Test func aMouseDownWithThePanelOpenIsNotKeptForALaterAction() throws {
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
-        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
 
-        _ = press.mouseDown(onStatusItem: true, at: timeSegment, panelOpen: true, tracker: tracker)
+        _ = press.mouseDown(onPill: true, at: timeSegment, panelOpen: true, tracker: tracker)
 
         #expect(press.buttonAction(byMouse: true, tracker: tracker) == .openPanel)
     }
@@ -113,7 +113,7 @@ import ChronobarCore
     @Test func aPressOnTheCoverActsOnItsMouseUpFromWhereItBegan() throws {
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
-        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
 
         #expect(press.mouseUp(overPill: true, tracker: tracker) == .toggleTimer)
     }
@@ -122,7 +122,7 @@ import ChronobarCore
     @Test func aPressOnTheCoverThatClosedThePanelDoesNothingMore() throws {
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
-        _ = press.mouseDown(onStatusItem: true, at: timeSegment, panelOpen: true, tracker: tracker)
+        _ = press.mouseDown(onPill: true, at: timeSegment, panelOpen: true, tracker: tracker)
 
         #expect(press.mouseUp(overPill: true, tracker: tracker) == nil)
     }
@@ -131,9 +131,48 @@ import ChronobarCore
     @Test func aPressOnTheCoverReleasedAwayFromThePillDoesNothing() throws {
         let tracker = try trackerWithASelectedProject()
         var press = PillPress()
-        _ = press.mouseDown(onStatusItem: true, at: square, panelOpen: false, tracker: tracker)
+        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
 
         #expect(press.mouseUp(overPill: false, tracker: tracker) == nil)
         #expect(press.mouseUp(overPill: true, tracker: tracker) == nil)
+    }
+
+    // MARK: ⌘ held: the press is the start of a ⌘-drag, never a click
+
+    /// With another app frontmost the app can't see ⌘ go down, so the cover can still be over the Pill.
+    @Test func aPressWithCommandHeldOnTheCoverDoesNothing() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+
+        #expect(press.mouseDown(onPill: true, at: square, commandKey: true, panelOpen: false, tracker: tracker)
+            == nil)
+        #expect(press.mouseUp(overPill: true, tracker: tracker) == nil)
+    }
+
+    @Test func aPressWithCommandHeldThroughTheMenuBarDoesNothing() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+        _ = press.mouseDown(onPill: true, at: timeSegment, commandKey: true, panelOpen: false, tracker: tracker)
+
+        #expect(press.buttonAction(byMouse: true, tracker: tracker) == nil)
+    }
+
+    @Test func withThePanelOpenAPressWithCommandHeldOnTheSquareDoesNothing() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+
+        #expect(press.mouseDown(onPill: true, at: square, commandKey: true, panelOpen: true, tracker: tracker)
+            == nil)
+    }
+
+    /// Each press is decided on its own: one with ⌘ held leaves nothing behind for the next.
+    @Test func aPressWithCommandHeldDoesNotStopTheNextClick() throws {
+        let tracker = try trackerWithASelectedProject()
+        var press = PillPress()
+        _ = press.mouseDown(onPill: true, at: square, commandKey: true, panelOpen: false, tracker: tracker)
+        _ = press.mouseUp(overPill: true, tracker: tracker)
+
+        _ = press.mouseDown(onPill: true, at: square, panelOpen: false, tracker: tracker)
+        #expect(press.mouseUp(overPill: true, tracker: tracker) == .toggleTimer)
     }
 }
