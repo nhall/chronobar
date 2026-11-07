@@ -6,6 +6,8 @@ import ChronobarOperations
 enum Invocation: Equatable {
     case help
     case request(Request, json: Bool, copy: BuildVariant.Copy)
+    /// Run the MCP server on standard input and output, forwarding to `copy`.
+    case mcp(copy: BuildVariant.Copy)
 
     static let usage = """
         Usage: chronobar [--json] [--dev] <command>
@@ -31,6 +33,8 @@ enum Invocation: Equatable {
           pin <label>                   Keep <label> in the suggestions.
           archive <label>               Unpin <label> and hide it from the suggestions, keeping
                                         its time.
+          mcp                           Run an MCP server on standard input and output, with
+                                        a tool for each command, for an agent to launch.
           help                          Show this help.
 
         Options:
@@ -103,6 +107,10 @@ enum Invocation: Equatable {
         let request: Request
         switch command {
         case "help": self = .help; return
+        case "mcp":
+            guard rest.isEmpty, !json else { throw OperationError(.usage, "mcp takes no arguments other than --dev.") }
+            self = .mcp(copy: copy)
+            return
         case "status":
             guard label.isEmpty else { throw OperationError(.usage, "status takes no label.") }
             request = .status
