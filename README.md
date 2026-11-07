@@ -39,7 +39,12 @@ can read and edit. There are no accounts, no sync and no integrations.
   starting one that is already running keeps it going. Turn on "Starting a timer pauses the others" in
   Settings to have each start pause every other timer instead.
 - If you come back to a running timer after the Mac slept, locked, or sat with no input, Chronobar asks
-  whether to remove the time you were away.
+  whether to remove the time you were away. One alert covers every timer you started in the app, and
+  your answer applies to all of them. Timers an agent started are left out: the agent's work goes on
+  while you're away.
+- Quitting Chronobar stops the timers you started in the app and leaves agents' timers running; they
+  continue when it opens again. After a crash, the app's timers bring up the idle alert on the next
+  launch, and agents' timers keep running.
 - A timer still running after 4 hours raises a notification naming its project, once per run, with a
   Stop button that stops it then. Nothing is cut on its own. Pick 2 to 8 hours, or Off, in Settings.
 - **Agents and scripts** start and stop timers through MCP (see [Agents](#agents)) or the `chronobar`
@@ -105,14 +110,56 @@ over `chronobar.sock` in the data folder, which only your user can open.
 
 ## Agents
 
-`chronobar mcp` is an MCP server on standard input and output, so any MCP client can launch it. In
-Claude Code:
+`chronobar mcp` is an MCP server on standard input and output, so any MCP client can launch it: register
+the command `chronobar` with the argument `mcp` as a stdio server. Each line below adds it for every
+project.
+
+**Claude Code**
 
 ```sh
 claude mcp add --scope user chronobar -- chronobar mcp
 ```
 
-Other clients take the same command (`chronobar`, with the argument `mcp`) as a stdio server.
+**Codex**
+
+```sh
+codex mcp add chronobar -- chronobar mcp
+```
+
+or in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.chronobar]
+command = "chronobar"
+args = ["mcp"]
+```
+
+**Gemini CLI**
+
+```sh
+gemini mcp add --scope user chronobar chronobar mcp
+```
+
+or in `~/.gemini/settings.json`, under `mcpServers` as in the JSON below.
+
+**Claude Desktop and Cursor** read a JSON file: in Claude Desktop, Settings › Developer › Edit Config
+opens `~/Library/Application Support/Claude/claude_desktop_config.json`; for Cursor, edit
+`~/.cursor/mcp.json`. Add `chronobar` to `mcpServers`:
+
+```json
+{
+  "mcpServers": {
+    "chronobar": {
+      "command": "/opt/homebrew/bin/chronobar",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Apps opened from the Dock or Finder don't get your shell's `PATH`, so give the full path: `brew --prefix`
+followed by `/bin/chronobar` (`/usr/local/bin/chronobar` on an Intel Mac). Then quit and reopen the
+app. The full path works in the other clients too, if one can't find `chronobar`.
 
 It offers a tool for each command: `status`, `start`, `stop`, `set_start`, `add_entry`, `adjust`, `day`,
 `summary`, `labels`, `archive` and `pin`, with the same rules. Then ask the agent things like "start a
@@ -130,13 +177,18 @@ talks to the development copy.
 ## Install
 
 Chronobar is built from source on your Mac by Homebrew. You need macOS 14 Sonoma or later and the
-Command Line Tools (`xcode-select --install`). Xcode is not required.
+Command Line Tools 16 or later (`xcode-select --install`), for Swift 6.0 or later. Xcode is not
+required.
 
 ```sh
 brew install nhall/tap/chronobar
 ln -sfn "$(brew --prefix)/opt/chronobar/Chronobar.app" ~/Applications/Chronobar.app
 open ~/Applications/Chronobar.app
 ```
+
+This installs the app and the `chronobar` command, which Homebrew puts on your `PATH`. The command
+launches the app installed beside it when it isn't running, so it works before you've opened the app
+and after each upgrade.
 
 Homebrew installs the app into its own prefix, not `/Applications`. The link in `~/Applications` lets
 you open Chronobar from Spotlight, Launchpad and Finder. It points at Homebrew's `opt` path, which
@@ -481,8 +533,9 @@ Try these against the development copy (`chronobar --dev …`) unless you are ch
 - [ ] Quit the app, then run `chronobar status`: the app launches in the background without coming to
       the front, and the status prints. The same with the app never opened since a restart.
 - [ ] While the idle alert is open, `chronobar status` still answers.
-- [ ] On a Mac where the app was never opened, `chronobar status` exits 3 saying it couldn't find
-      Chronobar and to open it once.
+- [ ] Copy `chronobar` out of `build/bin` on its own, to a folder with no app beside it: on a Mac where
+      the app was never opened, `chronobar status` exits 3 saying it couldn't find Chronobar and to
+      open it once.
 - [ ] `chronobar --dev status` reaches only the development copy, with the everyday copy running too.
 - [ ] Start Client A, wait a few minutes, then `chronobar stop client a --at HH:MM` with a minute in
       between: it prints the stored start and end and Client A's total; the Panel row shows that total.
@@ -514,6 +567,9 @@ Register the development copy in your client under a name of its own (in Claude 
 - [ ] Start a timer from the agent, then close the session (quit the client): the timer keeps running.
       In a new session, "stop the timer" stops nothing and lists it; "stop Client A" stops it.
 - [ ] Try the same session in a second MCP client.
+- [ ] Register `chronobar mcp` with each line under [Agents](#agents): Claude Code, Codex, Gemini CLI,
+      Claude Desktop and Cursor. Each lists the eleven tools and can run `status`. Claude Desktop and
+      Cursor, opened from the Dock, connect with the full path.
 
 **Long-running warning**
 
@@ -548,17 +604,24 @@ Register the development copy in your client under a name of its own (in Claude 
 
 **Install**
 
-- [ ] On a Mac with only the Command Line Tools, `brew install nhall/tap/chronobar` succeeds.
+- [ ] On a Mac with only the Command Line Tools, `brew install nhall/tap/chronobar` succeeds and
+      `brew test chronobar` passes.
+- [ ] `which chronobar` is in `$(brew --prefix)/bin`. Before opening the app at all, `chronobar status`
+      launches it in the background and prints the status.
 - [ ] The app opens from `~/Applications` without a Gatekeeper warning.
+- [ ] After `brew upgrade chronobar` (or `brew reinstall chronobar`), quit the app and run
+      `chronobar status`: it launches the new version (`ps -o command= -p $(pgrep -x Chronobar)` shows
+      the new keg's path).
 
 ## Releasing
 
 The Homebrew formula's source of truth is [`packaging/homebrew/chronobar.rb`](packaging/homebrew/chronobar.rb).
 The tap is the `nhall/homebrew-tap` repository, which holds a copy at `Formula/chronobar.rb`.
 
-1. Tag the release: `git tag v0.2.0 && git push origin v0.2.0`.
+1. Set the MCP server's version (`MCPServer.version` in `Sources/ChronobarCLI/MCPServer.swift`) to the
+   release's, then tag it: `git tag v2.0.0 && git push origin v2.0.0`.
 2. Hash the tarball:
-   `curl -L https://github.com/nhall/chronobar/archive/refs/tags/v0.2.0.tar.gz | shasum -a 256`.
+   `curl -L https://github.com/nhall/chronobar/archive/refs/tags/v2.0.0.tar.gz | shasum -a 256`.
 3. Update `url` and `sha256` in `packaging/homebrew/chronobar.rb`, commit, and copy the file to the tap.
 4. `brew update && brew upgrade chronobar`, then run the checklist.
 
