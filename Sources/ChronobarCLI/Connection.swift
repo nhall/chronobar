@@ -29,12 +29,18 @@ func connect(to copy: BuildVariant.Copy, wait: TimeInterval = 10) throws(Operati
                          + (lastError.map { " (\($0))." } ?? "."))
 }
 
-/// Opens the app in the background with `open -g -b`, so it doesn't take the front from whatever the
-/// user is doing. Launch Services finds it wherever it is installed once it has been opened there.
+/// Opens the app in the background with `open -g`, so it doesn't take the front from whatever the
+/// user is doing: the app installed beside this command if there is one, else by bundle ID.
+/// Launch Services knows a Homebrew install only once it has been opened, and forgets it on each
+/// `brew upgrade` (the old keg's path is gone), so the copy beside the command comes first.
 private func launch(_ copy: BuildVariant.Copy) throws(OperationError) {
     let open = Process()
     open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-    open.arguments = ["-g", "-b", copy.bundleID]
+    if let executable = Bundle.main.executableURL, let app = copy.app(besideExecutable: executable) {
+        open.arguments = ["-g", app.path]
+    } else {
+        open.arguments = ["-g", "-b", copy.bundleID]
+    }
     open.standardOutput = FileHandle.nullDevice
     open.standardError = FileHandle.nullDevice
     do {
@@ -56,5 +62,19 @@ extension BuildVariant.Copy {
         case .everyday: "Chronobar"
         case .development: "Chronobar Dev"
         }
+    }
+
+    /// The app in the folder above the one holding `executable`, after following links: where
+    /// `scripts/bundle-app.sh` (`build/bin/chronobar`) and the Homebrew formula (`<keg>/bin/chronobar`)
+    /// put the command. Nil when there is no such app.
+    func app(besideExecutable executable: URL) -> URL? {
+        let app = executable.resolvingSymlinksInPath()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("\(name).app", isDirectory: true)
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: app.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            return nil
+        }
+        return app
     }
 }
