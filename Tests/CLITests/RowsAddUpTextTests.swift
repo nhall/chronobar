@@ -55,4 +55,24 @@ import ChronobarOperations
             Total 3:16 · Clock time 3:00
             """)
     }
+
+    /// The week's clock time is the sum of the Day lines' clock times too, so with no timers side by side
+    /// it matches the week total: never "Total 3:16 · Clock time 3:17".
+    @Test func aWeeksClockTimeIsTheSumOfItsDayLines() {
+        let days = [DayResult(date: "2026-11-01", totalSeconds: first, elapsedSeconds: first),
+                    DayResult(date: "2026-11-02", totalSeconds: second, elapsedSeconds: second)]
+        let week = WeekResult(first: "2026-11-01", last: "2026-11-07", totalSeconds: first + second,
+                              elapsedSeconds: first + second, days: days,
+                              labels: [LabelTotalResult(label: "Garden Shed", totalSeconds: first + second)],
+                              malformed: [])
+
+        #expect(Output.text(.week(week)) == """
+            Week of 2026-11-01 to 2026-11-07
+              2026-11-01  Total 2:08 · Clock time 2:08
+              2026-11-02  Total 1:08 · Clock time 1:08
+            Labels:
+              Garden Shed  3:16
+            Total 3:16 · Clock time 3:16
+            """)
+    }
 }

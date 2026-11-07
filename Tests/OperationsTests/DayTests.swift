@@ -117,5 +117,7 @@ import ChronobarOperations
         #expect(week.days[2].totalSeconds == 180)
         #expect(week.labels.map(\.totalSeconds) == [90, 90])
         #expect(week.totalSeconds == 180)
+        #expect(week.elapsedSeconds == week.days.map(\.elapsedSeconds).reduce(0, +))
+        #expect(week.elapsedSeconds == 90)
     }
 }
