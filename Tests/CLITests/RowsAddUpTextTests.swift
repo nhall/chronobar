@@ -25,31 +25,34 @@ import ChronobarOperations
             """)
     }
 
-    @Test func aWeeksDaysAndLabelsEachAddUpToTheWeekTotal() {
-        func day(_ date: String, _ seconds: Int) -> DayResult {
-            DayResult(date: date, totalSeconds: seconds, elapsedSeconds: seconds)
+    /// Each Day line is that Day's own total, as `day` and the Panel show it; the week total is the sum
+    /// of the Day lines, and the Labels' week lines add up to it.
+    @Test func aWeeksDaysShowTheirOwnTotalsAndTheLabelsAddUpToTheirSum() {
+        func day(_ date: String, _ seconds: Int, clockTime: Int) -> DayResult {
+            DayResult(date: date, totalSeconds: seconds, elapsedSeconds: clockTime)
         }
-        let days = [day("2026-11-01", first), day("2026-11-02", second)]
-            + (3...7).map { day("2026-11-0\($0)", 0) }
+        // Garden Shed 1:00:30 and Two 1:08:15 on the 1st; 0:30:30 and 0:38:19 on the 2nd.
+        let days = [day("2026-11-01", first, clockTime: 2 * 3600), day("2026-11-02", second, clockTime: 3600)]
+            + (3...7).map { day("2026-11-0\($0)", 0, clockTime: 0) }
         let week = WeekResult(first: "2026-11-01", last: "2026-11-07", totalSeconds: first + second,
-                              elapsedSeconds: first + second, days: days,
-                              labels: [LabelTotalResult(label: "Garden Shed", totalSeconds: first),
-                                       LabelTotalResult(label: "Two", totalSeconds: second)],
+                              elapsedSeconds: 3 * 3600, days: days,
+                              labels: [LabelTotalResult(label: "Garden Shed", totalSeconds: 91 * 60),
+                                       LabelTotalResult(label: "Two", totalSeconds: 106 * 60 + 34)],
                               malformed: [])
 
         #expect(Output.text(.week(week)) == """
             Week of 2026-11-01 to 2026-11-07
-              2026-11-01  Total 2:08 · Clock time 2:08
-              2026-11-02  Total 1:09 · Clock time 1:08
+              2026-11-01  Total 2:08 · Clock time 2:00
+              2026-11-02  Total 1:08 · Clock time 1:00
               2026-11-03  Total 0:00 · Clock time 0:00
               2026-11-04  Total 0:00 · Clock time 0:00
               2026-11-05  Total 0:00 · Clock time 0:00
               2026-11-06  Total 0:00 · Clock time 0:00
               2026-11-07  Total 0:00 · Clock time 0:00
             Labels:
-              Garden Shed  2:08
-              Two  1:09
-            Total 3:17 · Clock time 3:17
+              Garden Shed  1:30
+              Two  1:46
+            Total 3:16 · Clock time 3:00
             """)
     }
 }

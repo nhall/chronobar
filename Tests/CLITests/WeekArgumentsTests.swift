@@ -18,7 +18,7 @@ import ChronobarOperations
 
     @Test func weekTextListsTheDaysThenEachLabelsTotal() {
         let week = WeekResult(
-            first: "2026-11-01", last: "2026-11-07", totalSeconds: 270 * 60, elapsedSeconds: 3600,
+            first: "2026-11-01", last: "2026-11-07", totalSeconds: 210 * 60, elapsedSeconds: 3600,
             days: [DayResult(date: "2026-11-01", totalSeconds: 2 * 3600, elapsedSeconds: 0),
                    DayResult(date: "2026-11-02", totalSeconds: 90 * 60, elapsedSeconds: 0)],
             labels: [LabelTotalResult(label: "Website Redesign", totalSeconds: 150 * 60),
@@ -32,7 +32,7 @@ import ChronobarOperations
             Labels:
               Website Redesign  2:30
               Internal  1:00
-            Total 4:30 · Clock time 1:00
+            Total 3:30 · Clock time 1:00
             """)
     }
 }

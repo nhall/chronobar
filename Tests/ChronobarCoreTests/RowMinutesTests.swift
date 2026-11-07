@@ -81,4 +81,48 @@ private func hms(_ hours: Int, _ minutes: Int, _ seconds: Int) -> TimeInterval {
             }
         }
     }
+
+    /// A week's Label lines add up to the week total, which is the sum of its Day lines, each rounded
+    /// down on its own, and can be less than the Labels' time rounded down.
+    @Test func rowsCanAddUpToATotalGivenFromElsewhere() {
+        let minutes = RowMinutes(seconds: [hms(2, 8, 45), hms(1, 8, 49)], total: 3 * 60 + 16)
+
+        #expect(minutes.total == 3 * 60 + 16)
+        #expect(minutes.rows == [2 * 60 + 8, 60 + 8])
+    }
+
+    @Test func aMinuteTooManyComesOffTheRowWithTheFewestSecondsLeftOver() {
+        #expect(RowMinutes(seconds: [110, 70], total: 1).rows == [1, 0])
+        #expect(RowMinutes(seconds: [70, 110], total: 1).rows == [0, 1])
+    }
+
+    @Test func aTieForAMinuteTooManyComesOffTheFirstRow() {
+        #expect(RowMinutes(seconds: [90, 150], total: 2).rows == [0, 2])
+    }
+
+    /// A Label with 59 seconds on each of seven Days has 6 minutes, but each Day shows 0:00.
+    @Test func aRowCanLoseSeveralMinutesButNeverGoesBelowZero() {
+        #expect(RowMinutes(seconds: [413, 0], total: 0).rows == [0, 0])
+        #expect(RowMinutes(seconds: [413, 70], total: 1).rows == [1, 0])
+    }
+
+    @Test func givenTheirOwnTotalTheRowsAreAsWithout() {
+        let seconds = [hms(2, 8, 45), hms(1, 8, 49), 30, -60]
+        #expect(RowMinutes(seconds: seconds, total: RowMinutes(seconds: seconds).total) == RowMinutes(seconds: seconds))
+    }
+
+    @Test func rowsAlwaysAddUpToAGivenTotal() {
+        var generator = SystemRandomNumberGenerator()
+        for _ in 0..<500 {
+            let seconds = (0..<Int.random(in: 1...12, using: &generator)).map { _ in
+                TimeInterval(Int.random(in: -3600...36_000, using: &generator))
+            }
+            let most = RowMinutes(seconds: seconds).total
+            let total = Int.random(in: max(0, most - 7)...most, using: &generator)
+            let minutes = RowMinutes(seconds: seconds, total: total)
+
+            #expect(minutes.rows.reduce(0, +) == total)
+            #expect(minutes.rows.allSatisfy { $0 >= 0 })
+        }
+    }
 }

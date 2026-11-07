@@ -113,6 +113,7 @@ import ChronobarOperations
 
         let week = try Operations(tracker: tracker).week(nil)
 
+        #expect(week.days[2] == (try Operations(tracker: tracker).day(nil)).day)
         #expect(week.days[2].totalSeconds == 180)
         #expect(week.labels.map(\.totalSeconds) == [90, 90])
         #expect(week.totalSeconds == 180)

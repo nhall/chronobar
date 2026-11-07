@@ -294,8 +294,12 @@ Each day is one JSON file with one entry per line:
 - Hours and minutes always add up too. A total is rounded down to the minute; the rows under it are
   rounded down as well, and the minutes that loses go one each to the rows with the most seconds left
   over (the first row on a tie). So 2:08:45 and 1:08:49 show as 2:08 and 1:09 under Total 3:17. This
-  applies to the Panel's rows and to `chronobar day` and `chronobar week` (both the days and the
-  labels add up to the week total). Clock time is rounded down on its own.
+  applies to the Panel's rows and to `chronobar day`. Clock time is rounded down on its own.
+- A day's figure is the same everywhere: `chronobar week` shows each day's own total, as the Panel
+  and `chronobar day` do, and the week total is the sum of those day lines. That can be a few minutes
+  less than the labels' time rounded down, so the labels' week lines are fitted to it: minutes too
+  many come off the labels with the fewest seconds left over (the first label on a tie), never
+  below `0:00`.
 - A day's clock time (`elapsed_seconds` in JSON) is the time when any timer was running, a running one
   counted up to now. Time two timers share counts once, so with timers running side by side it is less
   than the day's total; time logged by hand (manual entries) counts toward the total only. The (i) Time

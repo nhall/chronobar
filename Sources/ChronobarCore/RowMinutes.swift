@@ -11,13 +11,31 @@ public struct RowMinutes: Equatable, Sendable {
     public let total: Int
 
     public init(seconds: [TimeInterval]) {
+        self.init(seconds: seconds, total: seconds.map { Int(max(0, $0)) }.reduce(0, +) / 60)
+    }
+
+    /// Rows that add up to a `total` set elsewhere, such as a week's: the sum of its Day lines, each
+    /// rounded down on its own, which can be a few minutes less than the rows' time rounded down. Rows
+    /// rounded down then come to too many minutes, and those come off one each, again and again if need
+    /// be, from the rows with the fewest seconds left over, the first row on a tie; no row goes below zero.
+    /// Too few minutes go to the rows with the most seconds left over, as without a `total`.
+    public init(seconds: [TimeInterval], total: Int) {
         let seconds = seconds.map { Int(max(0, $0)) }
-        total = seconds.reduce(0, +) / 60
+        self.total = total
         var rows = seconds.map { $0 / 60 }
-        let lost = total - rows.reduce(0, +)
         let leftOver = seconds.map { $0 % 60 }
-        let mostLeftOver = seconds.indices.sorted { (-leftOver[$0], $0) < (-leftOver[$1], $1) }
-        for index in mostLeftOver.prefix(lost) { rows[index] += 1 }
+        var missing = total - rows.reduce(0, +)
+        if missing > 0, !rows.isEmpty {
+            let mostLeftOver = rows.indices.sorted { (-leftOver[$0], $0) < (-leftOver[$1], $1) }
+            for index in (0..<missing).map({ mostLeftOver[$0 % rows.count] }) { rows[index] += 1 }
+        }
+        let fewestLeftOver = rows.indices.sorted { (leftOver[$0], $0) < (leftOver[$1], $1) }
+        while missing < 0, rows.contains(where: { $0 > 0 }) {
+            for index in fewestLeftOver where missing < 0 && rows[index] > 0 {
+                rows[index] -= 1
+                missing += 1
+            }
+        }
         self.rows = rows
     }
 }
