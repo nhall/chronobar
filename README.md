@@ -15,7 +15,7 @@ can read and edit. There are no accounts, no sync and no integrations.
 ## How it works
 
 - **The Pill** sits in the menu bar. Its left square shows how many timers are running (`1`, `2`, …) on
-  a colored background, or ▶ on gray when none are. The right side shows today's total across all
+  a colored background, or `0` on gray when none are. The right side shows today's total across all
   labels (`1:23`), ticking while any timer runs. Any click on the Pill opens the Panel, where you start
   and pause timers; so does the global shortcut you can record in Settings.
 - **The Panel** shows the day you are viewing, a strip with the week's daily totals, and one row per
@@ -338,7 +338,8 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 
 **Start, pause, switch**
 
-- [ ] With no timer running, the square shows ▶ on gray. Click it, then the time segment: each opens the
+- [ ] With no timer running, the square shows `0` on gray, in the same digit style as a running count,
+      dark on the gray in light and dark mode, white with Increase Contrast on in light mode. Click it, then the time segment: each opens the
       Panel, and no timer starts.
 - [ ] ＋, type a new label, Start: the square turns colored with `1` and the time starts at `0:00`.
       The form closes back to the rows, the new label's row is highlighted, and the Panel stays open.
@@ -359,7 +360,7 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       Repeat with the Pill on a smaller external display, if you have one.
 - [ ] Click outside the Panel: it closes.
 - [ ] After a minute the time reads `0:01`; the day file has one entry with `"end": null`.
-- [ ] Click the row's ⏸: the square goes gray with ▶, the time stays, the entry now has an `end`.
+- [ ] Click the row's ⏸: the square goes gray with `0`, the time stays, the entry now has an `end`.
 - [ ] Click the row's ▶: the same label resumes on its row and its total keeps counting from where it
       was.
 - [ ] With a timer running and the Panel closed, click the square on its edge, its middle, the time
@@ -376,7 +377,7 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       new entry and no alert.
 - [ ] Click one running row's ⏸: only that timer pauses, its row loses its highlight and shows ▶, and
       the other keeps running and the square shows `1`. Pause the last one: the Pill's square goes gray
-      with ▶ and the time stops.
+      with `0` and the time stops.
 - [ ] In Settings, the shortcut is labelled "Open Panel shortcut". Record one, and with zero, one and two
       timers running and another app in front, press it: the Panel opens under the Pill with every timer
       as it was. A shortcut recorded in an earlier version still works.
