@@ -6,7 +6,9 @@ Where Chronobar keeps your time, the format of each file, and how totals are cou
 Chronobar has no accounts, no sync and no network access. The app is the only writer of your data, and
 it re-reads a file before every change, so a hand edit is never overwritten.
 
-Everything lives in `~/Library/Application Support/Chronobar`. The ⚙ menu has **Open data folder**.
+Everything lives in `~/Library/Application Support/Chronobar`. The ⚙ menu in the Panel (the window
+under the Pill, Chronobar's menu bar item) has **Open data folder**. Time is filed under Labels, the
+names you type, such as "Northwind, Ticket 665"; see [Using the app](app.md#the-parts).
 
 ```
 Chronobar/
@@ -17,8 +19,6 @@ Chronobar/
     2026-11-02.json
     2026-11-03.json     one file per Day, named by local date
 ```
-
-The [development copy](development.md#a-development-copy) uses `Chronobar Dev` instead.
 
 ## Day files
 

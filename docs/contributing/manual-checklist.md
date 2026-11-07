@@ -1,7 +1,7 @@
 # Manual test checklist
 
 The hand checks to run before a release: menu bar, Panel, idle, command line, agents and install.
-[Back to the README](../README.md)
+[Back to AGENTS.md](../../AGENTS.md)
 
 The timing logic is covered by `swift test`. The menu bar, Panel and system behavior are checked by
 hand. Run through this list before a release (see [Releasing](releasing.md)), on the Homebrew build. Don't use a Mac whose real data
@@ -212,7 +212,7 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 
 **Command line**
 
-Try these against the development copy (`chronobar --dev …`) unless you are checking the Homebrew build.
+Try these against the [development copy](development.md#a-development-copy) (`chronobar --dev …`) unless you are checking the Homebrew build.
 
 - [ ] With the app running, `chronobar start "Client A"` prints `Started Client A at HH:MM.` and the
       Panel shows a highlighted Client A row with a terminal icon after the name; hovering over the
@@ -273,7 +273,7 @@ Register the development copy in your client under a name of its own (in Claude 
 - [ ] Start a timer from the agent, then close the session (quit the client): the timer keeps running.
       In a new session, "stop the timer" stops nothing and lists it; "stop Client A" stops it.
 - [ ] Try the same session in a second MCP client.
-- [ ] Register `chronobar mcp` with each setup in [Connecting agents](connecting-agents.md#setup): Claude Code, Codex, Gemini CLI,
+- [ ] Register `chronobar mcp` with each setup in [Connecting agents](../connecting-agents.md#setup): Claude Code, Codex, Gemini CLI,
       Claude Desktop and Cursor. Each lists the twelve tools and can run `status`. Claude Desktop and
       Cursor, opened from the Dock, connect with the full path.
 

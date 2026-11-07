@@ -15,6 +15,11 @@ chronobar --json week              # this week, as JSON
 launches it in the background first. Homebrew puts it on your `PATH`; a build from source leaves it in
 `build/bin` (see [Install](install.md#build-from-source)).
 
+A Label is the name you file time under ("Northwind, Ticket 665"), and each Label has one timer. A
+Day's Total adds up every Label's time; its Clock time is how long any timer was running, counting
+overlaps once, so two timers side by side for an hour make Total 2:00 and Clock time 1:00. The Panel
+is the window under Chronobar's menu bar item; see [Using the app](app.md#the-parts).
+
 The MCP server offers the same operations as tools; see [Connecting agents](connecting-agents.md).
 
 ## Starting and stopping
@@ -105,7 +110,6 @@ Error kinds: `invalid_request`, `unknown_operation`, `invalid_label`, `unknown_l
 | Option | Effect |
 |---|---|
 | `--json` | Print the app's JSON response instead of text. |
-| `--dev` | Talk to the development copy (Chronobar Dev) instead. |
 | `--` | End of options: everything after it is the Label. |
 
 `chronobar help` prints the full usage.

@@ -66,7 +66,9 @@ app. The full path works in the other clients too, if one can't find `chronobar`
 - "Add a line item for the hour that took us."
 - "How much time went to Northwind this week?"
 
-Timers an agent starts are marked in the Panel with a small terminal icon ("Started by an agent; not
+Each timer belongs to a Label, the name you file time under, and an agent addresses timers by Label.
+Timers an agent starts are marked in the Panel (the window under Chronobar's menu bar item, the Pill)
+with a small terminal icon ("Started by an agent; not
 paused for idle time"), and the Day file records them with `"source": "agent"`.
 
 ## Tools
@@ -90,7 +92,8 @@ The server offers a tool for each [command](command-line.md), with the same rule
 
 Each tool returns the stored times and totals as structured JSON, so the agent can tell you exactly what
 was recorded. A refusal is a tool error with its message and, where it helps, the running timers.
-Times are ISO 8601 with an offset; `elapsed_seconds` is the clock time.
+Times are ISO 8601 with an offset; `elapsed_seconds` is the clock time: how long any timer was
+running, counting overlaps once.
 
 ## Which timer "stop the timer" means
 
@@ -107,12 +110,3 @@ warning catches one that's forgotten.
 Idle detection applies only to timers started in the app. When you come back after the Mac slept,
 locked or sat idle, agents' timers are left as they are: the agent's work went on while you were away.
 Quitting Chronobar leaves them running too, and they continue when it opens again.
-
-## The development copy
-
-`chronobar --dev mcp` talks to the [development copy](development.md#a-development-copy). Register it
-under a name of its own, for example in Claude Code:
-
-```sh
-claude mcp add chronobar-dev -- <path>/build/bin/chronobar --dev mcp
-```
