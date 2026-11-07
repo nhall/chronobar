@@ -393,15 +393,27 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       archived or long-unused one. Pin, shown for one not pinned, adds its line to `projects.txt`.
       Archive, shown for a suggested label, moves it to `archived.txt`, drops it from the list and
       empties the field; its rows and totals stay.
-- [ ] With the list open, right-click a name: the menu offers Pin (unless it is pinned) and Archive.
-      Archive drops it from the open list; Pin keeps it there, and it is still listed after 30 days
-      without use. The field keeps what was typed unless it held the archived name.
+- [ ] With the list open, right-click a name (and Control-click, and a two-finger trackpad click): the
+      menu reads Pin “name” (unless it is pinned) and Archive “name”, for the name under the pointer,
+      not the highlighted one. Archive drops it from the open list, which stays open; Pin keeps it there,
+      and it is still listed after 30 days without use. The field keeps what was typed unless it held
+      the archived name. Right-click below the last name: no menu.
+- [ ] Clicking a name in the list, or right-clicking it, leaves the Panel open and the insertion point
+      in the field; typing goes on narrowing the list.
+- [ ] With the list open: ↓ and ↑ move the highlight one name at a time and the field shows it, and the
+      list scrolls to keep it in view; ↓ stops on the last name; ↑ from the first goes back to what was
+      typed. Escape closes the list and leaves the field as it is; a second Escape closes the Panel. Tab
+      closes the list and moves on to the duration field. The list closes when the Panel closes.
+- [ ] Open the list near the bottom of the screen (many rows, or the Pill on a short display): the list
+      shows above the field instead of off screen. It is as wide as the field and ▾, and its rows and
+      shadow read clearly in light and dark mode.
 - [ ] Type an archived label in different case and Start: its row uses the spelling it was archived
       with, it is listed again, and its line is gone from `archived.txt`.
 - [ ] Add a name to `archived.txt` by hand and reopen the Panel: it is no longer listed.
-- [ ] With VoiceOver on, the Label field is announced as a combo box, with whether its list is open and
-      each item as you move through it; New Label / Existing Label is read when it changes; Tab
-      reaches Pin and Archive with keyboard navigation on.
+- [ ] With VoiceOver on, the Label field is announced as a combo box, with whether its list is open;
+      ↓ and ↑ read each name with its place ("Client B, 2 of 3"); with the list open, VoiceOver can move
+      into it (VO-→ or the window chooser) and read it as Suggestions; New Label / Existing Label is read
+      when it changes; ▾ reads as Suggestions; Tab reaches Pin and Archive with keyboard navigation on.
 - [ ] Type a label in different case with extra spaces: it starts on the existing row.
 - [ ] The Pill reads clearly in light and dark menu bars and on a notched display.
 - [ ] In Settings, open Running color in light and in dark mode: each option's dot is the color it

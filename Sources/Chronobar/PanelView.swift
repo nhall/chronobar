@@ -602,7 +602,7 @@ private struct LoginHint: View {
     }
 }
 
-/// The ＋ form: a Project combo box, a duration and Start. The combo box lists the suggested Projects (used
+/// The ＋ form: a Label field, a duration and Start. The field's list shows the suggested Labels (used
 /// in the last 30 days, or pinned), most recently used first, narrowed to what is typed; picking from it
 /// fills the name for Start or Log to act on, and right-clicking one offers Pin and Archive. With a duration
 /// typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without starting a timer;
@@ -626,9 +626,9 @@ private struct NewProjectForm: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                ProjectComboBox(name: $name, isListOpen: $isListOpen, suggestions: suggestions,
-                                focusRequests: focusRequests,
-                                submit: submit, isPinned: isPinned, pin: pin, archive: archive)
+                LabelField(name: $name, isListOpen: $isListOpen, suggestions: suggestions,
+                           focusRequests: focusRequests,
+                           submit: submit, isPinned: isPinned, pin: pin, archive: archive)
                 TextField("h:mm", text: $duration)
                     .textFieldStyle(.roundedBorder)
                     .monospacedDigit()
