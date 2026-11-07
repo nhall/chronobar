@@ -23,11 +23,12 @@ can read and edit. There are no accounts, no sync and no integrations.
   label's timer; every running row is highlighted and shows ⏸ to pause just that timer. Use ＋, under the
   rows, to start a new label or to log time you forgot to track: its form opens just above it, and a
   new label's row appears at the bottom of the rows, right above the form. The header keeps the
-  date, the day's total with its elapsed time beside it (`3:00 · 1:00 elapsed`), (i) and ⚙. ‹ ›
+  date, (i) and ⚙. Above the rows a Total line shows the day's total with its elapsed time beside it
+  (`Total  3:00 · 1:00 elapsed`), ending where the rows' times end. ‹ ›
   move a week back or forward without limit; on any day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
   vacation ahead. While you view another day, a Today button under the strip brings you back, as
   does clicking the date. On a day with more rows than fit, the Panel stops just above the bottom of
-  the screen and only the rows scroll; the header, the strip and ＋ stay in view.
+  the screen and only the rows scroll; the header, the strip, the Total line and ＋ stay in view.
 - **Keys in the Panel** work wherever focus is, with or without Keyboard navigation turned on:
   ⌘[ and ⌘] move a week back or forward, ← and → move a Day (unless you're typing in a field, where
   they move the insertion point), ⌘T goes back to today, ⌘N opens ＋ and ⌘I opens or closes the (i)
@@ -342,16 +343,17 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] ＋, type a new label, Start: the square turns colored with `1` and the time starts at `0:00`.
       The form closes back to the rows, the new label's row is highlighted, and the Panel stays open.
 - [ ] ＋ sits at the bottom of the Panel, on its left edge: under "No time tracked" on an empty Day, and
-      under the last row with one row and with many. The header shows the date, the Day total, (i) and
-      ⚙, and no ＋.
+      under the last row with one row and with many. The header shows the date, (i) and ⚙, and no ＋
+      and no total.
 - [ ] Click ＋: its form opens under the rows, just above ＋, with the Label field focused; the Panel
       grows smoothly and stays attached to the Pill. Click ＋ again: the form closes and the Panel
       shrinks back smoothly. Start or Log a new label: its row appears last, right above where the
       form was.
 - [ ] With enough rows to pass the bottom of the screen (add labels, or hand-edit a Day file): the
       Panel stops a little above the bottom of the screen's visible area, above the Dock, still
-      attached to the Pill. The rows scroll with the trackpad or mouse wheel; the header, the Week
-      strip and ＋ stay put, and so does the ＋ form when open. Start or Log a new label: the rows
+      attached to the Pill, with the Total line whole above the rows. The rows scroll with the
+      trackpad or mouse wheel; the header, the Week strip, the Total line and ＋ stay put, and so does
+      the ＋ form when open. Start or Log a new label: the rows
       scroll to its row. Tab or ⇧Tab onto a row out of view: the rows scroll to it, and the Panel's
       keys still work. With a few rows there is no scroll bar and the Panel is as tall as its content.
       Repeat with the Pill on a smaller external display, if you have one.
@@ -439,9 +441,10 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] With VoiceOver on and another app in front, press the global shortcut: VoiceOver says "Panel
       opened" and what the Pill reads ("Panel opened. 2 timers running, 1 hour today"), and no timer
       changes. With VoiceOver off, the shortcut says nothing.
-- [ ] In the Panel, VoiceOver reads a label for every control: the date, Total for the day (with its
-      elapsed time), Time Summary, Menu, Previous week and Next week, each Day in the Week strip with its date, total, and
-      "today" or "viewed" (the viewed Day also reads as selected), each row's name (with "running" on
+- [ ] In the Panel, VoiceOver reads a label for every control: the date, Time Summary, Menu, Previous
+      week and Next week, each Day in the Week strip with its date, total, and "today" or "viewed" (the
+      viewed Day also reads as selected), the Total line as one element ("Total for the day, 2 hours
+      57 minutes, 2 hours 50 minutes elapsed"), each row's name (with "running" on
       the running row), its total and Start or Pause, then, with the ＋ form open, Duration in the form,
       and last Start or log time (＋) under it. Each Time Summary line reads as one: "This week, 12 hours 5 minutes, 9 hours elapsed".
 - [ ] With Differentiate Without Color on, view a Day other than today: the viewed Day has a ring and
@@ -483,10 +486,16 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       shows at the right under the strip each time, and ‹ › stay where they were. Click it: today's
       rows and the week containing today show, and the button is gone.
 - [ ] From a past or future Day, click the date header instead: it also returns to today.
-- [ ] Repeat with the longest weekday (Wednesday) and a two-digit total: the header, strip and Today
-      button fit without truncating or overlapping. Where `· 1:00 elapsed` has no room it reads
-      `· 1:00`, and the help tag on the total still says "elapsed".
-- [ ] With two timers running side by side for 10 minutes, the header reads `0:20 · 0:10 elapsed`; with
+- [ ] Repeat with the longest weekday (Wednesday) and a two-digit total (hand-edit a Day file to over
+      10 hours): the header, strip, Today button and Total line fit without truncating or overlapping,
+      and the Total line reads in full (`Total  12:30 · 11:00 elapsed`). Hovering it shows a help tag
+      saying what elapsed means.
+- [ ] The Total line sits between the Week strip (or the Today button) and the rows, "Total" lined up
+      with the rows' names and the end of "elapsed" with the end of the rows' times: on today with the
+      ▶/⏸ column empty to its right, on a past or future Day at the rows' trailing edge. An empty Day shows only
+      "No time tracked", with no Total line. The elapsed time is smaller and gray, and the whole line
+      is gray, so it never reads as a row.
+- [ ] With two timers running side by side for 10 minutes, the Total line reads `0:20 · 0:10 elapsed`; with
       no overlap the two times match, and logging `1:00` with ＋ raises the total only. Open (i): each
       line shows its elapsed time beside the total in smaller gray text, and VoiceOver reads it as one:
       "Today, 20 minutes, 10 minutes elapsed".
