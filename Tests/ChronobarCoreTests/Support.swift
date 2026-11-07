@@ -18,6 +18,9 @@ final class FakeClock: TimeSource {
     func set(_ local: String) { now = FakeClock.date(local, calendar) }
     func advance(_ seconds: TimeInterval) { now += seconds }
 
+    /// The moment `local` names on this clock's calendar.
+    func date(_ local: String) -> Date { FakeClock.date(local, calendar) }
+
     private static func date(_ local: String, _ calendar: Calendar) -> Date {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -67,6 +70,10 @@ func dayFile(_ root: URL, _ date: String) -> URL {
 
 func projectsFile(_ root: URL) -> URL {
     root.appendingPathComponent("projects.txt")
+}
+
+func archivedFile(_ root: URL) -> URL {
+    root.appendingPathComponent("archived.txt")
 }
 
 func contents(_ url: URL) -> String? {

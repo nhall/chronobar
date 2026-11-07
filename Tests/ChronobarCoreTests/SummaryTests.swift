@@ -24,7 +24,10 @@ import ChronobarCore
         clock.set("2026-11-03T09:45:00")
         tracker.tick()
 
-        #expect(tracker.summary() == Summary(today: 45 * 60, yesterday: 15 * 60, week: 60 * 60, month: 90 * 60))
+        // Only today's timer is timed; the rest of the week and month was logged.
+        #expect(tracker.summary() == Summary(
+            today: 45 * 60, yesterday: 15 * 60, week: 60 * 60, month: 90 * 60,
+            elapsed: Summary.Elapsed(today: 45 * 60, yesterday: 0, week: 45 * 60, month: 45 * 60)))
     }
 
     @Test func onTheFirstOfTheMonthYesterdayAndTheWeekReachBackIntoTheLastMonth() {
@@ -34,7 +37,10 @@ import ChronobarCore
 
         // Week Mon 26 Oct - Sun 1 Nov: 10 min + 1 h (Internal's negative total counts as zero) + 30 min.
         // The month is all of November, so it includes the 15 min already in 2 Nov's file.
-        #expect(tracker.summary() == Summary(today: 30 * 60, yesterday: 60 * 60, week: 100 * 60, month: 45 * 60))
+        // Elapsed time is 31 Oct's timed hour only.
+        #expect(tracker.summary() == Summary(
+            today: 30 * 60, yesterday: 60 * 60, week: 100 * 60, month: 45 * 60,
+            elapsed: Summary.Elapsed(today: 0, yesterday: 60 * 60, week: 60 * 60, month: 0)))
     }
 
     @Test func aSundayWeekStartingOnTheFirstStaysInTheMonth() {
@@ -76,6 +82,7 @@ import ChronobarCore
 
         // Week Mon 2 - Sun 8 Nov: 15 min yesterday and 8 h on Friday. The month adds 30 Nov but not 1 Dec.
         #expect(tracker.summary() == Summary(
-            today: 0, yesterday: 15 * 60, week: (8 * 60 + 15) * 60, month: (16 * 60 + 45) * 60))
+            today: 0, yesterday: 15 * 60, week: (8 * 60 + 15) * 60, month: (16 * 60 + 45) * 60,
+            elapsed: Summary.Elapsed(today: 0, yesterday: 0, week: 0, month: 0)))
     }
 }

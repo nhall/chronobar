@@ -1,22 +1,21 @@
 import Foundation
 import Observation
 
-/// The running timer.
-public struct Running: Equatable, Sendable {
-    public let project: String
-    public let start: Date
-}
-
-/// Core's single entry point: the timer, totals and the Day files behind them.
+/// Core's single entry point: the timers, totals and the Day files behind them.
 @MainActor @Observable
 public final class Tracker {
-    public private(set) var running: Running?
-    /// The Project ▶ starts: the one most recently started. Kept in `defaults` across launches.
-    public private(set) var selectedProject: String? {
-        didSet { defaults?.set(selectedProject, forKey: Self.selectedProjectKey) }
-    }
-    /// The active Projects, in `projects.txt` order.
+    /// Every running timer, each an open Entry in the loaded Day's file, at most one per Project.
+    public private(set) var timers = RunningTimers()
+    /// Whether `start` pauses every other running timer, whatever started them. The Settings toggle
+    /// "Starting a timer pauses the others"; off by default.
+    public var startPausesOthers = false
+    /// How long a timer runs before `tick()` reports it for the long-running warning; nil for Off. The
+    /// Settings pop-up; nothing is ever cut automatically.
+    public var longRunningThreshold: TimeInterval?
+    /// The Pinned Projects, always suggested, in `projects.txt` order.
     public private(set) var projects: [String] = []
+    /// The archived Projects, never suggested until typed again, in `archived.txt` order.
+    public private(set) var archived: [String] = []
     /// The clock's time at the last command or `tick()`. Totals of a running timer count up to here.
     public private(set) var now: Date
     /// Idle time to ask about with the idle alert; cleared by `resolveIdle`.
@@ -27,46 +26,53 @@ public final class Tracker {
     /// then was left by a crash.
     @ObservationIgnored private let launched: Date
     @ObservationIgnored private let lastAlive: Date?
-    @ObservationIgnored private let files: DayFiles
+    @ObservationIgnored let files: DayFiles
     @ObservationIgnored private let projectStore: ProjectStore
+    @ObservationIgnored private let archivedStore: ProjectStore
     @ObservationIgnored private let defaults: UserDefaults?
+    /// The runs `tick()` has reported as long-running, so each is reported once, across relaunches too.
+    @ObservationIgnored private var warned: [LongRunning]
+    /// The warned runs `takeLongRunning()` hasn't handed out yet.
+    @ObservationIgnored private var unreported: [LongRunning] = []
 
-    private static let selectedProjectKey = "selectedProject"
     private static let heartbeatKey = "heartbeat"
+    private static let warnedKey = "longRunningWarned"
+    /// Where v1 kept the Project ▶ started. Nothing reads it now; it is removed at launch.
+    private static let retiredSelectedProjectKey = "selectedProject"
 
-    /// Reads today's file. An open Entry there is the running timer, so a timer survives a relaunch.
-    /// With no `defaults`, the Selected Project is kept in memory only.
+    /// Reads today's file. Each open Entry there is a running timer, so timers survive a relaunch.
     public init(clock: TimeSource, storageRoot: URL, defaults: UserDefaults? = nil) {
         self.clock = clock
         self.files = DayFiles(root: storageRoot, clock: clock)
         self.projectStore = ProjectStore(root: storageRoot)
+        self.archivedStore = ProjectStore(root: storageRoot, fileName: "archived.txt")
         self.defaults = defaults
         self.now = clock.now
         self.launched = clock.now
         self.lastAlive = defaults?.object(forKey: Self.heartbeatKey) as? Date
-        self.selectedProject = defaults?.string(forKey: Self.selectedProjectKey)
+        self.warned = Self.savedWarnings(in: defaults)
+        defaults?.removeObject(forKey: Self.retiredSelectedProjectKey)
         reload()
     }
 
     /// Days whose file failed to parse when last read. Writes to them are refused until it parses again.
     public var malformedDays: Set<Day> { files.malformed }
 
-    /// Retries deferred writes, then re-reads today's file and the Project list, and other Days' files
-    /// when next asked for. A Day file that won't parse is flagged in `malformedDays` and its last good
-    /// read is kept (for a Day not read before, just its deferred writes), so a running timer keeps running.
+    /// Retries deferred writes, then re-reads today's file and the pinned and archived lists, and other
+    /// Days' files when next asked for. A Day file that won't parse is flagged in `malformedDays` and its
+    /// last good read is kept (for a Day not read before, just its deferred writes), so running timers keep
+    /// running.
     public func reload() {
         now = clock.now
         projects = (try? projectStore.load()) ?? []
-        let known = running
+        archived = (try? archivedStore.load()) ?? []
+        let known = timers
         files.load(today)
         let reparsed = files.takeReparsed()
         let open = files.loadedEntries.compactMap(\.openTimer)
-        // An open Entry in a file that just parsed again is left for `recover(reparsed:)`.
-        running = open.first { $0 == known } ?? (reparsed.contains(today) ? nil : open.first)
-        // A running Project that was archived keeps running but isn't selected again.
-        if let running, projects.contains(where: { ProjectName.matches($0, running.project) }) {
-            selectedProject = storedName(running.project)
-        }
+        // An open Entry in a file that just parsed again is left for `recover(reparsed:)`, unless it is
+        // one of Core's own timers.
+        timers = RunningTimers(reparsed.contains(today) ? open.filter { known.contains($0) } : open)
         recover(reparsed: reparsed)
     }
 
@@ -75,68 +81,163 @@ public final class Tracker {
     /// Whether `day`'s file failed to parse when last read. The Panel warns about it.
     public func isMalformed(_ day: Day) -> Bool { malformedDays.contains(day) }
 
-    /// Starts a timer for `project`, pausing any running one first. A new name creates a Project.
-    /// Refused, leaving any running timer alone, while today's file is malformed. Timers run only today:
-    /// unlike `log` and `adjust` this takes no Day, so no Day other than today ever gets a timer.
-    /// Returns the Project's name as `addProject` resolves it, the name its row is shown under.
+    /// Starts a timer for `project`, leaving the running ones running unless `startPausesOthers` is on. A
+    /// Project already running keeps its timer, start and source, and the others keep running whatever the
+    /// setting, so this is a no-op for it. A new name
+    /// creates a Project. Refused, leaving the running timers alone, while today's file is malformed.
+    /// Timers run only today: unlike `log` and `adjust` this takes no Day, so no Day other than today ever
+    /// gets a timer. Returns the Project's name with its stored spelling, the name its row is shown under.
     @discardableResult
-    public func start(_ name: String) throws -> String {
-        now = clock.now
+    public func start(_ name: String, source: EntrySource = .app) throws -> String {
+        catchUp()
         files.retryPending()
         _ = try files.read(today)
-        let project = try addProject(name)
-        try pause()
-        let start = now
-        try files.update(today) { $0.append(.timed(project: project, start: start, end: nil)) }
-        running = Running(project: project, start: start)
-        selectedProject = project
+        let project = try resolve(name)
+        guard !timers.contains(project) else { return project }
+        let timer = Running(project: project, start: now, source: source)
+        let pausesOthers = startPausesOthers
+        // One write closes the others, opens the new Entry and brings the Project back, so a failed save
+        // leaves every timer and file as it was.
+        try files.update(today, alongWith: bringingBack(project)) { entries in
+            if pausesOthers { Self.close(&entries, at: timer.start) }
+            entries.append(.timed(project: project, start: timer.start, end: nil, source: source))
+        }
+        if pausesOthers { timers = RunningTimers() }
+        timers.insert(timer)
+        broughtBack(project)
         return project
     }
 
-    /// Closes the running Entry. If today's file is malformed the timer still stops, and closing the
-    /// Entry waits until the file parses again.
+    /// Pauses every running timer, closing their Entries. If today's file is malformed the timers still
+    /// stop, and closing the Entries waits until the file parses again.
     public func pause() throws {
         catchUp()
-        guard running != nil else { return }
+        guard !timers.isEmpty else { return }
         let end = now
         try files.update(today, deferringIfMalformed: true) { Self.close(&$0, at: end) }
-        running = nil
+        timers = RunningTimers()
     }
 
-    /// Whether `toggle()` has a timer to pause or a Selected Project to start.
-    public var canToggle: Bool { running != nil || selectedProject != nil }
+    /// Pauses `name`'s timer, if it runs, leaving any others running. Deferred like `pause()`. Returns the
+    /// timer it stopped, whose Entry now ends at `now`; nil if `name` wasn't running.
+    @discardableResult
+    public func pause(_ name: String) throws -> Running? {
+        catchUp()
+        guard let timer = timers[name] else { return nil }
+        let end = now
+        try files.update(today, deferringIfMalformed: true) { Self.close(&$0, at: end, only: timer.project) }
+        timers.remove(timer.project)
+        return timer
+    }
 
-    /// Pauses the running timer, or starts the Selected Project. Does nothing with no Selected Project;
-    /// the UI opens the ＋ form instead.
-    public func toggle() throws {
-        if running != nil {
-            try pause()
-        } else if let selectedProject {
-            try start(selectedProject)
+    /// The long-running warning's Stop: pauses `run`'s timer now, unless that run has already ended, so a
+    /// late click never stops a timer started again since.
+    public func pause(_ run: LongRunning) throws {
+        catchUp()
+        guard let timer = timers[run.project], runStart(of: timer) == run.since else { return }
+        try pause(timer.project)
+    }
+
+    /// Called when Chronobar quits: pauses the timers started in the app and leaves agents' timers open,
+    /// so quitting by habit never stops an agent's timing. Deferred like `pause()`.
+    public func quit() throws {
+        try pauseAppTimers()
+    }
+
+    /// Pauses every timer started in the app, leaving agents' timers running. Deferred like `pause()`.
+    private func pauseAppTimers() throws {
+        catchUp()
+        let app = timers.filter { $0.source == .app }
+        guard !app.isEmpty else { return }
+        let end = now
+        try files.update(today, deferringIfMalformed: true) { entries in
+            for timer in app { Self.close(&entries, at: end, only: timer.project) }
         }
+        for timer in app { timers.remove(timer.project) }
     }
 
-    /// Whether `name`'s timer is the one running.
-    public func isRunning(_ name: String) -> Bool {
-        running.map { ProjectName.matches($0.project, name) } ?? false
-    }
+    /// Whether `name`'s timer is running.
+    public func isRunning(_ name: String) -> Bool { timers.contains(name) }
 
-    /// A Panel row's ▶/⏸: pauses `name` if it is running, otherwise starts it, pausing any other timer.
+    /// A Panel row's ▶/⏸: pauses `name` if it is running, otherwise starts it as `start` does.
     public func toggle(_ name: String) throws {
         if isRunning(name) {
-            try pause()
+            try pause(name)
         } else {
             try start(name)
         }
     }
 
-    /// Called every second by the UI so running totals advance, and on wake. Rolls over to a new Day and
-    /// retries deferred writes, then recovers any Entry left open in a Day file that parsed again.
+    /// Called every second by the UI so running totals advance, on wake, and before each Panel opening or
+    /// agent request. Rolls over to a new Day and retries deferred writes, then recovers any Entry left open
+    /// in a Day file that parsed again. Timers that have now run for `longRunningThreshold` wait in
+    /// `takeLongRunning()`, so whichever caller ticked, the app still hears of each.
     public func tick() {
         catchUp()
         files.retryPending()
         recover(reparsed: files.takeReparsed())
         unblockPendingIdle()
+        noteLongRunning()
+    }
+
+    /// The timers `tick()` found past `longRunningThreshold` since last asked, each once per run, leaving
+    /// none to take until another passes it. A run that ended before it was taken is left out.
+    public func takeLongRunning() -> [LongRunning] {
+        let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
+        defer { unreported = [] }
+        return unreported.filter(running.contains)
+    }
+
+    /// Marks the timers that ran past `longRunningThreshold` as warned and queues them for
+    /// `takeLongRunning()`.
+    private func noteLongRunning() {
+        guard let threshold = longRunningThreshold else { return }
+        let passed = timers.compactMap { timer -> LongRunning? in
+            let run = LongRunning(project: timer.project, since: runStart(of: timer))
+            guard now.timeIntervalSince(run.since) >= threshold, !warned.contains(run) else { return nil }
+            return run
+        }
+        guard !passed.isEmpty else { return }
+        // Runs that ended are dropped, so the list holds only timers still running.
+        let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
+        warned = warned.filter(running.contains) + passed
+        unreported += passed
+        defaults?.set(warned.map { ["project": $0.project, "since": $0.since] }, forKey: Self.warnedKey)
+    }
+
+    /// The runs reported before the last quit, as `newlyLongRunning` saved them.
+    private static func savedWarnings(in defaults: UserDefaults?) -> [LongRunning] {
+        let saved = defaults?.array(forKey: warnedKey) as? [[String: Any]] ?? []
+        return saved.compactMap { run in
+            guard let project = run["project"] as? String, let since = run["since"] as? Date else { return nil }
+            return LongRunning(project: project, since: since)
+        }
+    }
+
+    /// When `timer`'s run began: its start, or for a timer carried over at midnight, the start of the Entry
+    /// it was split from on the Day before, followed back as far as the splits go.
+    private func runStart(of timer: Running) -> Date {
+        runPieces(of: timer)[0].start
+    }
+
+    /// The Entries `timer`'s run is stored as, oldest first, as (Day, start): its own open Entry last, and
+    /// before it, for a timer carried over at midnight, each Entry on an earlier Day it was split from.
+    func runPieces(of timer: Running) -> [(day: Day, start: Date)] {
+        var start = timer.start
+        var day = Day(containing: start, in: calendar)
+        var pieces = [(day: day, start: start)]
+        while start == calendar.startOfDay(for: day.noon(in: calendar)) {
+            day = day.adding(days: -1, in: calendar)
+            let split = files.entries(on: day).lazy.compactMap { entry -> Date? in
+                guard case .timed(let project, let from, start?, _) = entry,
+                      ProjectName.matches(project, timer.project) else { return nil }
+                return from
+            }.first
+            guard let split else { break }
+            start = split
+            pieces.insert((day, start), at: 0)
+        }
+        return pieces
     }
 
     /// Clears `pendingIdle.blockedBy` once that Day's file parses and its deferred writes have landed.
@@ -146,57 +247,63 @@ public final class Tracker {
         pendingIdle = PendingIdle(since: idle.since, until: idle.until)
     }
 
-    /// Records the clock's time as the last moment Chronobar was alive, while a timer runs. The UI calls
+    /// Records the clock's time as the last moment Chronobar was alive, while any timer runs. The UI calls
     /// it every minute and on sleep; `recoverAfterLaunch()` reads it after a crash.
     public func heartbeat() {
-        guard running != nil else { return }
+        guard !timers.isEmpty else { return }
         defaults?.set(clock.now, forKey: Self.heartbeatKey)
     }
 
-    /// Called once at launch. Quitting closes the running Entry, so an Entry still open means Chronobar
-    /// crashed or the Mac was forced off. Returns when it was last known alive (the later of the Entry's
-    /// start and the last Heartbeat) so the UI can ask about the time since with the idle alert; nil if
-    /// nothing was left open. An Entry open on a past Day becomes the running timer and is split across
-    /// the Days since, as after waking from sleep, so the idle removal can cut it. The same goes for an
-    /// Entry found open later in a Day file that was malformed at launch, once it parses.
+    /// Called once at launch. Quitting closes the app-started Entries, so one still open means Chronobar
+    /// crashed or the Mac was forced off. Returns when it was last known alive (the later of the earliest
+    /// open app-started Entry's start and the last Heartbeat) so the UI can ask about the time since with
+    /// the idle alert; nil if none was left open. Agents' open Entries become running timers with no Idle
+    /// time, whether a crash or quitting left them. Entries open on a past Day become running timers and
+    /// are split across the Days since, as after waking from sleep, so the idle removal can cut them. The
+    /// same goes for Entries found open later in a Day file that was malformed at launch, once it parses.
     @discardableResult
     public func recoverAfterLaunch() -> Date? {
         now = clock.now
-        if let running {
-            recover(running, on: files.loadedDay)
-        } else if let (day, entries) = lastTimedDay(), let open = entries.lazy.compactMap(\.openTimer).first {
-            recover(open, on: day)
+        if !timers.isEmpty {
+            recover(Array(timers), on: files.loadedDay)
+        } else if let (day, entries) = lastTimedDay() {
+            recover(entries.compactMap(\.openTimer), on: day)
         }
         return pendingIdle?.since
     }
 
-    /// Recovers open Entries in Day files that were malformed and now parse. Core's own running Entry is
-    /// left alone; any other one was left by a crash.
+    /// Recovers open Entries in Day files that were malformed and now parse. Core's own running timers are
+    /// left alone; any other open Entry was left by a crash.
     private func recover(reparsed days: Set<Day>) {
         for day in days.sorted() where !files.hasPending(day) {
-            for timer in files.entries(on: day).compactMap(\.openTimer)
-            where !(day == files.loadedDay && timer == running) {
-                recover(timer, on: day)
-            }
+            let found = files.entries(on: day).compactMap(\.openTimer)
+            recover(found.filter { !(day == files.loadedDay && timers.contains($0)) }, on: day)
         }
     }
 
-    /// Makes an Entry left open by a crash the running timer, split across the Days since, with the time
-    /// since it was last alive pending as Idle time. If another timer runs already, the Entry is closed
-    /// when Chronobar launched (or at the end of its Day) and only the time before that is pending.
-    private func recover(_ timer: Running, on day: Day) {
-        let lastAlive = max(timer.start, lastAlive ?? timer.start)
-        if running == nil || running == timer {
+    /// Makes Entries left open on `day` by a crash (or by quitting, for agents' timers) running timers,
+    /// split across the Days since. For timers started in the app the time since each was last alive is
+    /// pending as Idle time; agents' timers just keep running. If other timers run already, the Entries are
+    /// closed when Chronobar launched (or at the end of their Day) and only the app-started time before
+    /// that is pending.
+    private func recover(_ found: [Running], on day: Day) {
+        guard !found.isEmpty else { return }
+        if timers.allSatisfy(found.contains) {
             files.move(to: day)
-            running = timer
-            noteIdle(PendingIdle(since: lastAlive))
+            timers = RunningTimers(found)
+            for timer in found where timer.source == .app {
+                noteIdle(PendingIdle(since: max(timer.start, lastAlive ?? timer.start)))
+            }
             rollOver()
-        } else {
+            return
+        }
+        for timer in found {
+            let lastAlive = max(timer.start, lastAlive ?? timer.start)
             let end = max(timer.start, min(launched, calendar.dateInterval(of: .day, for: timer.start)!.end))
             try? files.update(day, deferringIfMalformed: true) { entries in
                 entries = entries.map { $0.openTimer == timer ? $0.closed(at: end) : $0 }
             }
-            noteIdle(PendingIdle(since: min(lastAlive, end), until: end))
+            if timer.source == .app { noteIdle(PendingIdle(since: min(lastAlive, end), until: end)) }
         }
     }
 
@@ -216,17 +323,18 @@ public final class Tracker {
         return nil
     }
 
-    /// Answers the idle alert. `remove` and `removeAndStop` drop the time from `idleStart` to `idleEnd`
-    /// (nil: now) from every Day it covers: a timed Entry straddling either end is cut there, timed Entries
-    /// inside are deleted and manual Entries stay. `remove` then restarts the running Project from now if
-    /// the cut stopped it; `removeAndStop` leaves it stopped. If any of those Day files won't parse,
-    /// nothing is changed.
+    /// Answers the idle alert, for the timers started in the app only: agents kept working while the user
+    /// was away, so their Entries and timers are left alone. `remove` and `removeAndStop` drop the time
+    /// from `idleStart` to `idleEnd` (nil: now) from every Day it covers: an app-started timed Entry
+    /// straddling either end is cut there, those inside are deleted and manual Entries stay. `remove` then
+    /// restarts from now each app timer the cut stopped; `removeAndStop` leaves every app timer stopped. If
+    /// any of those Day files won't parse, or one can't be saved, nothing is changed.
     public func resolveIdle(since idleStart: Date, until idleEnd: Date? = nil, choice: IdleChoice) throws {
         catchUp()
         guard choice != .keep else { return pendingIdle = nil }
         let idleEnd = idleEnd.map { min($0, now) }
         let idleStart = min(idleStart, idleEnd ?? now)
-        let project = running?.project
+        let running = timers
         let firstDay = Day(containing: idleStart, in: calendar)
         let lastDay = idleEnd.map { Day(containing: $0, in: calendar) } ?? today
         let days = Set(files.days().filter { $0 >= firstDay && $0 <= lastDay } + [today]).sorted()
@@ -244,32 +352,44 @@ public final class Tracker {
             pendingIdle = PendingIdle(since: since, until: idleEnd ?? now, blockedBy: error.day)
             throw error
         }
-        for (day, entries) in loaded {
-            let kept = Self.removing(entries, from: idleStart, to: idleEnd, asOf: now)
-            if kept != entries { try files.save(day, kept) }
+        // The removal and the restart or stop after it are one write, every Day or none.
+        let changed = loaded.compactMap { day, entries -> (Day, [Entry])? in
+            var kept = Self.removing(entries, from: idleStart, to: idleEnd, asOf: now)
+            if day == today { kept = Self.resumed(kept, running: running, choice: choice, at: now) }
+            return kept == entries ? nil : (day, kept)
         }
+        try files.save(changed)
         pendingIdle = nil
         reload()
-        if choice == .removeAndStop {
-            try pause()
-        } else if running == nil, let project {
-            let start = now
-            try files.update(today) { $0.append(.timed(project: project, start: start, end: nil)) }
-            running = Running(project: project, start: start)
-        }
     }
 
-    /// `entries` without their timed time from `cut` to `resume` (nil: no end); an open Entry counts up to
-    /// `now`. An Entry running on past `resume` carries on from there.
+    /// Today's `entries` after an idle removal, with the app timers it stopped started again at `now`
+    /// (`remove`), or with every app timer stopped at `now` (`removeAndStop`).
+    private static func resumed(_ entries: [Entry], running: RunningTimers, choice: IdleChoice, at now: Date) -> [Entry] {
+        if choice == .removeAndStop {
+            return entries.map { $0.openTimer?.source == .app ? $0.closed(at: now) : $0 }
+        }
+        let open = entries.compactMap(\.openTimer)
+        let stopped = running.filter { timer in
+            timer.source == .app && !open.contains { ProjectName.matches($0.project, timer.project) }
+        }
+        return entries + stopped.map { .timed(project: $0.project, start: now, end: nil, source: $0.source) }
+    }
+
+    /// `entries` without their app-started time from `cut` to `resume` (nil: no end); an open Entry counts
+    /// up to `now`. An Entry running on past `resume` carries on from there. Agents worked on while the
+    /// user was away, so their Entries stay whole.
     private static func removing(_ entries: [Entry], from cut: Date, to resume: Date?, asOf now: Date) -> [Entry] {
         entries.flatMap { entry -> [Entry] in
-            guard case .timed(let project, let start, let end) = entry else { return [entry] }
+            guard case .timed(let project, let start, let end, let source) = entry, source == .app else {
+                return [entry]
+            }
             if (end ?? now) <= cut { return [entry] }
             if let resume, start >= resume { return [entry] }
             var pieces: [Entry] = []
-            if start < cut { pieces.append(.timed(project: project, start: start, end: cut)) }
+            if start < cut { pieces.append(.timed(project: project, start: start, end: cut, source: source)) }
             if let resume, end.map({ $0 > resume }) ?? true {
-                pieces.append(.timed(project: project, start: resume, end: end))
+                pieces.append(.timed(project: project, start: resume, end: end, source: source))
             }
             return pieces
         }
@@ -305,34 +425,67 @@ public final class Tracker {
         rows(day).reduce(0) { $0 + $1.total }
     }
 
+    /// The Day's Elapsed time: the clock time covered by at least one timed Entry, a running timer
+    /// counted up to now. Below the Day total when timers overlap; manual Entries count only there.
+    public func elapsed(_ day: Day) -> TimeInterval {
+        Entry.elapsed(files.entries(on: day), asOf: now)
+    }
+
     /// The calendar Days and weeks are counted in.
     public var calendar: Calendar { clock.calendar }
 
-    /// Adds `name` to the Project list and returns the Project's name. A name matching an active Project
-    /// returns its stored spelling and changes nothing; one matching an archived Project revives it with
-    /// the spelling its most recent Entries used.
-    @discardableResult
-    public func addProject(_ name: String) throws -> String {
+    /// How many Days, today included, a Project stays suggested after its last Entry.
+    private static let suggestedDays = 30
+
+    /// The Project `name` refers to, for start and log to write under: the spelling of the Pinned Project,
+    /// else of the archived one, else of its latest Entry, else `name` trimmed. Throws if either list won't
+    /// parse, so a write never replaces it. Writes nothing: a caller brings an archived Project back in
+    /// its own write (`bringingBack`), so a refused or failed write changes nothing.
+    func resolve(_ name: String) throws -> String {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
-        var list = try projectStore.load()
-        if let existing = list.first(where: { ProjectName.matches($0, name) }) {
-            projects = list
-            return existing
-        }
-        let project = historicalName(matching: name) ?? name
-        list.append(project)
-        try projectStore.save(list)
-        projects = list
+        let pinned = try projectStore.load()
+        let archived = try archivedStore.load()
+        projects = pinned
+        self.archived = archived
+        return pinned.first { ProjectName.matches($0, name) }
+            ?? archived.first { ProjectName.matches($0, name) }
+            ?? historicalName(matching: name) ?? name
+    }
+
+    /// The `archived.txt` write taking `project` off it, as `resolve` last read it, to land with the write
+    /// putting time under `project` or pinning it, all or none; none if it isn't archived. Call
+    /// `broughtBack` once that write has landed.
+    func bringingBack(_ project: String) -> [FileWrite] {
+        guard archived.contains(where: { ProjectName.matches($0, project) }) else { return [] }
+        return [archivedStore.write(archived.filter { !ProjectName.matches($0, project) })]
+    }
+
+    /// Takes `project` off `archived` after `bringingBack`'s write landed.
+    func broughtBack(_ project: String) {
+        archived.removeAll { ProjectName.matches($0, project) }
+    }
+
+    /// Pins `name`: adds it to `projects.txt`, so it is always suggested, and takes it off `archived.txt`.
+    /// Returns the Project's name, spelled as for start. Pinning a Pinned Project changes nothing.
+    @discardableResult
+    public func pinProject(_ name: String) throws -> String {
+        let project = try resolve(name)
+        let pinned = projects.contains(where: { ProjectName.matches($0, project) }) ? projects : projects + [project]
+        // Both lists in one write, so a failed save leaves both as they were.
+        let writes = bringingBack(project) + (pinned == projects ? [] : [projectStore.write(pinned)])
+        try FileWrite.replace(writes)
+        broughtBack(project)
+        projects = pinned
         return project
     }
 
-    /// Active Projects containing `text` anywhere, ignoring case and surrounding spaces. A name matching
+    /// Suggested Projects containing `text` anywhere, ignoring case and surrounding spaces. A name matching
     /// `text` exactly comes first, then names starting with it, then the rest; within each, the most
     /// recently used first.
     public func suggestions(for text: String) -> [String] {
         let text = ProjectName.trimmed(text)
-        let recent = projectsByRecentUse()
+        let recent = suggestedProjects()
         guard !text.isEmpty else { return recent }
         // Rank 0 is an exact match, 1 starts with `text`, 2 contains it; `recency` keeps recent use within each.
         let ranked = recent.enumerated().compactMap { recency, name -> (rank: Int, recency: Int, name: String)? in
@@ -343,35 +496,37 @@ public final class Tracker {
         return ranked.sorted { ($0.rank, $0.recency) < ($1.rank, $1.recency) }.map(\.name)
     }
 
-    /// What a typed name would start or log: an active Project, an archived one with time in the Day
-    /// files (each with the spelling `addProject` would use), or a new one. Nil for a blank name.
-    /// Reads other Days' files once until the next `reload`, so it can be asked on every keystroke.
+    /// What a typed name would start or log: a suggested Project, one the suggestions leave out (archived,
+    /// or with time in the Day files but not lately), each spelled as start would write it, or a new one.
+    /// Nil for a blank name. Reads other Days' files once until the next `reload`, so it can be asked on
+    /// every keystroke.
     public func match(_ name: String) -> ProjectMatch? {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { return nil }
-        if let active = projects.first(where: { ProjectName.matches($0, name) }) { return .active(active) }
+        if let active = suggestedProjects().first(where: { ProjectName.matches($0, name) }) { return .active(active) }
+        if let archived = archived.first(where: { ProjectName.matches($0, name) }) { return .archived(archived) }
         for day in files.days() {
             if let entry = files.entries(on: day).last(where: { ProjectName.matches($0.project, name) }) {
-                return .archived(entry.project)
+                return .archived(storedName(entry.project))
             }
         }
         return .new
     }
 
-    /// The active Projects, the one with the latest Entry on today or a past Day first. Projects with no
-    /// such Entry (new by hand, or with time only on future Days) follow in the Project list's order.
-    private func projectsByRecentUse() -> [String] {
+    /// The Projects the ＋ form suggests: those with an Entry on today or the Days just before it
+    /// (`suggestedDays` in all), the latest used first, then Pinned Projects not used in that time, in
+    /// `projects.txt` order. Archived Projects are left out. Time logged ahead isn't a use.
+    private func suggestedProjects() -> [String] {
+        let first = today.adding(days: 1 - Self.suggestedDays, in: calendar)
         var used: [String] = []
-        let days = [today] + files.days().filter { $0 < today }
-        for day in days where used.count < projects.count {
-            for entry in files.entries(on: day).reversed() {
-                if let project = projects.first(where: { ProjectName.matches($0, entry.project) }),
-                   !used.contains(project) {
-                    used.append(project)
-                }
+        for day in [today] + files.days().filter({ $0 < today && $0 >= first }) {
+            for entry in files.entries(on: day).reversed()
+            where !used.contains(where: { ProjectName.matches($0, entry.project) }) {
+                used.append(storedName(entry.project))
             }
         }
-        return used + projects.filter { !used.contains($0) }
+        let pinned = projects.filter { project in !used.contains { ProjectName.matches($0, project) } }
+        return (used + pinned).filter { project in !archived.contains { ProjectName.matches($0, project) } }
     }
 
     /// The name a past Entry used for this Project, newest Day first. Malformed Days are skipped.
@@ -383,18 +538,33 @@ public final class Tracker {
         return nil
     }
 
-    /// Removes the Project matching `name` from the Project list. Its Entries stay in the Day files.
+    /// Archives the Project matching `name`: takes it off `projects.txt` and adds it to `archived.txt`, so
+    /// it isn't suggested until typed again. Its Entries stay in the Day files and a running timer keeps
+    /// running. Reads both lists before writing either and writes them together, so if one won't parse or
+    /// can't be saved nothing changes.
     public func archiveProject(_ name: String) throws {
-        var list = try projectStore.load()
-        list.removeAll { ProjectName.matches($0, name) }
-        try projectStore.save(list)
-        projects = list
-        if let selectedProject, ProjectName.matches(selectedProject, name) { self.selectedProject = nil }
+        let name = ProjectName.trimmed(name)
+        guard !name.isEmpty else { throw EmptyProjectName() }
+        var pinned = try projectStore.load()
+        var archived = try archivedStore.load()
+        var writes: [FileWrite] = []
+        if !archived.contains(where: { ProjectName.matches($0, name) }) {
+            let project = pinned.first { ProjectName.matches($0, name) } ?? historicalName(matching: name) ?? name
+            archived.append(project)
+            writes.append(archivedStore.write(archived))
+        }
+        if pinned.contains(where: { ProjectName.matches($0, name) }) {
+            pinned.removeAll { ProjectName.matches($0, name) }
+            writes.append(projectStore.write(pinned))
+        }
+        try FileWrite.replace(writes)
+        projects = pinned
+        self.archived = archived
     }
 
     /// Adds a typed duration (`1:30`, `45`) to the Project on `day`, past, today or future, as a manual
-    /// Entry, without starting a timer. A new name creates a Project. Throws `InvalidDuration` for
-    /// anything but a positive total. Returns the Project's name as `addProject` resolves it, the name its
+    /// Entry, without starting a timer. An archived Project comes back. Throws `InvalidDuration` for
+    /// anything but a positive total. Returns the Project's name with its stored spelling, the name its
     /// row is shown under.
     @discardableResult
     public func log(_ name: String, _ duration: String, on day: Day) throws -> String {
@@ -402,8 +572,11 @@ public final class Tracker {
             throw InvalidDuration(text: duration)
         }
         catchUp()
-        let project = try addProject(name)
-        try files.update(day) { $0.append(.manual(project: project, seconds: seconds, note: .manual)) }
+        let project = try resolve(name)
+        try files.update(day, alongWith: bringingBack(project)) {
+            $0.append(.manual(project: project, seconds: seconds, note: .manual))
+        }
+        broughtBack(project)
         return project
     }
 
@@ -431,32 +604,37 @@ public final class Tracker {
     }
 
     /// Brings `now` up to the clock and rolls over to a new Day. Every command starts with this.
-    private func catchUp() {
+    func catchUp() {
         now = clock.now
         rollOver()
     }
 
-    /// After midnight, splits a running timer at the start of each new Day so every Day's file holds only
-    /// that Day's time, then loads today. Writes to a file that won't parse wait until it does.
+    /// After midnight, splits every running timer at the start of each new Day so every Day's file holds
+    /// only that Day's time, then loads today. Writes to a file that won't parse wait until it does.
     private func rollOver() {
         guard files.loadedDay != today else { return }
-        while let running, files.loadedDay < today {
-            let midnight = calendar.dateInterval(of: .day, for: running.start)!.end
+        while !timers.isEmpty, files.loadedDay < today {
+            let midnight = calendar.dateInterval(of: .day, for: files.loadedDay.noon(in: calendar))!.end
             let next = Day(containing: midnight, in: calendar)
-            let project = running.project
+            let carried = timers.map { Running(project: $0.project, start: midnight, source: $0.source) }
             try? files.update(files.loadedDay, deferringIfMalformed: true) { Self.close(&$0, at: midnight) }
-            try? files.update(next, deferringIfMalformed: true) {
-                $0.append(.timed(project: project, start: midnight, end: nil))
+            try? files.update(next, deferringIfMalformed: true) { entries in
+                for timer in carried {
+                    entries.append(.timed(project: timer.project, start: midnight, end: nil, source: timer.source))
+                }
             }
             // Load the new Day as written, or as its deferred writes leave it if its file won't parse.
             files.move(to: next)
-            self.running = Running(project: running.project, start: midnight)
+            timers = RunningTimers(carried)
         }
         reload()
     }
 
-    /// Ends every open Entry at `end`.
-    private static func close(_ entries: inout [Entry], at end: Date) {
-        entries = entries.map { $0.closed(at: end) }
+    /// Ends every open Entry at `end`, or with `project` only that Project's.
+    private static func close(_ entries: inout [Entry], at end: Date, only project: String? = nil) {
+        entries = entries.map { entry in
+            if let project, !ProjectName.matches(entry.project, project) { return entry }
+            return entry.closed(at: end)
+        }
     }
 }

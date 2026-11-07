@@ -20,7 +20,8 @@ struct SettingsView: View {
                     .tag(color)
                 }
             }
-            KeyboardShortcuts.Recorder("Play/pause shortcut", name: .toggleTimer)
+            KeyboardShortcuts.Recorder("Open Panel shortcut", name: .openPanel)
+            Toggle("Starting a timer pauses the others", isOn: $preferences.startPausesOthers)
             Toggle("Show in Dock", isOn: $preferences.showInDock)
             Toggle("Start at login", isOn: Binding(get: { loginItem.isOn }, set: { loginItem.set($0) }))
             if loginItem.status == .requiresApproval {
@@ -33,9 +34,18 @@ struct SettingsView: View {
                         .controlSize(.small)
                 }
             }
-            Picker("Idle after no input for", selection: $preferences.idleThreshold) {
+            Picker(selection: $preferences.idleThreshold) {
                 ForEach(IdleThreshold.presets, id: \.self) { threshold in
                     Text(threshold.minutes.map { "\($0) minutes" } ?? "Off").tag(threshold)
+                }
+            } label: {
+                Text("Idle after no input for")
+                // A grouped Form shows a label's second Text as its subtitle.
+                Text("Applies to timers started in the app. Agents' timers keep running.")
+            }
+            Picker("Warn when a timer runs for", selection: $preferences.longRunningThreshold) {
+                ForEach(LongRunningThreshold.presets, id: \.self) { threshold in
+                    Text(threshold.hours.map { "\($0) hours" } ?? "Off").tag(threshold)
                 }
             }
         }

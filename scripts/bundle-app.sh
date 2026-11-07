@@ -1,5 +1,6 @@
 #!/bin/sh
-# Assembles Chronobar.app from a release build and ad-hoc signs it.
+# Assembles Chronobar.app from a release build and ad-hoc signs it, with the `chronobar` command
+# in bin/ next to it.
 # Needs only the Command Line Tools; Xcode is not required.
 #
 #   scripts/bundle-app.sh [--dev] [output-dir]      (default: build)
@@ -41,6 +42,8 @@ APP="$OUT/$NAME.app"
 # shellcheck disable=SC2086
 swift build -c release --product Chronobar ${SWIFT_BUILD_FLAGS:-}
 # shellcheck disable=SC2086
+swift build -c release --product chronobar-cli ${SWIFT_BUILD_FLAGS:-}
+# shellcheck disable=SC2086
 BIN="$(swift build -c release --show-bin-path ${SWIFT_BUILD_FLAGS:-})"
 
 rm -rf "$APP"
@@ -58,4 +61,11 @@ iconutil --convert icns --output "$APP/Contents/Resources/Chronobar.icns" packag
 printf '%s\n' "$INFO" > "$APP/Contents/Info.plist"
 
 codesign --force --sign - "$APP"
+
+# The `chronobar` command, beside the app rather than in it: the same build serves both copies
+# (`chronobar --dev` talks to the development one). SwiftPM names it chronobar-cli, as a file system
+# that ignores case can't hold `chronobar` next to the app's `Chronobar`.
+mkdir -p "$OUT/bin"
+cp "$BIN/chronobar-cli" "$OUT/bin/chronobar"
+codesign --force --sign - "$OUT/bin/chronobar"
 echo "$APP"

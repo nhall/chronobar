@@ -35,14 +35,14 @@ public enum Contrast {
     }
 }
 
-/// The ▶ or ⏸ drawn on the running color, as in the Pill's square: white wherever white is readable,
-/// black otherwise. Black always meets the minimum where white doesn't, so every running color,
-/// including any system accent, passes.
+/// The count drawn in the Pill's square, on the running color or on stopped gray: white wherever white
+/// is readable, black otherwise. Black always meets the minimum where white doesn't, so every running
+/// color, including any system accent, passes.
 public enum Foreground: Equatable, Sendable {
     case white, black
 
-    /// WCAG 2's minimum for a glyph that stands alone: 3:1.
-    public static let minimumContrast = 3.0
+    /// WCAG 2's minimum for small text: 4.5:1.
+    public static let minimumContrast = 4.5
 
     public static func on(_ background: SRGB) -> Foreground {
         Contrast.ratio(white.srgb, background) >= minimumContrast ? .white : .black

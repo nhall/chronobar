@@ -13,6 +13,7 @@ import ChronobarCore
         #expect(preferences.runningColor == .accent)
         #expect(preferences.showInDock)
         #expect(!preferences.loginHintDismissed)
+        #expect(!preferences.startPausesOthers)
     }
 
     @Test func choicesSurviveARelaunch() {
@@ -23,11 +24,13 @@ import ChronobarCore
         preferences.runningColor = .teal
         preferences.showInDock = false
         preferences.loginHintDismissed = true
+        preferences.startPausesOthers = true
 
         let relaunched = Preferences(defaults: settings.fresh())
         #expect(relaunched.runningColor == .teal)
         #expect(!relaunched.showInDock)
         #expect(relaunched.loginHintDismissed)
+        #expect(relaunched.startPausesOthers)
     }
 
     @Test func anUnknownStoredColorFallsBackToTheAccentColor() {
@@ -108,6 +111,42 @@ import ChronobarCore
 
         Preferences(defaults: defaults).idleThreshold = .minutes(20)
         #expect(Preferences(defaults: settings.fresh()).idleThreshold == .minutes(20))
+    }
+
+    @Test func theLongRunningWarningComesAfterFourHoursByDefault() {
+        let defaults = settings.fresh()
+        defer { settings.remove() }
+
+        let threshold = Preferences(defaults: defaults).longRunningThreshold
+        #expect(threshold == .hours(4))
+        #expect(threshold.seconds == TimeInterval(4 * 3600))
+    }
+
+    @Test func theLongRunningChoicesAreOffThenTwoToEightHours() {
+        #expect(LongRunningThreshold.presets == [.off, .hours(2), .hours(3), .hours(4), .hours(6), .hours(8)])
+        #expect(LongRunningThreshold.off.seconds == nil)
+    }
+
+    @Test func theLongRunningThresholdSurvivesARelaunch() {
+        let defaults = settings.fresh()
+        defer { settings.remove() }
+
+        let preferences = Preferences(defaults: defaults)
+        preferences.longRunningThreshold = .hours(8)
+        #expect(Preferences(defaults: settings.fresh()).longRunningThreshold == .hours(8))
+
+        preferences.longRunningThreshold = .off
+        #expect(Preferences(defaults: settings.fresh()).longRunningThreshold == .off)
+    }
+
+    /// A hand-edited value that isn't a choice in the pop-up goes back to the default.
+    @Test(arguments: [5, 12, -1])
+    func aStoredLongRunningThresholdThatIsNotAChoiceIsFourHours(stored: Int) {
+        let defaults = settings.fresh()
+        defer { settings.remove() }
+        defaults.set(stored, forKey: "longRunningThresholdHours")
+
+        #expect(Preferences(defaults: defaults).longRunningThreshold == .hours(4))
     }
 
     @Test func theChoicesAreTheAccentColorThenTheNamedSystemColors() {

@@ -45,7 +45,7 @@ import ChronobarCore
           "date": "2026-11-03",
           "entries": [
             { "project": "Internal", "seconds": 900, "note": "manual" },
-            { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00" }
+            { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" }
           ]
         }
 
@@ -61,7 +61,7 @@ import ChronobarCore
 
         #expect(tracker.isMalformed(today))
         #expect(throws: (any Error).self) { try tracker.start("Website Redesign") }
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(contents(dayFile(root, "2026-11-03")) == Self.malformed)
 
         write(#"{ "date": "2026-11-03", "entries": [] }"#)
@@ -78,10 +78,10 @@ import ChronobarCore
         clock.set("2026-11-03T10:00:00")
         tracker.tick()
 
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
         #expect(tracker.total("Website Redesign", on: today) == 3600)
         #expect(throws: (any Error).self) { try tracker.start("Internal") }
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
         #expect(contents(dayFile(root, "2026-11-03")) == Self.malformed)
     }
 
@@ -96,7 +96,7 @@ import ChronobarCore
         clock.set("2026-11-03T10:05:00")
         tracker.tick()
 
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(tracker.total("Website Redesign", on: today) == 3600)
         #expect(contents(dayFile(root, "2026-11-03")) == Self.malformed)
 
@@ -125,7 +125,7 @@ import ChronobarCore
 
         #expect(contents(dayFile(root, "2026-11-03")) == Self.fixedAndPaused)
         #expect(!tracker.isMalformed(today))
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(tracker.rows(today) == [
             Row(project: "Internal", total: 900),
             Row(project: "Website Redesign", total: 3600),
@@ -149,8 +149,8 @@ import ChronobarCore
           "date": "2026-11-03",
           "entries": [
             { "project": "Internal", "seconds": 900, "note": "manual" },
-            { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00" },
-            { "project": "Internal", "start": "2026-11-03T10:06:00-05:00", "end": null }
+            { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" },
+            { "project": "Internal", "start": "2026-11-03T10:06:00-05:00", "end": null, "source": "app" }
           ]
         }
 
@@ -167,7 +167,7 @@ import ChronobarCore
         clock.set("2026-11-04T00:30:00")
         tracker.tick()
 
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
         #expect(tracker.total("Website Redesign", on: Day("2026-11-04")!) == 1800)
         #expect(contents(dayFile(root, "2026-11-03")) == Self.malformed)
 
@@ -182,12 +182,12 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-03T23:00:00-05:00", "end": "2026-11-04T00:00:00-05:00" }
+            { "project": "Website Redesign", "start": "2026-11-03T23:00:00-05:00", "end": "2026-11-04T00:00:00-05:00", "source": "app" }
           ]
         }
 
         """)
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
     }
 
     /// The new Day's file is already broken at midnight: the timer runs on into it in memory.
@@ -200,7 +200,7 @@ import ChronobarCore
         clock.set("2026-11-04T00:30:00")
         tracker.tick()
 
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
         #expect(tracker.total("Website Redesign", on: Day("2026-11-04")!) == 1800)
         #expect(tracker.total("Website Redesign", on: Day("2026-11-03")!) == 3600)
         #expect(tracker.isMalformed(Day("2026-11-04")!))
@@ -259,7 +259,7 @@ import ChronobarCore
         #expect(tracker.dayTotal(yesterday) == 3600)
         #expect(!tracker.isMalformed(yesterday))
         #expect(tracker.today == newToday)
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
         #expect(tracker.rows(newToday) == [Row(project: "Website Redesign", total: 1800)])
 
         tracker.reload()
@@ -279,7 +279,7 @@ import ChronobarCore
       "date": "2026-11-03",
       "entries": [
         { "project": "Internal", "seconds": 900, "note": "manual" },
-        { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00" }
+        { "project": "Website Redesign", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" }
       ]
     }
 

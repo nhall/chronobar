@@ -14,7 +14,7 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-03T09:02:11-05:00", "end": null }
+            { "project": "Website Redesign", "start": "2026-11-03T09:02:11-05:00", "end": null, "source": "app" }
           ]
         }
 
@@ -33,8 +33,8 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-03T09:02:11-05:00", "end": "2026-11-03T10:47:30-05:00" },
-            { "project": "Website Redesign", "start": "2026-11-03T13:15:00-05:00", "end": null }
+            { "project": "Website Redesign", "start": "2026-11-03T09:02:11-05:00", "end": "2026-11-03T10:47:30-05:00", "source": "app" },
+            { "project": "Website Redesign", "start": "2026-11-03T13:15:00-05:00", "end": null, "source": "app" }
           ]
         }
 
@@ -46,16 +46,16 @@ import ChronobarCore
         clock.set("2026-11-03T10:02:11")
 
         let relaunched = Tracker(clock: clock, storageRoot: root)
-        #expect(relaunched.running?.project == "Website Redesign")
-        #expect(relaunched.selectedProject == "Website Redesign")
+        #expect(relaunched.timers.newest?.project == "Website Redesign")
         #expect(relaunched.total("Website Redesign", on: relaunched.today) == 3600)
 
         clock.set("2026-11-03T10:32:11")
-        try relaunched.toggle()
-        #expect(relaunched.running == nil)
+        try relaunched.pause()
+        #expect(relaunched.timers.isEmpty)
         #expect(relaunched.total("Website Redesign", on: relaunched.today) == 90 * 60)
     }
 
+    /// Every Entry survives in order; the v1 timed Entry, which has no `source`, is written back as the app's.
     @Test func handWrittenFileRoundTripsThroughAWrite() throws {
         let original = """
         {
@@ -84,10 +84,10 @@ import ChronobarCore
         {
           "date": "2026-11-03",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-03T07:00:00-05:00", "end": "2026-11-03T08:00:00-05:00" },
+            { "project": "Website Redesign", "start": "2026-11-03T07:00:00-05:00", "end": "2026-11-03T08:00:00-05:00", "source": "app" },
             { "project": "Internal", "seconds": 900, "note": "manual" },
             { "project": "Website Redesign", "seconds": -600, "note": "adjustment" },
-            { "project": "Internal", "start": "2026-11-03T09:02:11-05:00", "end": "2026-11-03T09:32:11-05:00" }
+            { "project": "Internal", "start": "2026-11-03T09:02:11-05:00", "end": "2026-11-03T09:32:11-05:00", "source": "app" }
           ]
         }
 

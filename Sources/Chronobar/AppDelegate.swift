@@ -1,5 +1,6 @@
 import AppKit
 import ChronobarCore
+import ChronobarOperations
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -8,8 +9,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var tracker: Tracker!
     private var statusItem: StatusItemController!
     private var idleMonitor: IdleMonitor!
+    private var longRunningNotifier: LongRunningNotifier!
     private var timer: Timer?
     private var heartbeat: Timer?
+    /// The socket the `chronobar` command reaches the Operations layer on.
+    private var channel: ChannelServer?
     /// `nil` when the Info.plist names a bad data folder; the app then refuses to start.
     private var variant: BuildVariant?
 
@@ -40,12 +44,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         showDockBadge()
         loginItem.renew()
         tracker = Tracker(clock: SystemTimeSource(), storageRoot: storageRoot, defaults: .standard)
+        observeStartPausesOthers()
         statusItem = StatusItemController(
             tracker: tracker, variant: variant, storageRoot: storageRoot, preferences: preferences,
             loginItem: loginItem)
         idleMonitor = IdleMonitor(tracker: tracker, preferences: preferences) { [weak self] in
             self?.statusItem.refresh()
         }
+        longRunningNotifier = LongRunningNotifier(tracker: tracker) { [weak self] in
+            self?.statusItem.refresh()
+        }
+        observeLongRunningThreshold()
+        serveOperations(in: storageRoot)
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -79,10 +89,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         idleMonitor.poll()
     }
 
-    /// Quitting stops the running timer at the quit time.
+    /// Quitting stops the timers started in the app at the quit time; agents' timers stay open.
     func applicationWillTerminate(_ notification: Notification) {
         do {
-            try tracker?.pause()
+            try tracker?.quit()
         } catch {
             reportFailure(error, category: "quit", beep: false)
         }
@@ -97,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func tick() {
         tracker.tick()
+        longRunningNotifier.warn(tracker.takeLongRunning(), threshold: preferences.longRunningThreshold)
         idleMonitor.poll()
         statusItem.refresh()
     }
@@ -153,6 +164,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.applyDockPolicy()
                 self?.observeShowInDock()
             }
+        }
+    }
+
+    /// Keeps Core's start rule in step with the Settings toggle, so every start follows it.
+    private func observeStartPausesOthers() {
+        tracker.startPausesOthers = withObservationTracking {
+            preferences.startPausesOthers
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeStartPausesOthers() }
+        }
+    }
+
+    /// Keeps Core's long-running threshold in step with the Settings pop-up.
+    private func observeLongRunningThreshold() {
+        tracker.longRunningThreshold = withObservationTracking {
+            preferences.longRunningThreshold.seconds
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeLongRunningThreshold() }
+        }
+    }
+
+    /// Answers the `chronobar` command (and through it MCP) on the socket in the data folder. Requests run
+    /// on the main actor like the Panel's own changes, and the Pill shows what they did at once. Without
+    /// the socket the app still runs; only the command line can't reach it.
+    private func serveOperations(in storageRoot: URL) {
+        let operations = Operations(tracker: tracker)
+        do {
+            channel = try ChannelServer(url: Channel.socketURL(storageRoot: storageRoot)) { [weak self] line in
+                let reply = operations.respond(to: line)
+                self?.statusItem.refresh()
+                return reply
+            }
+        } catch {
+            reportFailure(error, category: "channel", beep: false)
         }
     }
 

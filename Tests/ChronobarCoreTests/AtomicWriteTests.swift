@@ -41,7 +41,7 @@ import ChronobarCore
         let tracker = Tracker(clock: clock, storageRoot: root)
         #expect(throws: (any Error).self) { try tracker.start("Website Redesign") }
 
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(contents(dayFile(root, "2026-11-03")) == malformed)
     }
 }

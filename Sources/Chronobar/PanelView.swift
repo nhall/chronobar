@@ -15,7 +15,7 @@ final class PanelModel {
         }
     }
     var newProjectName = ""
-    /// Bumped to put focus in the ＋ form's Project field once the Panel's window can take it: the form's
+    /// Bumped to put focus in the ＋ form's Label field once the Panel's window can take it: the form's
     /// own focus on appearing is lost when the Panel opens straight into it.
     var newProjectFocusRequests = 0
     /// Bumped to put focus on the date header, today's date, once the Panel's window can take it.
@@ -24,7 +24,7 @@ final class PanelModel {
     /// a key press. Until then nothing else has focus but a text field the click put it in, which always
     /// shows its ring.
     private(set) var focusRing = FocusRing()
-    /// Whether the ＋ form's Project list is showing, which takes Return from the Start/Log button.
+    /// Whether the ＋ form's Label list is showing, which takes Return from the Start/Log button.
     var newProjectListOpen = false
     /// The ＋ form's duration; empty starts a timer, anything else logs that much time.
     var newProjectDuration = ""
@@ -89,6 +89,7 @@ struct PanelActions {
     /// Returns false when the input was refused, so the field keeps what was typed.
     let adjust: (_ project: String, _ input: String, _ day: Day) -> Bool
     let archive: (String) -> Void
+    let pin: (String) -> Void
     let openDataFolder: () -> Void
     let quit: () -> Void
 }
@@ -139,11 +140,6 @@ struct PanelView: View {
                 .help(isToday ? "" : PanelCommand.today.help(Self.backToToday))
                 .accessibilityHint(isToday ? "" : Self.backToToday)
                 Spacer()
-                Text(DurationFormat.hoursMinutes(tracker.dayTotal(day)))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-                    .help("Total for the day")
-                    .accessibilityLabel("Total for the day, \(DurationFormat.spoken(tracker.dayTotal(day)))")
                 Button {
                     panel.showingSummary.toggle()
                 } label: {
@@ -206,10 +202,14 @@ struct PanelView: View {
             if rows.isEmpty {
                 Text("No time tracked").foregroundStyle(.secondary)
             } else {
+                // Above the rows, out of the title row, which a long past Day's title and two-digit hours
+                // would crowd. An empty Day has none: "No time tracked" says it.
+                DayTotalLineView(line: DayTotalLine(total: tracker.dayTotal(day), elapsed: tracker.elapsed(day)))
                 RowList(panel: panel) {
                     ForEach(rows, id: \.project) { row in
                         // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
                         RowView(row: row, isRunning: isToday && tracker.isRunning(row.project),
+                                source: tracker.timers[row.project]?.source ?? .app,
                                 canStart: isToday, panel: panel,
                                 toggle: { actions.toggle(row.project) },
                                 adjust: {
@@ -243,12 +243,14 @@ struct PanelView: View {
                             panel.projectToReveal = project
                         }
                     },
-                    // The field empties, so Return can't bring the Project straight back.
+                    // The field empties if it holds the Project, so Return can't bring it straight back.
                     archive: { project in
                         actions.archive(project)
-                        panel.newProjectName = ""
+                        if ProjectName.matches(panel.newProjectName, project) { panel.newProjectName = "" }
                         panel.newProjectFocusRequests += 1
-                    })
+                    },
+                    isPinned: { project in tracker.projects.contains { ProjectName.matches($0, project) } },
+                    pin: actions.pin)
             }
             Button {
                 panel.showingNewProject.toggle()
@@ -374,30 +376,57 @@ private enum DayMark {
     }
 }
 
+/// "Total 2:57 · Clock time 2:50" (`DayTotalLine`), one run of text from the leading edge, in the
+/// secondary color so it doesn't read as a row. It has the rows' inset, so "Total" starts where their
+/// names do. The widest, "Total 23:59 · Clock time 23:59", measures about 184 points of the 256 the
+/// Panel's width leaves inside that inset, so it needs no shorter form.
+private struct DayTotalLineView: View {
+    let line: DayTotalLine
+
+    var body: some View {
+        Text(line.text)
+            .monospacedDigit()
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, RowView.horizontalPadding)
+            .help(line.help)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(line.accessibilityLabel)
+    }
+}
+
 /// The (i) Time Summary.
 private struct SummaryView: View {
     let summary: Summary
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
-            line("Today", summary.today)
-            line("Yesterday", summary.yesterday)
-            line("This week", summary.week)
-            line("This month", summary.month)
+            line("Today", summary.today, summary.elapsed.today)
+            line("Yesterday", summary.yesterday, summary.elapsed.yesterday)
+            line("This week", summary.week, summary.elapsed.week)
+            line("This month", summary.month, summary.elapsed.month)
         }
         .padding()
     }
 
-    private func line(_ label: String, _ total: TimeInterval) -> some View {
-        // VoiceOver reads each line as one element: "This week, 12 hours 5 minutes".
-        GridRow {
-            Text(label)
-                .accessibilityLabel("\(label), \(DurationFormat.spoken(total))")
-            Text(DurationFormat.hoursMinutes(total))
+    /// "This week 12:05 · Clock time 9:00", the figures in columns so the periods line up.
+    private func line(_ name: String, _ total: TimeInterval, _ elapsed: TimeInterval) -> some View {
+        let line = DayTotalLine(name, total: total, elapsed: elapsed)
+        // VoiceOver reads each line as one element: "This week 12 hours 5 minutes, clock time 9 hours".
+        return GridRow(alignment: .firstTextBaseline) {
+            Text(line.name)
+                .accessibilityLabel(line.accessibilityLabel)
+            Text(line.total)
                 .monospacedDigit()
                 .gridColumnAlignment(.trailing)
                 .accessibilityHidden(true)
+            Text("· \(line.clockTime)")
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
         }
+        .help(line.help)
     }
 }
 
@@ -434,6 +463,8 @@ private struct RowList<Rows: View>: View {
 private struct RowView: View {
     let row: Row
     let isRunning: Bool
+    /// Who started the running timer: an agent's gets a terminal icon after the name.
+    let source: EntrySource
     let canStart: Bool
     @Bindable var panel: PanelModel
     let toggle: () -> Void
@@ -446,11 +477,22 @@ private struct RowView: View {
         case total, toggle
     }
 
+    /// The ▶/⏸ column's width and the row's side insets, which the Total line above the rows matches.
+    static let toggleWidth: CGFloat = 16
+    static let horizontalPadding: CGFloat = 6
+
     var body: some View {
-        let presentation = RowPresentation(row: row, isRunning: isRunning)
+        let presentation = RowPresentation(row: row, isRunning: isRunning, source: source)
         HStack {
             Text(row.project).lineLimit(1)
                 .accessibilityLabel(presentation.nameLabel)
+            if let agentMark = presentation.agentMark {
+                // The name's VoiceOver label already says an agent started it.
+                Image(systemName: "terminal")
+                    .foregroundStyle(.secondary)
+                    .help(agentMark)
+                    .accessibilityHidden(true)
+            }
             Spacer()
             if panel.adjusting == row.project {
                 TextField(DurationFormat.hoursMinutes(row.total), text: $panel.adjustment)
@@ -481,7 +523,7 @@ private struct RowView: View {
             if canStart {
                 Button(action: toggle) {
                     Image(systemName: presentation.toggle == .pause ? "pause.fill" : "play.fill")
-                        .frame(width: 16)
+                        .frame(width: Self.toggleWidth)
                 }
                 .iconButton(presentation.toggleTone.style)
                 .focused($focusedButton, equals: .toggle)
@@ -493,7 +535,7 @@ private struct RowView: View {
             if button != nil { panel.projectToReveal = row.project }
         }
         .foregroundStyle(.primary)
-        .padding(.horizontal, 6)
+        .padding(.horizontal, Self.horizontalPadding)
         .padding(.vertical, 4)
         // The same quiet fill as the Start at login message, so the Panel never shows the running color.
         .background(
@@ -553,12 +595,13 @@ private struct LoginHint: View {
     }
 }
 
-/// The ＋ form: a Project combo box, a duration and Start. The combo box lists the Project list, most
-/// recently used first, narrowed to what is typed; picking from it fills the name for Start or Log to act on.
-/// With a duration typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without
-/// starting a timer; on any Day other than today it always reads Log and needs a duration. The line under
-/// the field says whether the name is a New Project or an Existing Project, with Archive for one on the
-/// Project list.
+/// The ＋ form: a Label field, a duration and Start. The field's list shows the suggested Labels (used
+/// in the last 30 days, or pinned), most recently used first, narrowed to what is typed; picking from it
+/// fills the name for Start or Log to act on, and right-clicking one offers Pin and Archive. With a duration
+/// typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without starting a timer;
+/// on any Day other than today it always reads Log and needs a duration. The line under the field says
+/// whether the name is a New Label or an Existing Label, with Pin for one not pinned and Archive for one
+/// suggested, so both work from the keyboard too.
 private struct NewProjectForm: View {
     @Binding var name: String
     @Binding var duration: String
@@ -570,13 +613,15 @@ private struct NewProjectForm: View {
     let start: (String) -> Void
     let log: (String) -> Void
     let archive: (String) -> Void
+    let isPinned: (String) -> Bool
+    let pin: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                ProjectComboBox(name: $name, isListOpen: $isListOpen, suggestions: suggestions,
-                                focusRequests: focusRequests,
-                                submit: submit)
+                LabelField(name: $name, isListOpen: $isListOpen, suggestions: suggestions,
+                           focusRequests: focusRequests,
+                           submit: submit, isPinned: isPinned, pin: pin, archive: archive)
                 TextField("h:mm", text: $duration)
                     .textFieldStyle(.roundedBorder)
                     .monospacedDigit()
@@ -593,21 +638,27 @@ private struct NewProjectForm: View {
             }
             if let match {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(match == .new ? "New Project" : "Existing Project")
+                    Text(match == .new ? "New Label" : "Existing Label")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                     Spacer()
+                    if let project = match.project, !isPinned(project) {
+                        Button("Pin") { pin(project) }
+                            .controlSize(.small)
+                            .help("Always suggest \(project), however long since it was used.")
+                            .accessibilityLabel("Pin \(project)")
+                    }
                     if case .active(let project) = match {
                         Button("Archive") { archive(project) }
                             .controlSize(.small)
-                            .help("Remove \(project) from the Project list. Its time stays.")
+                            .help("Stop suggesting \(project) until it is typed again. Its time stays.")
                             .accessibilityLabel("Archive \(project)")
                     }
                 }
                 .onChange(of: match == .new, initial: false) { _, isNew in
                     NSAccessibility.post(
                         element: NSApp.keyWindow ?? NSApp as Any, notification: .announcementRequested,
-                        userInfo: [.announcement: isNew ? "New Project" : "Existing Project",
+                        userInfo: [.announcement: isNew ? "New Label" : "Existing Label",
                                    .priority: NSAccessibilityPriorityLevel.low.rawValue])
                 }
             }

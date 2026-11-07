@@ -4,7 +4,7 @@ import Foundation
 /// `scripts/bundle-app.sh --dev` builds to run next to it. Read from the app's Info.plist, which
 /// `scripts/info-plist.sh` writes; `InfoPlistTests` checks that what it writes is what this reads.
 ///
-/// Settings, the Selected Project, the heartbeat and start at login follow the bundle ID on their own;
+/// Settings, the heartbeat and start at login follow the bundle ID on their own;
 /// the data folder doesn't, so a development copy names its own folder here.
 public struct BuildVariant: Equatable, Sendable {
     /// Info.plist key naming the folder in Application Support that holds the Project list and Day files.
@@ -14,6 +14,26 @@ public struct BuildVariant: Equatable, Sendable {
 
     public static let defaultDataFolder = "Chronobar"
     public static let defaultAppName = "Chronobar"
+
+    /// Each copy as the `chronobar` command finds it from outside: the bundle ID to launch it by and the
+    /// data folder its socket is in. `InfoPlistTests` checks these against scripts/info-plist.sh.
+    public enum Copy: Sendable {
+        case everyday, development
+
+        public var bundleID: String {
+            switch self {
+            case .everyday: "io.github.nhall.chronobar"
+            case .development: "io.github.nhall.chronobar.dev"
+            }
+        }
+
+        public var dataFolder: String {
+            switch self {
+            case .everyday: BuildVariant.defaultDataFolder
+            case .development: "Chronobar Dev"
+            }
+        }
+    }
 
     /// The Info.plist names a data folder that isn't one plain folder name. Refused rather than
     /// replaced with the everyday folder, which a development copy must never write to.

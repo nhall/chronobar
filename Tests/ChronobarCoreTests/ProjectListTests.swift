@@ -6,15 +6,6 @@ import ChronobarCore
     let clock = FakeClock("2026-11-03T09:00:00")
     let root = temporaryRoot()
 
-    @Test func startingANewNameCreatesAProject() throws {
-        let tracker = Tracker(clock: clock, storageRoot: root)
-        try tracker.start("Website Redesign")
-        try tracker.start("Internal")
-
-        #expect(tracker.projects == ["Website Redesign", "Internal"])
-        #expect(contents(projectsFile(root)) == "Website Redesign\nInternal\n")
-    }
-
     @Test func namesMatchIgnoringCaseAndSurroundingSpacesAndKeepTheStoredSpelling() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Internal")
@@ -23,10 +14,9 @@ import ChronobarCore
         clock.set("2026-11-03T10:30:00")
         try tracker.pause()
 
-        #expect(tracker.projects == ["Internal"])
-        #expect(tracker.selectedProject == "Internal")
+        #expect(tracker.projects == [])
         #expect(tracker.total("Internal", on: tracker.today) == 90 * 60)
-        #expect(try tracker.addProject("INTERNAL") == "Internal")
+        #expect(try tracker.pinProject("INTERNAL") == "Internal")
         #expect(contents(projectsFile(root)) == "Internal\n")
     }
 
@@ -39,7 +29,7 @@ import ChronobarCore
         tracker.reload()
         #expect(tracker.projects == ["Internal", "Mobile App"])
 
-        try tracker.start("Annual Report")
+        try tracker.pinProject("Annual Report")
         #expect(contents(projectsFile(root)) == "Internal\nMobile App\nAnnual Report\n")
     }
 
@@ -47,6 +37,7 @@ import ChronobarCore
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T10:00:00")
+        try tracker.toggle("Website Redesign")
         try tracker.start("Internal")
         clock.set("2026-11-03T10:15:00")
         try tracker.pause()
@@ -54,64 +45,39 @@ import ChronobarCore
 
         try tracker.archiveProject("website redesign ")
 
-        #expect(tracker.projects == ["Internal"])
-        #expect(contents(projectsFile(root)) == "Internal\n")
+        #expect(tracker.archived == ["Website Redesign"])
+        #expect(tracker.suggestions(for: "") == ["Internal"])
         #expect(contents(dayFile(root, "2026-11-03")) == history)
         #expect(Tracker(clock: clock, storageRoot: root).total("Website Redesign", on: tracker.today) == 3600)
     }
 
-    @Test func archivingTheSelectedProjectClearsTheSelectionButLeavesItRunning() throws {
+    @Test func archivingARunningProjectLeavesItRunning() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T10:00:00")
 
         try tracker.archiveProject("Website Redesign")
-        #expect(tracker.selectedProject == nil)
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
 
         tracker.reload()
-        #expect(tracker.selectedProject == nil)
-        #expect(tracker.running?.project == "Website Redesign")
+        #expect(tracker.timers.newest?.project == "Website Redesign")
+        #expect(Tracker(clock: clock, storageRoot: root).timers.newest?.project == "Website Redesign")
 
         clock.set("2026-11-03T10:30:00")
-        try tracker.toggle()
-        #expect(tracker.running == nil)
-        #expect(tracker.selectedProject == nil)
+        try tracker.toggle("Website Redesign")
+        #expect(tracker.timers.isEmpty)
         #expect(tracker.total("Website Redesign", on: tracker.today) == 90 * 60)
         #expect(tracker.projects == [])
     }
 
-    @Test func anArchivedSelectionStaysClearedAfterARelaunch() throws {
-        let settings = TestSettings()
-        let defaults = settings.fresh()
-        defer { settings.remove() }
-
-        let tracker = Tracker(clock: clock, storageRoot: root, defaults: defaults)
-        try tracker.start("Website Redesign")
-        try tracker.archiveProject("Website Redesign")
-
-        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
-        #expect(relaunched.running?.project == "Website Redesign")
-        #expect(relaunched.selectedProject == nil)
-    }
-
-    @Test func archivingAnotherProjectKeepsTheSelection() throws {
-        let tracker = Tracker(clock: clock, storageRoot: root)
-        try tracker.start("Internal")
-        try tracker.start("Website Redesign")
-        try tracker.archiveProject("Internal")
-
-        #expect(tracker.selectedProject == "Website Redesign")
-    }
-
-    @Test func typingAnArchivedNameRevivesItWithItsStoredSpelling() throws {
+    @Test func pinningAnArchivedNameRevivesItWithItsStoredSpelling() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T10:00:00")
         try tracker.pause()
         try tracker.archiveProject("Website Redesign")
 
-        #expect(try tracker.addProject(" website REDESIGN") == "Website Redesign")
+        #expect(try tracker.pinProject(" website REDESIGN") == "Website Redesign")
         #expect(tracker.projects == ["Website Redesign"])
         #expect(contents(projectsFile(root)) == "Website Redesign\n")
     }
@@ -159,7 +125,7 @@ import ChronobarCore
     }
 
     @Test func aTypedNameIsNewActiveOrArchivedWithItsStoredSpelling() throws {
-        try write(root, "2026-10-28", #"    { "project": "Garden Shed", "seconds": 600, "note": "manual" }"#)
+        try write(root, "2026-09-28", #"    { "project": "Garden Shed", "seconds": 600, "note": "manual" }"#)
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Internal")
         try tracker.start("test 3")
@@ -179,7 +145,7 @@ import ChronobarCore
         let tracker = Tracker(clock: clock, storageRoot: root)
         #expect(tracker.match("Garden Shed") == .new)
 
-        try write(root, "2026-10-28", #"    { "project": "Garden Shed", "seconds": 600, "note": "manual" }"#)
+        try write(root, "2026-09-28", #"    { "project": "Garden Shed", "seconds": 600, "note": "manual" }"#)
         #expect(tracker.match("Garden Shed") == .new)
 
         tracker.reload()
@@ -201,7 +167,7 @@ import ChronobarCore
     @Test func aBlankNameIsRefused() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         #expect(throws: EmptyProjectName.self) { try tracker.start("   ") }
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
         #expect(contents(projectsFile(root)) == nil)
     }
 
@@ -213,7 +179,7 @@ import ChronobarCore
         #expect(throws: (any Error).self) { try tracker.start("Internal") }
         #expect(throws: (any Error).self) { try tracker.archiveProject("Internal") }
         #expect(try Data(contentsOf: projectsFile(root)) == bytes)
-        #expect(tracker.running == nil)
+        #expect(tracker.timers.isEmpty)
     }
 
     @Test func aNameFromAPastDayRevivesWithThatDaysSpelling() throws {
@@ -228,8 +194,8 @@ import ChronobarCore
         clock.set("2026-11-03T09:30:00")
         tracker.tick()
 
-        #expect(tracker.projects == ["Mobile App"])
-        #expect(tracker.running?.project == "Mobile App")
+        #expect(tracker.suggestions(for: "") == ["Mobile App"])
+        #expect(tracker.timers.newest?.project == "Mobile App")
         #expect(tracker.total("Mobile App", on: tracker.today) == 30 * 60)
     }
 
@@ -239,7 +205,7 @@ import ChronobarCore
         try write(root, "2026-11-01", #"    { "project": "Garden Shed", "seconds": 600, "note": "manual" }"#)
         let tracker = Tracker(clock: clock, storageRoot: root)
 
-        #expect(try tracker.addProject("GARDEN SHED") == "Garden Shed")
+        #expect(try tracker.pinProject("GARDEN SHED") == "Garden Shed")
         #expect(tracker.isMalformed(Day("2026-11-02")!))
     }
 

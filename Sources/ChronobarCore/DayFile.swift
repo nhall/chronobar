@@ -9,9 +9,10 @@ enum DayFile {
         let dates = dateStyle(timeZone)
         let lines = entries.map { entry -> String in
             switch entry {
-            case .timed(let project, let start, let end):
+            case .timed(let project, let start, let end, let source):
                 let endText = end.map { string($0.formatted(dates)) } ?? "null"
-                return #"{ "project": \#(string(project)), "start": \#(string(start.formatted(dates))), "end": \#(endText) }"#
+                // Always written, so the file shows who started each Entry; a missing `source` reads as `app`.
+                return #"{ "project": \#(string(project)), "start": \#(string(start.formatted(dates))), "end": \#(endText), "source": \#(string(source.rawValue)) }"#
             case .manual(let project, let seconds, let note):
                 return #"{ "project": \#(string(project)), "seconds": \#(seconds), "note": \#(string(note.rawValue)) }"#
             }
@@ -25,7 +26,7 @@ enum DayFile {
               let day = Day(file.date) else { throw Malformed() }
         let entries = try file.entries.map { raw -> Entry in
             if let seconds = raw.seconds {
-                guard raw.start == nil, raw.end == nil,
+                guard raw.start == nil, raw.end == nil, raw.source == nil,
                       let note = ManualNote(rawValue: raw.note ?? "") else { throw Malformed() }
                 return .manual(project: raw.project, seconds: seconds, note: note)
             }
@@ -35,7 +36,12 @@ enum DayFile {
                 guard let date = parseDate(text) else { throw Malformed() }
                 end = date
             }
-            return .timed(project: raw.project, start: start, end: end)
+            var source = EntrySource.app
+            if let text = raw.source {
+                guard let parsed = EntrySource(rawValue: text) else { throw Malformed() }
+                source = parsed
+            }
+            return .timed(project: raw.project, start: start, end: end, source: source)
         }
         return (day, entries)
     }
@@ -51,6 +57,7 @@ enum DayFile {
         let end: String?
         let seconds: Int?
         let note: String?
+        let source: String?
     }
 
     private static func dateStyle(_ timeZone: TimeZone) -> Date.ISO8601FormatStyle {
@@ -77,8 +84,14 @@ enum DayFile {
     }
 }
 
+/// A file Core refuses to change because it won't parse: a Day file, `projects.txt` or `archived.txt`.
+/// Every error Core throws for one conforms, so callers outside Core can tell it from other failures.
+public protocol MalformedFileError: Error {}
+
+extension DayFile.Malformed: MalformedFileError {}
+
 /// A Day file that won't parse (or has writes still waiting for it), refusing a change.
-public struct MalformedDayFile: Error, Equatable {
+public struct MalformedDayFile: MalformedFileError, Equatable {
     public let day: Day
 
     public init(day: Day) {
@@ -114,9 +127,86 @@ struct DayStore {
 
     /// Writes to a temporary file and replaces the Day file with it, so a crash never leaves half a file.
     func save(_ day: Day, _ entries: [Entry], timeZone: TimeZone) throws {
-        let url = url(for: day)
-        try FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try DayFile.encode(day, entries, timeZone: timeZone).write(to: url, options: .atomic)
+        try save([(day, entries)], timeZone: timeZone)
+    }
+
+    /// Replaces each Day's file, and writes `others`, all or none (see `FileWrite.replace`).
+    func save(_ days: [(Day, [Entry])], alongWith others: [FileWrite] = [], timeZone: TimeZone) throws {
+        let writes = days.map { day, entries in
+            FileWrite(url: url(for: day), data: DayFile.encode(day, entries, timeZone: timeZone))
+        }
+        try FileWrite.replace(writes + others)
+    }
+}
+
+/// New contents for one file.
+struct FileWrite {
+    let url: URL
+    let data: Data
+
+    /// Replaces every file in `writes` or none. Each one's contents first go to a temporary file beside it,
+    /// where a full disk or a folder that can't be written fails before any file changes; then each
+    /// temporary file is moved over its file. If a move fails, the files already moved are put back as
+    /// they were, and the error is thrown. A crash never leaves half a file, though one in the middle of
+    /// the moves can leave only some of the files replaced.
+    static func replace(_ writes: [FileWrite]) throws {
+        let manager = FileManager.default
+        var temporary: [URL] = []
+        // Whatever wasn't moved into place, on success or failure.
+        defer { for url in temporary { try? manager.removeItem(at: url) } }
+        for write in writes {
+            try manager.createDirectory(at: write.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let url = sibling(of: write.url, suffix: "tmp")
+            temporary.append(url)
+            try write.data.write(to: url)
+        }
+        // Each file moved into place, with where its earlier contents now are (nil: it didn't exist).
+        var moved: [(url: URL, earlier: URL?)] = []
+        do {
+            for (write, url) in zip(writes, temporary) {
+                moved.append((write.url, try place(url, over: write.url)))
+            }
+        } catch {
+            for file in moved.reversed() {
+                if let earlier = file.earlier { try? move(earlier, over: file.url) } else { try? manager.removeItem(at: file.url) }
+            }
+            throw error
+        }
+        for file in moved { if let earlier = file.earlier { try? manager.removeItem(at: earlier) } }
+    }
+
+    /// Moves `source` over `destination` in one step. Returns where `destination`'s earlier contents are
+    /// kept, until the caller removes them or moves them back; nil if it didn't exist. Where the disk can,
+    /// the two are swapped, so the earlier contents end up at `source` and a failure leaves no file behind.
+    private static func place(_ source: URL, over destination: URL) throws -> URL? {
+        guard FileManager.default.fileExists(atPath: destination.path) else {
+            try move(source, over: destination)
+            return nil
+        }
+        if renamex_np(source.path, destination.path, UInt32(RENAME_SWAP)) == 0 { return source }
+        guard errno == ENOTSUP || errno == EINVAL else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        let backup = sibling(of: destination, suffix: "bak")
+        if (try? FileManager.default.linkItem(at: destination, to: backup)) == nil {
+            try FileManager.default.copyItem(at: destination, to: backup)
+        }
+        do {
+            try move(source, over: destination)
+        } catch {
+            try? FileManager.default.removeItem(at: backup)
+            throw error
+        }
+        return backup
+    }
+
+    /// A new hidden name in `url`'s folder, which `DayStore.days()` never lists.
+    private static func sibling(of url: URL, suffix: String) -> URL {
+        url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).\(UUID().uuidString).\(suffix)")
+    }
+
+    /// Renames `source` to `destination`, replacing it in one step.
+    private static func move(_ source: URL, over destination: URL) throws {
+        guard rename(source.path, destination.path) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
     }
 }
