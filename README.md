@@ -344,7 +344,7 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] ＋ sits at the bottom of the Panel, on its left edge: under "No time tracked" on an empty Day, and
       under the last row with one row and with many. The header shows the date, the Day total, (i) and
       ⚙, and no ＋.
-- [ ] Click ＋: its form opens under the rows, just above ＋, with the Project field focused; the Panel
+- [ ] Click ＋: its form opens under the rows, just above ＋, with the Label field focused; the Panel
       grows smoothly and stays attached to the Pill. Click ＋ again: the form closes and the Panel
       shrinks back smoothly. Start or Log a new label: its row appears last, right above where the
       form was.
@@ -383,25 +383,37 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] With two timers running before midnight, wait past it (or set the clock): both entries end at
       midnight in the old day's file and both continue in the new day's file.
 - [ ] Clicking a row's time still opens the field to change its total; ▶/⏸ does not.
-- [ ] ＋, click ▾ in the Project field (or press ↓): labels used in the last 30 days and pinned ones
+- [ ] ＋, click ▾ in the Label field (or press ↓): labels used in the last 30 days and pinned ones
       are listed, most recently used first, and the list scrolls when long. Type part of a name: the list narrows to names containing it, those
       starting with it first. Clicking one, or ↓ to it and Return, fills the field, closes the list and
       starts nothing; Start (or Return) then starts it.
 - [ ] With `test`, `test 2` and `test 3` (started in that order), type `test`: `test` is listed first and
       the field keeps `test`; Return starts `test`.
-- [ ] The line under the field reads New Project for a new name and Existing Project for a suggested,
+- [ ] The line under the field reads New Label for a new name and Existing Label for a suggested,
       archived or long-unused one. Pin, shown for one not pinned, adds its line to `projects.txt`.
       Archive, shown for a suggested label, moves it to `archived.txt`, drops it from the list and
       empties the field; its rows and totals stay.
-- [ ] With the list open, right-click a name: the menu offers Pin (unless it is pinned) and Archive.
-      Archive drops it from the open list; Pin keeps it there, and it is still listed after 30 days
-      without use. The field keeps what was typed unless it held the archived name.
+- [ ] With the list open, right-click a name (and Control-click, and a two-finger trackpad click): the
+      menu reads Pin “name” (unless it is pinned) and Archive “name”, for the name under the pointer,
+      not the highlighted one. Archive drops it from the open list, which stays open; Pin keeps it there,
+      and it is still listed after 30 days without use. The field keeps what was typed unless it held
+      the archived name. Right-click below the last name: no menu.
+- [ ] Clicking a name in the list, or right-clicking it, leaves the Panel open and the insertion point
+      in the field; typing goes on narrowing the list.
+- [ ] With the list open: ↓ and ↑ move the highlight one name at a time and the field shows it, and the
+      list scrolls to keep it in view; ↓ stops on the last name; ↑ from the first goes back to what was
+      typed. Escape closes the list and leaves the field as it is; a second Escape closes the Panel. Tab
+      closes the list and moves on to the duration field. The list closes when the Panel closes.
+- [ ] Open the list near the bottom of the screen (many rows, or the Pill on a short display): the list
+      shows above the field instead of off screen. It is as wide as the field and ▾, and its rows and
+      shadow read clearly in light and dark mode.
 - [ ] Type an archived label in different case and Start: its row uses the spelling it was archived
       with, it is listed again, and its line is gone from `archived.txt`.
 - [ ] Add a name to `archived.txt` by hand and reopen the Panel: it is no longer listed.
-- [ ] With VoiceOver on, the Project field is announced as a combo box, with whether its list is open and
-      each item as you move through it; New Project / Existing Project is read when it changes; Tab
-      reaches Pin and Archive with keyboard navigation on.
+- [ ] With VoiceOver on, the Label field is announced as a combo box, with whether its list is open;
+      ↓ and ↑ read each name with its place ("Client B, 2 of 3"); with the list open, VoiceOver can move
+      into it (VO-→ or the window chooser) and read it as Suggestions; New Label / Existing Label is read
+      when it changes; ▾ reads as Suggestions; Tab reaches Pin and Archive with keyboard navigation on.
 - [ ] Type a label in different case with extra spaces: it starts on the existing row.
 - [ ] The Pill reads clearly in light and dark menu bars and on a notched display.
 - [ ] In Settings, open Running color in light and in dark mode: each option's dot is the color it
@@ -442,9 +454,9 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       open the ⚙ menu and each of its items. Escape closes the Panel.
 - [ ] With Keyboard navigation off (the macOS default), open the Panel and, without the mouse: ← and →
       move the viewed Day, past the strip's ends into the next or previous week; ⌘[ and ⌘] move a week;
-      ⌘T goes back to today; ⌘N opens ＋ with the Project field focused; ⌘I opens the (i) Time Summary
+      ⌘T goes back to today; ⌘N opens ＋ with the Label field focused; ⌘I opens the (i) Time Summary
       and ⌘I again closes it. Repeat with Keyboard navigation on and focus on a strip Day or a row.
-- [ ] In the ＋ form's Project and duration fields and in a row's adjust field, type some text: ← and →
+- [ ] In the ＋ form's Label and duration fields and in a row's adjust field, type some text: ← and →
       move the insertion point and ⌘← ⌘→ ⇧← ⌥← edit and select as usual, without changing the Day;
       ⌘A, ⌘C and ⌘V work. ⌘[ ⌘] ⌘T ⌘N ⌘I still work from those fields.
 - [ ] Add German, French, Dvorak and Russian in System Settings › Keyboard › Text Input and, with each

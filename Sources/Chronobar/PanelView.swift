@@ -15,7 +15,7 @@ final class PanelModel {
         }
     }
     var newProjectName = ""
-    /// Bumped to put focus in the ＋ form's Project field once the Panel's window can take it: the form's
+    /// Bumped to put focus in the ＋ form's Label field once the Panel's window can take it: the form's
     /// own focus on appearing is lost when the Panel opens straight into it.
     var newProjectFocusRequests = 0
     /// Bumped to put focus on the date header, today's date, once the Panel's window can take it.
@@ -24,7 +24,7 @@ final class PanelModel {
     /// a key press. Until then nothing else has focus but a text field the click put it in, which always
     /// shows its ring.
     private(set) var focusRing = FocusRing()
-    /// Whether the ＋ form's Project list is showing, which takes Return from the Start/Log button.
+    /// Whether the ＋ form's Label list is showing, which takes Return from the Start/Log button.
     var newProjectListOpen = false
     /// The ＋ form's duration; empty starts a timer, anything else logs that much time.
     var newProjectDuration = ""
@@ -602,12 +602,12 @@ private struct LoginHint: View {
     }
 }
 
-/// The ＋ form: a Project combo box, a duration and Start. The combo box lists the suggested Projects (used
+/// The ＋ form: a Label field, a duration and Start. The field's list shows the suggested Labels (used
 /// in the last 30 days, or pinned), most recently used first, narrowed to what is typed; picking from it
 /// fills the name for Start or Log to act on, and right-clicking one offers Pin and Archive. With a duration
 /// typed (`1:30`, `45`) the button reads Log and adds that time to the viewed Day without starting a timer;
 /// on any Day other than today it always reads Log and needs a duration. The line under the field says
-/// whether the name is a New Project or an Existing Project, with Pin for one not pinned and Archive for one
+/// whether the name is a New Label or an Existing Label, with Pin for one not pinned and Archive for one
 /// suggested, so both work from the keyboard too.
 private struct NewProjectForm: View {
     @Binding var name: String
@@ -626,9 +626,9 @@ private struct NewProjectForm: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                ProjectComboBox(name: $name, isListOpen: $isListOpen, suggestions: suggestions,
-                                focusRequests: focusRequests,
-                                submit: submit, isPinned: isPinned, pin: pin, archive: archive)
+                LabelField(name: $name, isListOpen: $isListOpen, suggestions: suggestions,
+                           focusRequests: focusRequests,
+                           submit: submit, isPinned: isPinned, pin: pin, archive: archive)
                 TextField("h:mm", text: $duration)
                     .textFieldStyle(.roundedBorder)
                     .monospacedDigit()
@@ -645,7 +645,7 @@ private struct NewProjectForm: View {
             }
             if let match {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(match == .new ? "New Project" : "Existing Project")
+                    Text(match == .new ? "New Label" : "Existing Label")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -665,7 +665,7 @@ private struct NewProjectForm: View {
                 .onChange(of: match == .new, initial: false) { _, isNew in
                     NSAccessibility.post(
                         element: NSApp.keyWindow ?? NSApp as Any, notification: .announcementRequested,
-                        userInfo: [.announcement: isNew ? "New Project" : "Existing Project",
+                        userInfo: [.announcement: isNew ? "New Label" : "Existing Label",
                                    .priority: NSAccessibilityPriorityLevel.low.rawValue])
                 }
             }

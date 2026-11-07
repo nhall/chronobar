@@ -186,7 +186,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
     }
 
-    /// Opens the Panel, with focus on today's date or in the ＋ form's Project field. After a click on the
+    /// Opens the Panel, with focus on today's date or in the ＋ form's Label field. After a click on the
     /// Pill the focus ring stays hidden until a key press in the Panel (`FocusRing`).
     func showPanel(newProject: Bool = false, by opening: PanelOpening) {
         panel.showingNewProject = newProject
@@ -245,7 +245,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 
     /// The Panel's window can only take focus once it is key, which from an inactive app can be after `show`
-    /// returns. So once the window is key, focus moves to the ＋ form's Project field, or with the form
+    /// returns. So once the window is key, focus moves to the ＋ form's Label field, or with the form
     /// closed to the date header, today's date, wherever it was when the Panel last closed.
     private func settleFocus(in window: NSWindow, newProject: Bool) {
         if let focusObserver { NotificationCenter.default.removeObserver(focusObserver) }
