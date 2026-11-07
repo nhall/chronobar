@@ -94,12 +94,16 @@ public final class Tracker {
         _ = try files.read(today)
         let project = try resolve(name)
         guard !timers.contains(project) else { return project }
-        if startPausesOthers {
-            for other in timers { try pause(other.project) }
-        }
         let timer = Running(project: project, start: now, source: source)
-        try files.update(today) { $0.append(.timed(project: project, start: timer.start, end: nil, source: source)) }
+        let pausesOthers = startPausesOthers
+        // One write closes the others and opens the new Entry, so a failed save leaves every timer as it was.
+        try files.update(today) { entries in
+            if pausesOthers { Self.close(&entries, at: timer.start) }
+            entries.append(.timed(project: project, start: timer.start, end: nil, source: source))
+        }
+        if pausesOthers { timers = RunningTimers() }
         timers.insert(timer)
+        bringBackAfterWriting(project)
         return project
     }
 
@@ -427,21 +431,33 @@ public final class Tracker {
     private static let suggestedDays = 30
 
     /// The Project `name` refers to, for start and log to write under: the spelling of the Pinned Project,
-    /// else of the archived one, else of its latest Entry, else `name` trimmed. An archived Project comes
-    /// off `archived.txt`. Throws if either list won't parse, so a write never replaces it.
+    /// else of the archived one, else of its latest Entry, else `name` trimmed. Throws if either list won't
+    /// parse, so a write never replaces it. Writes nothing: a caller brings an archived Project back with
+    /// `bringBack` once its own write has landed, so a refused or failed write changes nothing.
     func resolve(_ name: String) throws -> String {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
         let pinned = try projectStore.load()
-        var archived = try archivedStore.load()
-        let unarchived = archived.first { ProjectName.matches($0, name) }
-        if unarchived != nil {
-            archived.removeAll { ProjectName.matches($0, name) }
-            try archivedStore.save(archived)
-        }
+        let archived = try archivedStore.load()
         projects = pinned
         self.archived = archived
-        return pinned.first { ProjectName.matches($0, name) } ?? unarchived ?? historicalName(matching: name) ?? name
+        return pinned.first { ProjectName.matches($0, name) }
+            ?? archived.first { ProjectName.matches($0, name) }
+            ?? historicalName(matching: name) ?? name
+    }
+
+    /// Takes `project` off `archived.txt`, as `resolve` last read it.
+    func bringBack(_ project: String) throws {
+        guard archived.contains(where: { ProjectName.matches($0, project) }) else { return }
+        let kept = archived.filter { !ProjectName.matches($0, project) }
+        try archivedStore.save(kept)
+        archived = kept
+    }
+
+    /// `bringBack` after time was written under `project`. If that save fails the time stays written, so
+    /// the write still succeeds, and the Project stays archived until time is next written under it.
+    func bringBackAfterWriting(_ project: String) {
+        try? bringBack(project)
     }
 
     /// Pins `name`: adds it to `projects.txt`, so it is always suggested, and takes it off `archived.txt`.
@@ -449,6 +465,7 @@ public final class Tracker {
     @discardableResult
     public func pinProject(_ name: String) throws -> String {
         let project = try resolve(name)
+        try bringBack(project)
         guard !projects.contains(where: { ProjectName.matches($0, project) }) else { return project }
         try projectStore.save(projects + [project])
         projects.append(project)
@@ -546,6 +563,7 @@ public final class Tracker {
         catchUp()
         let project = try resolve(name)
         try files.update(day) { $0.append(.manual(project: project, seconds: seconds, note: .manual)) }
+        bringBackAfterWriting(project)
         return project
     }
 
