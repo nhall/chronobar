@@ -205,10 +205,12 @@ struct PanelView: View {
                 // Above the rows, out of the title row, which a long past Day's title and two-digit hours
                 // would crowd. An empty Day has none: "No time tracked" says it.
                 DayTotalLineView(line: DayTotalLine(total: tracker.dayTotal(day), elapsed: tracker.elapsed(day)))
+                // The rows' minutes add up to the Total line's, which is the Day total rounded down.
+                let minutes = RowMinutes(seconds: rows.map(\.total)).rows
                 RowList(panel: panel) {
-                    ForEach(rows, id: \.project) { row in
+                    ForEach(Array(zip(rows, minutes)), id: \.0.project) { row, minutes in
                         // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
-                        RowView(row: row, isRunning: isToday && tracker.isRunning(row.project),
+                        RowView(row: row, minutes: minutes, isRunning: isToday && tracker.isRunning(row.project),
                                 source: tracker.timers[row.project]?.source ?? .app,
                                 canStart: isToday, panel: panel,
                                 toggle: { actions.toggle(row.project) },
@@ -462,6 +464,8 @@ private struct RowList<Rows: View>: View {
 /// (`1:15`) or a change (`+15`, `-10`). Return applies it, Escape cancels.
 private struct RowView: View {
     let row: Row
+    /// The row's share of the Total line's minutes (`RowMinutes`).
+    let minutes: Int
     let isRunning: Bool
     /// Who started the running timer: an agent's gets a terminal icon after the name.
     let source: EntrySource
@@ -482,7 +486,7 @@ private struct RowView: View {
     static let horizontalPadding: CGFloat = 6
 
     var body: some View {
-        let presentation = RowPresentation(row: row, isRunning: isRunning, source: source)
+        let presentation = RowPresentation(row: row, minutes: minutes, isRunning: isRunning, source: source)
         HStack {
             Text(row.project).lineLimit(1)
                 .accessibilityLabel(presentation.nameLabel)
@@ -495,7 +499,7 @@ private struct RowView: View {
             }
             Spacer()
             if panel.adjusting == row.project {
-                TextField(DurationFormat.hoursMinutes(row.total), text: $panel.adjustment)
+                TextField(presentation.total, text: $panel.adjustment)
                     .textFieldStyle(.roundedBorder)
                     .monospacedDigit()
                     .multilineTextAlignment(.trailing)
@@ -512,12 +516,12 @@ private struct RowView: View {
                 Button {
                     panel.adjusting = row.project
                 } label: {
-                    Text(DurationFormat.hoursMinutes(row.total)).monospacedDigit()
+                    Text(presentation.total).monospacedDigit()
                 }
                 .buttonStyle(.plain)
                 .focused($focusedButton, equals: .total)
                 .help("Change this total")
-                .accessibilityLabel("\(row.project) total, \(DurationFormat.spoken(row.total))")
+                .accessibilityLabel(presentation.totalLabel)
                 .accessibilityHint("Change this total")
             }
             if canStart {

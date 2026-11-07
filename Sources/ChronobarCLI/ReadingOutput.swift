@@ -1,8 +1,10 @@
+import Foundation
+import ChronobarCore
 import ChronobarOperations
 
 /// The text for the reading and list operations.
 extension Output {
-    /// A Day's rows, then its totals.
+    /// A Day's rows, then its totals. The rows' minutes add up to the total (`RowMinutes`).
     static func rows(_ result: DayRowsResult) -> String {
         var lines = [result.day.date]
         if result.malformed {
@@ -10,8 +12,9 @@ extension Output {
         } else if result.rows.isEmpty {
             lines += ["  No time."]
         }
-        lines += result.rows.map { row in
-            "  \(row.label)  \(total(row.totalSeconds))\(row.running ? "  running" : "")"
+        let minutes = RowMinutes(seconds: result.rows.map { TimeInterval($0.totalSeconds) }).rows
+        lines += zip(result.rows, minutes).map { row, minutes in
+            "  \(row.label)  \(DurationFormat.hoursMinutes(minutes: minutes))\(row.running ? "  running" : "")"
         }
         lines += [totals(result.day.totalSeconds, clockTime: result.day.elapsedSeconds)]
         return lines.joined(separator: "\n")
@@ -20,14 +23,20 @@ extension Output {
     /// A week's Days with their totals, then each Label's week total, then the week's totals.
     static func weekText(_ result: WeekResult) -> String {
         var lines = ["Week of \(result.first) to \(result.last)"]
+        // Each Day line is the Day's own total, as `day` and the Panel show it. The week total is the sum
+        // of the Day lines, and so is its clock time; the Labels' lines add up to the week total.
         lines += result.days.map { day in
             let malformed = result.malformed.contains(day.date) ? "  (Day file isn't valid JSON)" : ""
             return "  \(day.date)  \(totals(day.totalSeconds, clockTime: day.elapsedSeconds))\(malformed)"
         }
-        lines += ["Labels:"] + (result.labels.isEmpty ? ["  No time."] : result.labels.map { label in
-            "  \(label.label)  \(total(label.totalSeconds))"
+        let weekMinutes = result.days.map { $0.totalSeconds / 60 }.reduce(0, +)
+        let weekClockMinutes = result.days.map { $0.elapsedSeconds / 60 }.reduce(0, +)
+        let labelMinutes = RowMinutes(seconds: result.labels.map { TimeInterval($0.totalSeconds) },
+                                      total: weekMinutes).rows
+        lines += ["Labels:"] + (result.labels.isEmpty ? ["  No time."] : zip(result.labels, labelMinutes).map {
+            label, minutes in "  \(label.label)  \(DurationFormat.hoursMinutes(minutes: minutes))"
         })
-        lines += [totals(result.totalSeconds, clockTime: result.elapsedSeconds)]
+        lines += [totals(weekMinutes * 60, clockTime: weekClockMinutes * 60)]
         return lines.joined(separator: "\n")
     }
 
