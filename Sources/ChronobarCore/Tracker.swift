@@ -82,7 +82,8 @@ public final class Tracker {
     public func isMalformed(_ day: Day) -> Bool { malformedDays.contains(day) }
 
     /// Starts a timer for `project`, leaving the running ones running unless `startPausesOthers` is on. A
-    /// Project already running keeps its timer, start and source, so this is a no-op for it. A new name
+    /// Project already running keeps its timer, start and source, and the others keep running whatever the
+    /// setting, so this is a no-op for it. A new name
     /// creates a Project. Refused, leaving the running timers alone, while today's file is malformed.
     /// Timers run only today: unlike `log` and `adjust` this takes no Day, so no Day other than today ever
     /// gets a timer. Returns the Project's name with its stored spelling, the name its row is shown under.
@@ -92,10 +93,10 @@ public final class Tracker {
         files.retryPending()
         _ = try files.read(today)
         let project = try resolve(name)
-        if startPausesOthers {
-            for other in timers where !ProjectName.matches(other.project, project) { try pause(other.project) }
-        }
         guard !timers.contains(project) else { return project }
+        if startPausesOthers {
+            for other in timers { try pause(other.project) }
+        }
         let timer = Running(project: project, start: now, source: source)
         try files.update(today) { $0.append(.timed(project: project, start: timer.start, end: nil, source: source)) }
         timers.insert(timer)
