@@ -6,7 +6,8 @@ enum MCPTools {
     static let all: [Tool] = [
         Tool(name: "status", title: "Running timers",
              description: "List the running timers (Label, start, source, the Label's total today) and today's "
-                 + "Day total and elapsed time.",
+                 + "Day total and clock time (elapsed_seconds: the time when any timer ran, overlaps counted "
+                 + "once, without time logged by hand).",
              inputSchema: schema([:]), annotations: reading),
         Tool(name: "start", title: "Start a timer",
              description: "Start a timer for a Label, such as \"Client A, Ticket 665\". If the Label's timer is "
@@ -55,18 +56,18 @@ enum MCPTools {
              annotations: changing(destructive: true)),
         Tool(name: "day", title: "A Day's rows",
              description: "List a Day's Labels with their totals (and which are running, today), with the Day "
-                 + "total and elapsed time. For a question about a week, call week instead.",
+                 + "total and clock time (elapsed_seconds). For a question about a week, call week instead.",
              inputSchema: schema(["date": date("The Day; today if left out.")]),
              annotations: reading),
         Tool(name: "week", title: "A week's totals",
-             description: "For the week containing a date (this week if left out), each Day's total and elapsed "
-                 + "time, each Label's total across the week, and the week's totals: what was spent on a Label "
-                 + "this week or last.",
+             description: "For the week containing a date (this week if left out), each Day's total and clock "
+                 + "time (elapsed_seconds), each Label's total across the week, and the week's totals: what was "
+                 + "spent on a Label this week or last.",
              inputSchema: schema(["date": date("Any Day in the week; today if left out.")]),
              annotations: reading),
         Tool(name: "summary", title: "Time Summary",
              description: "Today, yesterday, this week and this month: the total across every Label and the "
-                 + "elapsed time for each.",
+                 + "clock time (elapsed_seconds) for each.",
              inputSchema: schema([:]), annotations: reading),
         Tool(name: "labels", title: "Find Labels",
              description: "List the suggested Labels (used in the last 30 days, plus pinned ones, minus archived "

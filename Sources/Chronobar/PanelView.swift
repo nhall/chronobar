@@ -204,8 +204,7 @@ struct PanelView: View {
             } else {
                 // Above the rows, out of the title row, which a long past Day's title and two-digit hours
                 // would crowd. An empty Day has none: "No time tracked" says it.
-                DayTotalLineView(line: DayTotalLine(total: tracker.dayTotal(day), elapsed: tracker.elapsed(day)),
-                                 hasToggleColumn: isToday)
+                DayTotalLineView(line: DayTotalLine(total: tracker.dayTotal(day), elapsed: tracker.elapsed(day)))
                 RowList(panel: panel) {
                     ForEach(rows, id: \.project) { row in
                         // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
@@ -377,33 +376,23 @@ private enum DayMark {
     }
 }
 
-/// "Total          2:57 · 2:50 elapsed" (`DayTotalLine`), in the secondary color so it doesn't read as a
-/// row. Laid out like a row, so the times end where the rows' times do: the same insets, and on today
-/// room for the ▶/⏸ column. Even "23:59 · 23:59 elapsed" leaves about 80 points spare at the Panel's
-/// width, so it needs no shorter form.
+/// "Total 2:57 · Clock time 2:50" (`DayTotalLine`), one run of text from the leading edge, in the
+/// secondary color so it doesn't read as a row. It has the rows' inset, so "Total" starts where their
+/// names do. The widest, "Total 23:59 · Clock time 23:59", measures about 184 points of the 256 the
+/// Panel's width leaves inside that inset, so it needs no shorter form.
 private struct DayTotalLineView: View {
     let line: DayTotalLine
-    /// Whether the rows end with ▶/⏸, as only today's do.
-    let hasToggleColumn: Bool
 
     var body: some View {
-        HStack {
-            Text(line.label)
-            Spacer()
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(line.total)
-                Text(line.elapsed).font(.caption)
-            }
+        Text(line.text)
             .monospacedDigit()
-            if hasToggleColumn {
-                Color.clear.frame(width: RowView.toggleWidth, height: 0)
-            }
-        }
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, RowView.horizontalPadding)
-        .help(line.help)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(line.accessibilityLabel)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, RowView.horizontalPadding)
+            .help(line.help)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(line.accessibilityLabel)
     }
 }
 
@@ -421,23 +410,23 @@ private struct SummaryView: View {
         .padding()
     }
 
-    private func line(_ label: String, _ total: TimeInterval, _ elapsed: TimeInterval) -> some View {
-        // VoiceOver reads each line as one element: "This week, 12 hours 5 minutes, 9 hours elapsed".
-        GridRow(alignment: .firstTextBaseline) {
-            Text(label)
-                .accessibilityLabel(
-                    "\(label), \(DurationFormat.spoken(total)), \(DurationFormat.spoken(elapsed)) elapsed")
-            Text(DurationFormat.hoursMinutes(total))
+    /// "This week 12:05 · Clock time 9:00", the figures in columns so the periods line up.
+    private func line(_ name: String, _ total: TimeInterval, _ elapsed: TimeInterval) -> some View {
+        let line = DayTotalLine(name, total: total, elapsed: elapsed)
+        // VoiceOver reads each line as one element: "This week 12 hours 5 minutes, clock time 9 hours".
+        return GridRow(alignment: .firstTextBaseline) {
+            Text(line.name)
+                .accessibilityLabel(line.accessibilityLabel)
+            Text(line.total)
                 .monospacedDigit()
                 .gridColumnAlignment(.trailing)
                 .accessibilityHidden(true)
-            Text("\(DurationFormat.hoursMinutes(elapsed)) elapsed")
-                .font(.caption)
+            Text("· \(line.clockTime)")
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
-                .gridColumnAlignment(.trailing)
                 .accessibilityHidden(true)
         }
+        .help(line.help)
     }
 }
 

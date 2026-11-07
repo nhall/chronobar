@@ -78,10 +78,15 @@ enum Output {
 
     private static func day(_ day: DayResult) -> String {
         let name = day.date == date(Date()) ? "Today" : day.date
-        return "\(name): \(total(day.totalSeconds)) · \(total(day.elapsedSeconds)) elapsed"
+        return "\(name): \(totals(day.totalSeconds, clockTime: day.elapsedSeconds))"
     }
 
     static func total(_ seconds: Int) -> String { DurationFormat.hoursMinutes(TimeInterval(seconds)) }
+
+    /// "Total 3:17 · Clock time 3:00", or with a period's name instead of "Total", as the Panel shows them.
+    static func totals(_ seconds: Int, clockTime: Int, name: String = "Total") -> String {
+        DayTotalLine(name, total: TimeInterval(seconds), elapsed: TimeInterval(clockTime)).text
+    }
 
     private static func clock(_ date: Date) -> String {
         date.formatted(.dateTime.locale(Locale(identifier: "en_GB")).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
