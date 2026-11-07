@@ -21,8 +21,12 @@ struct ProjectStore {
     }
 
     func save(_ projects: [String]) throws {
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        try Data(projects.map { $0 + "\n" }.joined().utf8).write(to: url, options: .atomic)
+        try FileWrite.replace([write(projects)])
+    }
+
+    /// The file listing `projects`, for writing along with other files.
+    func write(_ projects: [String]) -> FileWrite {
+        FileWrite(url: url, data: Data(projects.map { $0 + "\n" }.joined().utf8))
     }
 }
 

@@ -83,14 +83,16 @@ final class DayFiles {
 
     /// Re-reads `day`'s file, applies `change` and writes it back, after any earlier deferred writes to
     /// it. If the file is malformed the write is refused, or with `deferringIfMalformed` applied to the
-    /// loaded Entries only and queued until the file parses.
+    /// loaded Entries only and queued until the file parses. `others` are written with it, all or none;
+    /// a deferred write drops them.
     func update(
-        _ day: Day, deferringIfMalformed: Bool = false, _ change: @escaping (inout [Entry]) -> Void
+        _ day: Day, deferringIfMalformed: Bool = false, alongWith others: [FileWrite] = [],
+        _ change: @escaping (inout [Entry]) -> Void
     ) throws {
         retryPending()
         do {
             guard !hasPending(day) else { throw DayFile.Malformed() }
-            try write(day, change)
+            try write(day, alongWith: others, change)
         } catch is DayFile.Malformed where deferringIfMalformed {
             if day == loadedDay { change(&loadedEntries) }
             pending.append((day, change))
@@ -100,6 +102,12 @@ final class DayFiles {
     /// Replaces `day`'s Entries.
     func save(_ day: Day, _ entries: [Entry]) throws {
         try write(day) { $0 = entries }
+    }
+
+    /// Replaces each Day's Entries and writes `others`, all or none, so a failed save changes no file.
+    func save(_ days: [(Day, [Entry])], alongWith others: [FileWrite] = []) throws {
+        try store.save(days, alongWith: others, timeZone: clock.calendar.timeZone)
+        for (day, entries) in days { remember(day, entries) }
     }
 
     /// Applies deferred writes in order. A Day whose file still won't parse keeps its writes queued.
@@ -130,11 +138,16 @@ final class DayFiles {
         }
     }
 
-    /// Re-reads `day`'s file, applies `change` and writes it back.
-    private func write(_ day: Day, _ change: (inout [Entry]) -> Void) throws {
+    /// Re-reads `day`'s file, applies `change` and writes it back, with `others` all or none.
+    private func write(_ day: Day, alongWith others: [FileWrite] = [], _ change: (inout [Entry]) -> Void) throws {
         var entries = try read(day)
         change(&entries)
-        try store.save(day, entries, timeZone: clock.calendar.timeZone)
+        try store.save([(day, entries)], alongWith: others, timeZone: clock.calendar.timeZone)
+        remember(day, entries)
+    }
+
+    /// Keeps `entries`, just written, as `day`'s.
+    private func remember(_ day: Day, _ entries: [Entry]) {
         if let listed = listedDays, !listed.contains(day) { listedDays = (listed + [day]).sorted(by: >) }
         if day == loadedDay { loadedEntries = entries } else { otherDays[day] = entries }
     }

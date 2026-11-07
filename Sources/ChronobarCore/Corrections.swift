@@ -96,8 +96,7 @@ extension Tracker {
         guard !name.isEmpty else { throw EmptyProjectName() }
         let project = try resolve(name)
         let stored = split(project, from: start, to: end, source: source)
-        try replace(project, [], with: stored)
-        bringBackAfterWriting(project)
+        try replace(project, [], with: stored, alongWith: bringingBack(project))
         return stored
     }
 
@@ -145,10 +144,13 @@ extension Tracker {
     }
 
     /// Replaces the Project's Entries starting at `old` (a run's pieces, or none) with `new`, each in
-    /// place on its Day, or appended where that Day had none. Then reloads, so the timers match the file.
-    /// Refused if a Day won't parse, or if `new` overlaps the Project's other timed Entries.
-    private func replace(_ project: String, _ old: [(day: Day, start: Date)], with new: [TimedEntry]) throws {
-        for (day, entries) in try replacing(project, old, with: new) { try files.save(day, entries) }
+    /// place on its Day, or appended where that Day had none, writing `others` too; every file or none.
+    /// Then reloads, so the timers match the file. Refused if a Day won't parse, or if `new` overlaps the
+    /// Project's other timed Entries.
+    private func replace(
+        _ project: String, _ old: [(day: Day, start: Date)], with new: [TimedEntry], alongWith others: [FileWrite] = []
+    ) throws {
+        try files.save(try replacing(project, old, with: new), alongWith: others)
         reload()
     }
 
