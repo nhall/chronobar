@@ -3,8 +3,8 @@ import ChronobarCore
 
 /// The Unix domain socket between the app and the `chronobar` command: `chronobar.sock` in the data folder,
 /// readable and writable by its owner only. Each connection carries any number of request lines, each
-/// answered in turn with one response line (`Wire`). Not covered by `swift test`; the README's checklist
-/// tries it by hand.
+/// answered in turn with one response line (`Wire`). The socket file lives as long as the app: `ChannelServer`
+/// removes it at quit and replaces one a crash left. Requests over it are tried by hand (README checklist).
 public enum Channel {
     public static let socketName = "chronobar.sock"
 
@@ -117,15 +117,24 @@ struct LineReader {
 public final class ChannelServer: @unchecked Sendable {
     private let url: URL
     private let listener: Int32
+    /// The device and inode of the socket file `bind` made, so `stop` removes only that file.
+    private let socketFile: (device: dev_t, inode: ino_t)
+    private let stopping = NSLock()
+    private var stopped = false
 
-    /// Listens at `url`, replacing a socket a previous run left there. `respond` answers one request line
+    /// Listens at `url`, replacing a socket a previous run left there with nothing listening; refused with
+    /// `EADDRINUSE` while another copy listens there. `respond` answers one request line
     /// with one response line (`Operations.respond(to:)`).
     public init(url: URL, respond: @escaping @MainActor @Sendable (Data) -> Data) throws {
         self.url = url
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        // A socket that answers belongs to a copy still running: leave it to that copy.
+        if (try? ChannelClient(url: url)) != nil {
+            throw Channel.Failure("another copy of Chronobar is listening on \(url.path)", EADDRINUSE)
+        }
         unlink(url.path)
         var address = try Channel.address(url)
-        listener = try Channel.makeSocket()
+        let listener = try Channel.makeSocket()
         // Owner-only from the moment the file exists: the umask applies to the socket `bind` makes.
         let mask = umask(0o077)
         let bound = withUnsafePointer(to: &address) {
@@ -140,12 +149,21 @@ public final class ChannelServer: @unchecked Sendable {
             throw Channel.Failure("bind \(url.path)", bindError)
         }
         chmod(url.path, 0o600)
+        var file = stat()
+        guard lstat(url.path, &file) == 0 else {
+            let failure = Channel.Failure("stat \(url.path)")
+            close(listener)
+            unlink(url.path)
+            throw failure
+        }
+        self.socketFile = (file.st_dev, file.st_ino)
         guard listen(listener, 16) == 0 else {
             let failure = Channel.Failure("listen")
             close(listener)
+            unlink(url.path)
             throw failure
         }
-        let listener = listener
+        self.listener = listener
         Thread.detachNewThread {
             while true {
                 let client = accept(listener, nil, nil)
@@ -190,10 +208,19 @@ public final class ChannelServer: @unchecked Sendable {
         return reply.data
     }
 
-    /// Stops listening and removes the socket file.
+    /// Stops listening and removes the socket file, if the file at the path is still the one this server
+    /// made: another copy may have started there since. Calling it again does nothing.
     public func stop() {
+        stopping.lock()
+        defer { stopping.unlock() }
+        guard !stopped else { return }
+        stopped = true
+        shutdown(listener, SHUT_RDWR)
         close(listener)
-        unlink(url.path)
+        var file = stat()
+        if lstat(url.path, &file) == 0, file.st_dev == socketFile.device, file.st_ino == socketFile.inode {
+            unlink(url.path)
+        }
     }
 }
 

@@ -89,8 +89,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         idleMonitor.poll()
     }
 
-    /// Quitting stops the timers started in the app at the quit time; agents' timers stay open.
+    /// Quitting stops the timers started in the app at the quit time; agents' timers stay open. The socket
+    /// goes with the app, so no file is left for the `chronobar` command to find.
     func applicationWillTerminate(_ notification: Notification) {
+        channel?.stop()
         do {
             try tracker?.quit()
         } catch {
