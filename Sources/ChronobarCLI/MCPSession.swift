@@ -56,18 +56,7 @@ final class MCPSession {
         // Forget timers stopped elsewhere, so one started again from the Panel isn't taken for the session's.
         started.removeAll { label in !running.contains { ProjectName.matches($0.label, label) } }
         let mine = running.filter { timer in started.contains { ProjectName.matches(timer.label, $0) } }
-        let list = " Running: \(running.map(\.label).joined(separator: ", "))."
-        switch mine.count {
-        case 1: return mine[0].label
-        case 0 where running.isEmpty: throw OperationError(.nothingRunning, "No timer is running.", running: [])
-        case 0:
-            throw OperationError(.noSessionTimer, "No timer this session started is running, so say which to "
-                                 + "\(verb)." + list, running: running)
-        default:
-            throw OperationError(.ambiguous, "This session started \(mine.count) running timers "
-                                 + "(\(mine.map(\.label).joined(separator: ", "))), so say which to \(verb)."
-                                 + list, running: running)
-        }
+        return try UnnamedTimer.label(among: mine, running: running, to: verb, session: true)
     }
 
     /// Notes the Label a `start` started, not one it found already running, and forgets the one a `stop`

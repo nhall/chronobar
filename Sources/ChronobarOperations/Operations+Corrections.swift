@@ -5,13 +5,13 @@ import ChronobarCore
 /// the times and refuses anything that would book time that hasn't happened or count time twice.
 extension Operations {
     func stop(_ label: String?, at end: Date) throws(OperationError) -> StopResult {
-        let label = if let label { try named(label) } else { try onlyRunningLabel() }
+        let label = try namedOrOnlyRunning(label)
         let entry = try core { try tracker.stop(label, at: end) }
         return StopResult(entry: result(entry), running: runningTimers(), today: todayResult())
     }
 
     func setStart(_ label: String?, at start: Date) throws(OperationError) -> SetStartResult {
-        let label = if let label { try named(label) } else { try onlyRunningLabel(to: "move") }
+        let label = try namedOrOnlyRunning(label, to: "move")
         let run = try core { try tracker.setStart(label, at: start) }
         guard let timer = runningTimers().first(where: { ProjectName.matches($0.label, run.last!.project) }) else {
             throw OperationError(.failed, "\(label)'s timer stopped while its start moved.")
@@ -33,7 +33,7 @@ extension Operations {
                 throw OperationError(.failed, "Chronobar added \(duration) but couldn't read it back.")
             }
             let manual = ManualEntryResult(date: day.description, seconds: seconds,
-                                           totalSeconds: self.seconds(tracker.total(project, on: day)))
+                                           totalSeconds: totalSeconds(project, on: day))
             return AddEntryResult(label: project, entries: [], manual: manual, days: [dayResult(day)])
         }
     }
@@ -76,7 +76,7 @@ extension Operations {
     private func result(_ entry: TimedEntry) -> EntryResult {
         let day = entry.day(in: tracker.calendar)
         return EntryResult(label: entry.project, start: entry.start, end: entry.end ?? tracker.now,
-                           source: entry.source, totalSeconds: seconds(tracker.total(entry.project, on: day)))
+                           source: entry.source, totalSeconds: totalSeconds(entry.project, on: day))
     }
 
     /// `date` as the Day files write it, for a message.
