@@ -38,7 +38,7 @@ struct PillView: View {
                 .frame(width: PillMetrics.squareWidth, height: PillMetrics.height)
                 .background(
                     RoundedRectangle(cornerRadius: PillMetrics.cornerRadius)
-                        .fill(isRunning ? preferences.runningColor.color : StoppedSquare.color))
+                        .fill(isRunning ? preferences.runningColor.color : StoppedSquare.color(in: environment)))
             Text(time)
                 .font(.system(size: 12, weight: .medium).monospacedDigit())
                 .foregroundStyle(.white)
