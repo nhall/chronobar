@@ -32,7 +32,8 @@ class Chronobar < Formula
         ln -sfn #{opt_prefix}/Chronobar.app ~/Applications/Chronobar.app
       The link points at Homebrew's "opt" path, so it keeps working after `brew upgrade`.
 
-      For agents, register `chronobar mcp` as a stdio MCP server; the README has each client's line.
+      For agents, register `chronobar mcp` as a stdio MCP server; docs/connecting-agents.md in
+      #{homepage} has each client's setup.
     EOS
   end
 
