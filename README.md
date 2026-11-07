@@ -167,7 +167,8 @@ timer for Client A, Ticket 665", "stop it back when you finished" or "add a line
 took us". Each tool returns the stored times and totals as structured JSON; a refusal is a tool error
 with its message and, where it helps, the running timers.
 
-Each session runs its own server, which remembers the labels that session started. `stop` and
+Each session runs its own server, which remembers the labels that session started (a `start` that found
+the label already running doesn't count). `stop` and
 `set_start` with no label act on that session's timer, whatever else is running; if it started several
 that are still running, or none, they change nothing and list the running timers (`ambiguous` or
 `no_session_timer`), so the agent asks which. Any session can stop any timer by name. Closing a session

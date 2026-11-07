@@ -15,7 +15,8 @@ final class MCPSession {
     private let send: Send
     /// The time zone results' times are written in.
     private let timeZone: TimeZone
-    /// The Labels this session started (or started again while they ran), as stored, oldest first.
+    /// The Labels this session started, as stored, oldest first. A start that found the Label already
+    /// running didn't start it, so it isn't noted.
     private var started: [String] = []
 
     init(timeZone: TimeZone = .current, send: @escaping Send) {
@@ -69,10 +70,12 @@ final class MCPSession {
         }
     }
 
-    /// Notes the Label a `start` started, and forgets the one a `stop` stopped.
+    /// Notes the Label a `start` started, not one it found already running, and forgets the one a `stop`
+    /// stopped.
     private func remember(_ result: OperationResult) {
         switch result {
-        case .start(let started) where !self.started.contains(where: { ProjectName.matches($0, started.timer.label) }):
+        case .start(let started) where !started.alreadyRunning
+            && !self.started.contains(where: { ProjectName.matches($0, started.timer.label) }):
             self.started.append(started.timer.label)
         case .stop(let stopped):
             started.removeAll { ProjectName.matches($0, stopped.entry.label) }

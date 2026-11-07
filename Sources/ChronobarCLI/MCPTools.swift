@@ -12,8 +12,8 @@ enum MCPTools {
              description: "Start a timer for a Label, such as \"Client A, Ticket 665\". If the Label's timer is "
                  + "already running it keeps going (already_running is true); there is never a second timer for a "
                  + "Label. Other timers keep running unless the user has set starting to pause them (they are "
-                 + "listed in paused). This session remembers the Labels it starts: stop and set_start without a "
-                 + "label act on them.",
+                 + "listed in paused). This session remembers the Labels it starts, not one that was already "
+                 + "running: stop and set_start without a label act on them.",
              inputSchema: schema(["label": label("The Label to time. Matched to an existing Label ignoring case.")],
                                  required: ["label"]),
              annotations: changing(idempotent: true)),
