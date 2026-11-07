@@ -32,6 +32,8 @@ public final class Tracker {
     @ObservationIgnored private let defaults: UserDefaults?
     /// The runs `tick()` has reported as long-running, so each is reported once, across relaunches too.
     @ObservationIgnored private var warned: [LongRunning]
+    /// The warned runs `takeLongRunning()` hasn't handed out yet.
+    @ObservationIgnored private var unreported: [LongRunning] = []
 
     private static let heartbeatKey = "heartbeat"
     private static let warnedKey = "longRunningWarned"
@@ -160,32 +162,41 @@ public final class Tracker {
         }
     }
 
-    /// Called every second by the UI so running totals advance, and on wake. Rolls over to a new Day and
-    /// retries deferred writes, then recovers any Entry left open in a Day file that parsed again. Returns
-    /// the timers that have now run for `longRunningThreshold`, each once per run.
-    @discardableResult
-    public func tick() -> [LongRunning] {
+    /// Called every second by the UI so running totals advance, on wake, and before each Panel opening or
+    /// agent request. Rolls over to a new Day and retries deferred writes, then recovers any Entry left open
+    /// in a Day file that parsed again. Timers that have now run for `longRunningThreshold` wait in
+    /// `takeLongRunning()`, so whichever caller ticked, the app still hears of each.
+    public func tick() {
         catchUp()
         files.retryPending()
         recover(reparsed: files.takeReparsed())
         unblockPendingIdle()
-        return newlyLongRunning()
+        noteLongRunning()
     }
 
-    /// The timers that ran past `longRunningThreshold` since last asked, each marked as warned.
-    private func newlyLongRunning() -> [LongRunning] {
-        guard let threshold = longRunningThreshold else { return [] }
+    /// The timers `tick()` found past `longRunningThreshold` since last asked, each once per run, leaving
+    /// none to take until another passes it. A run that ended before it was taken is left out.
+    public func takeLongRunning() -> [LongRunning] {
+        let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
+        defer { unreported = [] }
+        return unreported.filter(running.contains)
+    }
+
+    /// Marks the timers that ran past `longRunningThreshold` as warned and queues them for
+    /// `takeLongRunning()`.
+    private func noteLongRunning() {
+        guard let threshold = longRunningThreshold else { return }
         let passed = timers.compactMap { timer -> LongRunning? in
             let run = LongRunning(project: timer.project, since: runStart(of: timer))
             guard now.timeIntervalSince(run.since) >= threshold, !warned.contains(run) else { return nil }
             return run
         }
-        guard !passed.isEmpty else { return [] }
+        guard !passed.isEmpty else { return }
         // Runs that ended are dropped, so the list holds only timers still running.
         let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
         warned = warned.filter(running.contains) + passed
+        unreported += passed
         defaults?.set(warned.map { ["project": $0.project, "since": $0.since] }, forKey: Self.warnedKey)
-        return passed
     }
 
     /// The runs reported before the last quit, as `newlyLongRunning` saved them.
