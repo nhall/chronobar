@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import ChronobarCore
 
-/// The ＋ form's Project field: a native `NSComboBox`, so VoiceOver, Full Keyboard Access and larger text
+/// The ＋ form's Label field: a native `NSComboBox`, so VoiceOver, Full Keyboard Access and larger text
 /// come with it. ▾ or ↓ opens the list of `suggestions(typed)`, where `typed` is what was last typed rather
 /// than a name filled in from the list, so moving through the list doesn't narrow it. Typing narrows the
 /// list and opens it while anything matches, and closes it when nothing does. There is no inline
@@ -32,8 +32,8 @@ struct ProjectComboBox: NSViewRepresentable {
         box.completes = false
         box.numberOfVisibleItems = 10
         box.hasVerticalScroller = true
-        box.placeholderString = "Project"
-        box.setAccessibilityLabel("Project")
+        box.placeholderString = "Label"
+        box.setAccessibilityLabel("Label")
         box.lineBreakMode = .byTruncatingTail
         box.cell?.isScrollable = true
         box.setContentHuggingPriority(.defaultLow, for: .horizontal)
