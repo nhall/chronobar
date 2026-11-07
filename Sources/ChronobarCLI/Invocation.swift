@@ -56,37 +56,61 @@ enum Invocation: Equatable {
         "--day": ["add", "adjust"],
     ]
 
+    /// Whether the answer is printed as the app's JSON response.
+    var json: Bool {
+        if case .request(_, let json, _) = self { json } else { false }
+    }
+
+    /// The options and words of a command line, as `init` reads them.
+    private struct Options {
+        var json = false
+        var copy = BuildVariant.Copy.everyday
+        var help = false
+        var words: [String] = []
+        var values: [String: String] = [:]
+        /// The first option that couldn't be read. Reading goes on past it, so `json` is still known.
+        var problem: OperationError?
+
+        init(_ arguments: [String]) {
+            var optionsEnded = false
+            var remaining = arguments[...]
+            while let argument = remaining.popFirst() {
+                // A word such as `-10` is an adjust, not an option.
+                if optionsEnded || !argument.hasPrefix("-") || argument.dropFirst().first?.isNumber == true {
+                    words.append(argument)
+                    continue
+                }
+                let parts = argument.split(separator: "=", maxSplits: 1).map(String.init)
+                if Invocation.valueOptions[parts[0]] != nil {
+                    if let value = parts.count == 2 ? parts[1] : remaining.popFirst() {
+                        values[parts[0]] = value
+                    } else {
+                        problem = problem ?? OperationError(.usage, "\(parts[0]) needs a value.")
+                    }
+                    continue
+                }
+                switch argument {
+                case "--": optionsEnded = true
+                case "--json": json = true
+                case "--dev": copy = .development
+                case "-h", "--help": help = true
+                default: problem = problem ?? OperationError(.usage, "Unknown option \(argument).")
+                }
+            }
+        }
+    }
+
+    /// Whether `arguments` ask for `--json`, read as options are, so `--json` after `--` or as another
+    /// option's value doesn't count. For answering in JSON when `init` refuses the command line too.
+    static func asksForJSON(_ arguments: [String]) -> Bool { Options(arguments).json }
+
     /// Reads `arguments` (without the program name), with `now` and `calendar` giving today for `HH:MM`
     /// and for no `--day`. Throws a `usage` error for anything it doesn't take.
     init(_ arguments: [String], now: Date = Date(), calendar: Calendar = .current) throws(OperationError) {
-        var json = false
-        var copy = BuildVariant.Copy.everyday
-        var words: [String] = []
-        var values: [String: String] = [:]
-        var optionsEnded = false
-        var remaining = arguments[...]
-        while let argument = remaining.popFirst() {
-            // A word such as `-10` is an adjust, not an option.
-            if optionsEnded || !argument.hasPrefix("-") || argument.dropFirst().first?.isNumber == true {
-                words.append(argument)
-                continue
-            }
-            let parts = argument.split(separator: "=", maxSplits: 1).map(String.init)
-            if Self.valueOptions[parts[0]] != nil {
-                guard let value = parts.count == 2 ? parts[1] : remaining.popFirst() else {
-                    throw OperationError(.usage, "\(parts[0]) needs a value.")
-                }
-                values[parts[0]] = value
-                continue
-            }
-            switch argument {
-            case "--": optionsEnded = true
-            case "--json": json = true
-            case "--dev": copy = .development
-            case "-h", "--help": self = .help; return
-            default: throw OperationError(.usage, "Unknown option \(argument).")
-            }
-        }
+        let options = Options(arguments)
+        if options.help { self = .help; return }
+        if let problem = options.problem { throw problem }
+        let (json, copy, words, values) = (options.json, options.copy, options.words, options.values)
         guard let command = words.first else { throw OperationError(.usage, "Name a command.") }
         for option in values.keys.sorted() where !Self.valueOptions[option]!.contains(command) {
             throw OperationError(.usage, "\(command) doesn't take \(option).")

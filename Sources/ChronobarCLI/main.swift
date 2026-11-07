@@ -21,9 +21,8 @@ enum ExitCode {
 }
 
 let arguments = Array(CommandLine.arguments.dropFirst())
-let json = arguments.contains("--json")
 
-func fail(_ error: OperationError) -> Never {
+func fail(_ error: OperationError, json: Bool) -> Never {
     if json {
         FileHandle.standardOutput.write(Wire.encode(.failure(error), timeZone: .current))
     } else {
@@ -33,12 +32,18 @@ func fail(_ error: OperationError) -> Never {
     exit(ExitCode.of(error))
 }
 
-func run(_ invocation: Invocation) throws(OperationError) {
+func run(_ invocation: Invocation) async throws(OperationError) {
     switch invocation {
     case .help:
         print(Invocation.usage)
-    case .mcp:
-        break
+    case .mcp(let copy):
+        // Runs until the client closes standard input; the session's timers keep running after it.
+        do {
+            try await MCPServer.run(copy)
+        } catch {
+            FileHandle.standardError.write(Data("chronobar mcp: \(error)\n".utf8))
+            exit(ExitCode.refused)
+        }
     case .request(let request, let json, let copy):
         let client = try connect(to: copy)
         let reply: Data
@@ -61,7 +66,7 @@ func run(_ invocation: Invocation) throws(OperationError) {
                 print(Output.text(result))
             }
         case .failure(let error):
-            fail(error)
+            fail(error, json: json)
         }
     }
 }
@@ -70,22 +75,11 @@ let invocation: Invocation
 do {
     invocation = try Invocation(arguments)
 } catch {
-    fail(error)
-}
-
-if case .mcp(let copy) = invocation {
-    // Runs until the client closes standard input; the session's timers keep running after it.
-    do {
-        try await MCPServer.run(copy)
-    } catch {
-        FileHandle.standardError.write(Data("chronobar mcp: \(error)\n".utf8))
-        exit(ExitCode.refused)
-    }
-    exit(ExitCode.done)
+    fail(error, json: Invocation.asksForJSON(arguments))
 }
 
 do {
-    try run(invocation)
+    try await run(invocation)
 } catch {
-    fail(error)
+    fail(error, json: invocation.json)
 }
