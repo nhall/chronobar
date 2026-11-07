@@ -440,7 +440,7 @@ public final class Tracker {
     /// The Project `name` refers to, for start and log to write under: the spelling of the Pinned Project,
     /// else of the archived one, else of its latest Entry, else `name` trimmed. Throws if either list won't
     /// parse, so a write never replaces it. Writes nothing: a caller brings an archived Project back in
-    /// its own write (`bringingBack`) or after it (`bringBack`), so a refused or failed write changes nothing.
+    /// its own write (`bringingBack`), so a refused or failed write changes nothing.
     func resolve(_ name: String) throws -> String {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
@@ -453,17 +453,9 @@ public final class Tracker {
             ?? historicalName(matching: name) ?? name
     }
 
-    /// Takes `project` off `archived.txt`, as `resolve` last read it.
-    func bringBack(_ project: String) throws {
-        guard archived.contains(where: { ProjectName.matches($0, project) }) else { return }
-        let kept = archived.filter { !ProjectName.matches($0, project) }
-        try archivedStore.save(kept)
-        archived = kept
-    }
-
-    /// The `archived.txt` write taking `project` off it, as `resolve` last read it, to land with the Day
-    /// write putting time under `project`, all or none; none if it isn't archived. Call `broughtBack`
-    /// once that write has landed.
+    /// The `archived.txt` write taking `project` off it, as `resolve` last read it, to land with the write
+    /// putting time under `project` or pinning it, all or none; none if it isn't archived. Call
+    /// `broughtBack` once that write has landed.
     func bringingBack(_ project: String) -> [FileWrite] {
         guard archived.contains(where: { ProjectName.matches($0, project) }) else { return [] }
         return [archivedStore.write(archived.filter { !ProjectName.matches($0, project) })]
@@ -479,10 +471,12 @@ public final class Tracker {
     @discardableResult
     public func pinProject(_ name: String) throws -> String {
         let project = try resolve(name)
-        try bringBack(project)
-        guard !projects.contains(where: { ProjectName.matches($0, project) }) else { return project }
-        try projectStore.save(projects + [project])
-        projects.append(project)
+        let pinned = projects.contains(where: { ProjectName.matches($0, project) }) ? projects : projects + [project]
+        // Both lists in one write, so a failed save leaves both as they were.
+        let writes = bringingBack(project) + (pinned == projects ? [] : [projectStore.write(pinned)])
+        try FileWrite.replace(writes)
+        broughtBack(project)
+        projects = pinned
         return project
     }
 
@@ -546,21 +540,24 @@ public final class Tracker {
 
     /// Archives the Project matching `name`: takes it off `projects.txt` and adds it to `archived.txt`, so
     /// it isn't suggested until typed again. Its Entries stay in the Day files and a running timer keeps
-    /// running. Reads both lists before writing either, so if one won't parse nothing changes.
+    /// running. Reads both lists before writing either and writes them together, so if one won't parse or
+    /// can't be saved nothing changes.
     public func archiveProject(_ name: String) throws {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
         var pinned = try projectStore.load()
         var archived = try archivedStore.load()
+        var writes: [FileWrite] = []
         if !archived.contains(where: { ProjectName.matches($0, name) }) {
             let project = pinned.first { ProjectName.matches($0, name) } ?? historicalName(matching: name) ?? name
             archived.append(project)
-            try archivedStore.save(archived)
+            writes.append(archivedStore.write(archived))
         }
         if pinned.contains(where: { ProjectName.matches($0, name) }) {
             pinned.removeAll { ProjectName.matches($0, name) }
-            try projectStore.save(pinned)
+            writes.append(projectStore.write(pinned))
         }
+        try FileWrite.replace(writes)
         projects = pinned
         self.archived = archived
     }

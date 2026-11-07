@@ -163,4 +163,35 @@ import ChronobarCore
         #expect(contents(dayFile(root, "2026-11-03")) == today)
         #expect(tracker.archived == ["Internal"])
     }
+
+    // MARK: Pin and archive
+
+    @Test func pinningAnArchivedLabelIsRefusedWhenThePinnedListCantBeReplaced() throws {
+        try "Internal\n".write(to: archivedFile(root), atomically: true, encoding: .utf8)
+        try "Website Redesign\n".write(to: projectsFile(root), atomically: true, encoding: .utf8)
+        try immutable(projectsFile(root))
+        defer { mutable(projectsFile(root)) }
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        #expect(throws: (any Error).self) { try tracker.pinProject("Internal") }
+
+        #expect(contents(archivedFile(root)) == "Internal\n")
+        #expect(contents(projectsFile(root)) == "Website Redesign\n")
+        #expect(tracker.archived == ["Internal"])
+        #expect(tracker.projects == ["Website Redesign"])
+    }
+
+    @Test func archivingAPinnedLabelIsRefusedWhenThePinnedListCantBeReplaced() throws {
+        try "Website Redesign\n".write(to: projectsFile(root), atomically: true, encoding: .utf8)
+        try immutable(projectsFile(root))
+        defer { mutable(projectsFile(root)) }
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        #expect(throws: (any Error).self) { try tracker.archiveProject("Website Redesign") }
+
+        #expect(contents(archivedFile(root)) == nil)
+        #expect(contents(projectsFile(root)) == "Website Redesign\n")
+        #expect(tracker.archived.isEmpty)
+        #expect(tracker.projects == ["Website Redesign"])
+    }
 }
