@@ -31,6 +31,7 @@ public final class Operations {
             case .addEntry(let label, let span): return .success(.addEntry(try addEntry(label, span)))
             case .adjust(let label, let input, let date): return .success(.adjust(try adjust(label, input, on: date)))
             case .day(let date): return .success(.day(try day(date)))
+            case .week(let date): return .success(.week(try week(date)))
             case .summary: return .success(.summary(summary()))
             case .labels(let query): return .success(.labels(labels(query)))
             case .pin(let label): return .success(.pin(try pin(label)))

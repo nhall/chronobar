@@ -55,8 +55,14 @@ enum MCPTools {
              annotations: changing(destructive: true)),
         Tool(name: "day", title: "A Day's rows",
              description: "List a Day's Labels with their totals (and which are running, today), with the Day "
-                 + "total and elapsed time. Call it for each Day to answer a question about a week.",
+                 + "total and elapsed time. For a question about a week, call week instead.",
              inputSchema: schema(["date": date("The Day; today if left out.")]),
+             annotations: reading),
+        Tool(name: "week", title: "A week's totals",
+             description: "For the week containing a date (this week if left out), each Day's total and elapsed "
+                 + "time, each Label's total across the week, and the week's totals: what was spent on a Label "
+                 + "this week or last.",
+             inputSchema: schema(["date": date("Any Day in the week; today if left out.")]),
              annotations: reading),
         Tool(name: "summary", title: "Time Summary",
              description: "Today, yesterday, this week and this month: the total across every Label and the "

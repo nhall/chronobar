@@ -19,6 +19,9 @@ public enum Request: Equatable, Sendable {
     case adjust(label: String, input: String, date: String? = nil)
     /// A Day's rows and totals; with no date, today's. `date` is `YYYY-MM-DD`.
     case day(date: String?)
+    /// The week containing `date` (nil: today), as the Week strip has it: each Day's totals and each
+    /// Label's total across the week. `date` is `YYYY-MM-DD`.
+    case week(date: String?)
     /// The Time Summary: today, yesterday, this week and this month.
     case summary
     /// The ＋ form's suggestions containing `query`; with no query, all of them.
@@ -38,6 +41,7 @@ public enum Request: Equatable, Sendable {
         case .addEntry: "add_entry"
         case .adjust: "adjust"
         case .day: "day"
+        case .week: "week"
         case .summary: "summary"
         case .labels: "labels"
         case .pin: "pin"
@@ -88,6 +92,7 @@ extension Request: Codable {
                            input: try container.decode(String.self, forKey: .input),
                            date: try container.decodeIfPresent(String.self, forKey: .date))
         case "day": self = .day(date: try container.decodeIfPresent(String.self, forKey: .date))
+        case "week": self = .week(date: try container.decodeIfPresent(String.self, forKey: .date))
         case "summary": self = .summary
         case "labels": self = .labels(query: try container.decodeIfPresent(String.self, forKey: .query))
         case "pin": self = .pin(label: try container.decode(String.self, forKey: .label))
@@ -120,7 +125,7 @@ extension Request: Codable {
             try container.encode(label, forKey: .label)
             try container.encode(input, forKey: .input)
             try container.encodeIfPresent(date, forKey: .date)
-        case .day(let date): try container.encodeIfPresent(date, forKey: .date)
+        case .day(let date), .week(let date): try container.encodeIfPresent(date, forKey: .date)
         case .labels(let query): try container.encodeIfPresent(query, forKey: .query)
         case .pin(let label), .archive(let label): try container.encode(label, forKey: .label)
         }

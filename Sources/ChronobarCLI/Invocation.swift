@@ -28,7 +28,9 @@ enum Invocation: Equatable {
                                         (+15, -10).
           day [<date>]                  List a Day's labels and totals; <date> is YYYY-MM-DD,
                                         else today.
-          summary                       Show today, yesterday, this week and this month.
+          week [<date>]                 List each Day's totals and each label's total for the
+                                        week containing <date>, else this week.
+          summary                      Show today, yesterday, this week and this month.
           labels [<query>]              List the suggested labels, or those containing <query>.
           pin <label>                   Keep <label> in the suggestions.
           archive <label>               Unpin <label> and hide it from the suggestions, keeping
@@ -164,6 +166,9 @@ enum Invocation: Equatable {
         case "day":
             guard words.count <= 2 else { throw OperationError(.usage, "day takes one date, YYYY-MM-DD.") }
             request = .day(date: label.isEmpty ? nil : label)
+        case "week":
+            guard words.count <= 2 else { throw OperationError(.usage, "week takes one date, YYYY-MM-DD.") }
+            request = .week(date: label.isEmpty ? nil : label)
         case "summary":
             guard label.isEmpty else { throw OperationError(.usage, "summary takes no arguments.") }
             request = .summary

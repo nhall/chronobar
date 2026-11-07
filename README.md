@@ -86,6 +86,8 @@ Reading where time went, and keeping the label list tidy:
 ```sh
 chronobar day                           # today's labels, totals and elapsed time
 chronobar day 2026-11-02                # another day's
+chronobar week                          # this week's daily totals and each label's week total
+chronobar week 2026-10-28               # the week containing another day
 chronobar summary                       # today, yesterday, this week and this month
 chronobar labels client a               # suggested labels containing "client a"
 chronobar pin "Internal meeting"        # always suggest it
@@ -162,9 +164,9 @@ followed by `/bin/chronobar` (`/usr/local/bin/chronobar` on an Intel Mac). Then 
 app. The full path works in the other clients too, if one can't find `chronobar`.
 
 It offers a tool for each command: `status`, `start`, `stop`, `set_start`, `add_entry`, `adjust`, `day`,
-`summary`, `labels`, `archive` and `pin`, with the same rules. Then ask the agent things like "start a
-timer for Client A, Ticket 665", "stop it back when you finished" or "add a line item for the hour that
-took us". Each tool returns the stored times and totals as structured JSON; a refusal is a tool error
+`week`, `summary`, `labels`, `archive` and `pin`, with the same rules. Then ask the agent things like
+"start a timer for Client A, Ticket 665", "stop it back when you finished", "add a line item for the hour
+that took us" or "how much time went to Client A this week?". Each tool returns the stored times and totals as structured JSON; a refusal is a tool error
 with its message and, where it helps, the running timers.
 
 Each session runs its own server, which remembers the labels that session started (a `start` that found
@@ -526,6 +528,8 @@ Try these against the development copy (`chronobar --dev …`) unless you are ch
       `chronobar --json stop` with nothing running prints `"ok":false` and `"kind":"nothing_running"`.
 - [ ] `chronobar day` shows the same rows, totals and elapsed time as the Panel, with "running" on running
       rows; `chronobar day <a past date>` matches the Panel on that day; `chronobar day 2026-11-31` exits 1.
+- [ ] `chronobar week` shows the same daily totals as the Week strip, and each label's total for the
+      week; `chronobar week <a date last week>` matches the strip after ⌘[.
 - [ ] `chronobar summary` matches the (i) Time Summary.
 - [ ] `chronobar labels` matches the ＋ form's list; `chronobar pin X` adds X to it at once (open the ＋
       form again) and to `projects.txt`; `chronobar archive X` takes it off both and adds it to

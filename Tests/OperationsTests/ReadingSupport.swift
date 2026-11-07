@@ -9,6 +9,11 @@ extension Operations {
         return result
     }
 
+    func week(_ date: String? = nil) throws -> WeekResult {
+        guard case .week(let result) = try perform(.week(date: date)).success() else { throw Unexpected() }
+        return result
+    }
+
     func labels(_ query: String? = nil) throws -> LabelsResult {
         guard case .labels(let result) = try perform(.labels(query: query)).success() else { throw Unexpected() }
         return result

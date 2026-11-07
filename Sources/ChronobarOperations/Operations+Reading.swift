@@ -1,8 +1,8 @@
 import Foundation
 import ChronobarCore
 
-/// The operations that read where time went and keep the Label lists tidy: `day`, `summary`, `labels`,
-/// `pin` and `archive`.
+/// The operations that read where time went and keep the Label lists tidy: `day`, `week`, `summary`,
+/// `labels`, `pin` and `archive`.
 extension Operations {
     func day(_ date: String?) throws(OperationError) -> DayRowsResult {
         let day = try date.map(parsedDay) ?? tracker.today
@@ -13,6 +13,25 @@ extension Operations {
                           running: day == tracker.today && tracker.isRunning(row.project))
             },
             malformed: tracker.isMalformed(day))
+    }
+
+    func week(_ date: String?) throws(OperationError) -> WeekResult {
+        let days = tracker.weekTotals(containing: try date.map(parsedDay) ?? tracker.today).map(\.day)
+        var labels: [LabelTotalResult] = []
+        for row in days.flatMap(tracker.rows) {
+            if let index = labels.firstIndex(where: { ProjectName.matches($0.label, row.project) }) {
+                labels[index] = LabelTotalResult(label: labels[index].label,
+                                                 totalSeconds: labels[index].totalSeconds + seconds(row.total))
+            } else {
+                labels.append(LabelTotalResult(label: row.project, totalSeconds: seconds(row.total)))
+            }
+        }
+        let results = days.map(dayResult)
+        return WeekResult(first: days[0].description, last: days[6].description,
+                          totalSeconds: results.map(\.totalSeconds).reduce(0, +),
+                          elapsedSeconds: results.map(\.elapsedSeconds).reduce(0, +),
+                          days: results, labels: labels,
+                          malformed: days.filter(tracker.isMalformed).map(\.description))
     }
 
     func summary() -> SummaryResult {

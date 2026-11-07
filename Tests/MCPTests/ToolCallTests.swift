@@ -25,6 +25,18 @@ import ChronobarOperations
         #expect(tracker.timers.map(\.project) == ["Website Redesign"])
     }
 
+    @Test func weekGivesEachLabelsTotalForTheWeek() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.log("Website Redesign", "2:00", on: Day(year: 2026, month: 11, day: 1))
+        try tracker.log("Website Redesign", "0:30", on: tracker.today)
+        let mcp = session(Operations(tracker: tracker), clock)
+
+        let week = try mcp.result("week", ["date": "2026-11-03"])
+
+        #expect(week["labels"] == [["label": "Website Redesign", "total_seconds": 9000]])
+        #expect(week["first"] == "2026-11-01")
+    }
+
     @Test func theTextGivesTheExactResultToo() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         let mcp = session(Operations(tracker: tracker), clock)
