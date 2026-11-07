@@ -75,6 +75,20 @@ import ChronobarOperations
         #expect(error.text.contains("Internal"))
     }
 
+    @Test func aRefusalsTextGivesTheWholeErrorToo() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Internal")
+        let mcp = session(Operations(tracker: tracker), clock)
+
+        let error = try #require(mcp.error("stop", ["label": "Website Redesign"]))
+
+        // Some clients show the model only the text, not the structured content.
+        #expect(error.content.contains { content in
+            guard case .text(let text, _, _) = content else { return false }
+            return text.contains(#""kind":"not_running""#) && text.contains(#""start":"2026-11-03T09:00:00-05:00""#)
+        })
+    }
+
     @Test func aMissingArgumentIsAToolError() throws {
         let mcp = session(Operations(tracker: Tracker(clock: clock, storageRoot: root)), clock)
 

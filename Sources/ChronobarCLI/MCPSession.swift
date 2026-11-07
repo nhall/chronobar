@@ -114,10 +114,12 @@ final class MCPSession {
     }
 
     /// `error` as a tool error: its message as text, and the whole error (kind, message, running timers) as
-    /// structured content.
+    /// structured content and as JSON in text, since some clients show the model only the text.
     private func result(_ error: OperationError) -> CallTool.Result {
-        CallTool.Result(content: [.text(text: error.message, annotations: nil, _meta: nil)],
-                        structuredContent: Optional(wire(.failure(error), "error")), isError: true)
+        let structured = wire(.failure(error), "error")
+        return CallTool.Result(content: [.text(text: error.message, annotations: nil, _meta: nil),
+                                         .text(text: Self.json(structured), annotations: nil, _meta: nil)],
+                               structuredContent: Optional(structured), isError: true)
     }
 
     /// `key` of `response`'s wire envelope: the JSON the socket and `chronobar --json` give.
