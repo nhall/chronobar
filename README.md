@@ -4,11 +4,7 @@ A menu bar time tracker for macOS that times several pieces of work at once, and
 can start, stop and correct for you.
 
 <p>
-  <img src="docs/images/pill.png" alt="The Chronobar Pill in the menu bar: 3 timers running, 7:31 today" height="32">
-</p>
-
-<p>
-  <img src="docs/images/panel.png" alt="The Panel: Friday's Week strip, Total 7:31 · Clock time 4:22, and four Labels, three of them running and two marked as started by an agent" width="303">
+  <img src="docs/images/panel.png" alt="The Chronobar Pill in the menu bar, 3 timers running and 6:39 today, with the Panel open below it: Saturday's Week strip, Total 6:39 · Clock time 2:59, and four Labels, three of them running and two marked as started by an agent" width="346" height="350">
 </p>
 
 ## Why
@@ -23,7 +19,8 @@ through MCP or a plain command line. Everything stays on your Mac.
 - Timers run side by side, one per Label you type, such as "Northwind, Ticket 665".
 - Agents drive it through MCP or the `chronobar` command, and "stop the timer" stops the session's own.
 - Fix a recording after the fact: stop it back at 14:40, move a start, add a line item, set a total.
-- The Panel shows the Total you'll bill beside the Clock time you actually worked.
+- The Panel, which opens from the menu bar, shows the Total you'll bill beside the Clock time you
+  actually worked: the time any timer was running, with overlaps counted once.
 - Idle checks cover the timers you started; agents' timers keep going, and any that runs too long raises a warning.
 - Your data is plain text you can read and edit, and the app works fully with the keyboard and VoiceOver.
 
@@ -45,13 +42,10 @@ Ticket 665": Chronobar opens in the menu bar and the timer starts.
 | Page | What it covers |
 |---|---|
 | [Install](docs/install.md) | Requirements, Homebrew, first run, updating, uninstalling and building from source. |
-| [Using the app](docs/app.md) | The Pill, the Panel, its keys, idle handling and Settings. |
+| [Using the app](docs/app.md) | The parts of the app, the Panel's keys, idle handling and Settings. |
 | [Connecting agents](docs/connecting-agents.md) | Setup for each MCP client, things to ask, and the tools. |
 | [The command line](docs/command-line.md) | Every command, its rules, JSON output and exit status. |
 | [Data format](docs/data-format.md) | Where your data lives, the Day files, Label lists and how totals add up. |
-| [Development](docs/development.md) | Tests and a development copy beside your everyday one. |
-| [Manual test checklist](docs/manual-checklist.md) | The hand checks to run before a release. |
-| [Releasing](docs/releasing.md) | Tagging a release and updating the Homebrew formula. |
 
 ## License
 

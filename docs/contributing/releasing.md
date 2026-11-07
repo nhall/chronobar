@@ -1,9 +1,10 @@
 # Releasing
 
 How to tag a release and update the Homebrew formula.
-[Back to the README](../README.md)
+[Back to AGENTS.md](../../AGENTS.md)
 
-The Homebrew formula's source of truth is [`packaging/homebrew/chronobar.rb`](../packaging/homebrew/chronobar.rb).
+The Homebrew formula's source of truth is [`packaging/homebrew/chronobar.rb`](../../packaging/homebrew/chronobar.rb).
+[ADR 0006](../adr/0006-private-tap-git-clone-at-pinned-revision.md) records why it clones at a pinned tag and revision.
 The tap is the `nhall/homebrew-tap` repository, which holds a copy at `Formula/chronobar.rb`.
 
 1. Set the MCP server's version (`MCPServer.version` in `Sources/ChronobarCLI/MCPServer.swift`) and

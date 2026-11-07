@@ -37,8 +37,9 @@ without a Gatekeeper warning. You don't need an Apple Developer account.
 
 ## First run
 
-Click the Pill, the `0 0:00` in the menu bar. In the Panel, click ＋, type a Label and press Return: its
-timer starts and the Pill counts it. Each row's ⏸ pauses that timer, and ▶ starts it again. Turn on
+Click the Pill, the `0 0:00` in the menu bar: it shows how many timers are running and today's total.
+The Panel opens under it. Click ＋, type a Label (the name you file the time under, such as
+"Northwind, Ticket 665") and press Return: its timer starts and the Pill counts it. Each row's ⏸ pauses that timer, and ▶ starts it again. Turn on
 Start at login in Settings (⚙) if you want Chronobar there every day.
 
 To let your agents drive it, see [Connecting agents](connecting-agents.md).
@@ -64,5 +65,5 @@ scripts/bundle-app.sh            # builds build/Chronobar.app and build/bin/chro
 open build/Chronobar.app
 ```
 
-Put `build/bin` on your `PATH`, or call `build/bin/chronobar` directly. [Development](development.md)
-covers the tests and a development copy that runs beside your everyday one.
+Put `build/bin` on your `PATH`, or call `build/bin/chronobar` directly. This builds the same app and
+command that Homebrew installs.

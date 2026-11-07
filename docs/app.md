@@ -1,7 +1,18 @@
 # Using the app
 
-The Pill, the Panel, its keys, idle handling and Settings.
+The parts of the app, the Panel's keys, idle handling and Settings.
 [Back to the README](../README.md)
+
+## The parts
+
+- **Label**: the name you file time under, such as "Northwind, Ticket 665" or "Internal meeting".
+  You type it; there are no clients, projects or tasks to set up. Each Label has its own timer.
+- **Pill**: Chronobar's item in the menu bar. It shows how many timers are running and today's total.
+- **Panel**: the window that opens under the Pill. It lists each Label's time for a Day, with buttons
+  to start and pause its timer.
+- **Total** and **Clock time**: the Total adds up every Label's time, so two timers running side by
+  side for an hour make 2:00. Clock time is how long any timer was running, counting overlaps once:
+  1:00 for that same hour. Time you log by hand counts toward the Total only.
 
 ## The Pill
 

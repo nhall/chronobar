@@ -1,5 +1,17 @@
 # Chronobar
 
+## Contributing
+
+The README and the pages it links are for users. Contributor material lives here, unlinked from them:
+
+- `docs/contributing/development.md`: tests, and the development copy (`--dev`) to run instead of the
+  everyday app and its data.
+- `docs/contributing/manual-checklist.md`: the hand checks before a release; update it as features
+  land.
+- `docs/contributing/releasing.md`: tagging and the Homebrew formula.
+- `GLOSSARY.md`: the domain terms (Label, Clock time, Pill, Panel, …).
+- `docs/adr/`: decisions to respect or explicitly reopen.
+
 ## Agent skills
 
 ### Issue tracker

@@ -7,7 +7,7 @@
 #
 # --dev builds "Chronobar Dev.app" instead: a development copy that runs next to the everyday one
 # without sharing anything with it. It has its own bundle ID (io.github.nhall.chronobar.dev), so its
-# own settings, Selected Project, heartbeat and login item; its own data folder
+# own settings, heartbeat and login item; its own data folder
 # (~/Library/Application Support/Chronobar Dev); its own executable name (ChronobarDev, for
 # `killall`); and a DEV mark on its Pill and its Dock icon. scripts/info-plist.sh spells all of these.
 #
