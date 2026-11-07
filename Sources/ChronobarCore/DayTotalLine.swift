@@ -1,24 +1,28 @@
 import Foundation
 
-/// The Panel's line between the Week strip and the rows: "Total" on the leading edge and "2:57 · 2:50
-/// elapsed" on the trailing edge, the elapsed time in smaller text. The total is the Day total; the
-/// elapsed time is the clock time at least one timer covered, which is less when timers ran side by side.
+/// The Panel's line between the Week strip and the rows, "Total 2:57 · Clock time 2:50", and with a
+/// period's name instead of "Total" each line of the (i) Time Summary. The total adds up the Labels'
+/// time; the clock time is the time at least one timer ran, which is less when timers ran side by side.
 public struct DayTotalLine: Equatable, Sendable {
-    public let label = "Total"
-    /// The Day total: "2:57".
+    /// "Total", or the Time Summary period's name: "This week".
+    public let name: String
+    /// The total: "2:57".
     public let total: String
-    /// After the total, in smaller text: "· 2:50 elapsed".
-    public let elapsed: String
-    /// VoiceOver reads the line as one: "Total for the day, 2 hours 57 minutes, 2 hours 50 minutes elapsed".
+    /// "Clock time 2:50".
+    public let clockTime: String
+    /// VoiceOver reads the line as one: "Total 2 hours 57 minutes, clock time 2 hours 50 minutes".
     public let accessibilityLabel: String
-    public let help: String
+    public let help = "Total adds up every Label's time. Clock time counts the time when any timer was "
+        + "running, overlapping timers once, and doesn't include time logged by hand."
 
-    public init(total: TimeInterval, elapsed: TimeInterval) {
-        let elapsedTime = DurationFormat.hoursMinutes(elapsed)
+    public init(_ name: String = "Total", total: TimeInterval, elapsed: TimeInterval) {
+        self.name = name
         self.total = DurationFormat.hoursMinutes(total)
-        self.elapsed = "· \(elapsedTime) elapsed"
+        clockTime = "Clock time \(DurationFormat.hoursMinutes(elapsed))"
         accessibilityLabel =
-            "Total for the day, \(DurationFormat.spoken(total)), \(DurationFormat.spoken(elapsed)) elapsed"
-        help = "Total for the day · \(elapsedTime) elapsed, the clock time at least one timer ran"
+            "\(name) \(DurationFormat.spoken(total)), clock time \(DurationFormat.spoken(elapsed))"
     }
+
+    /// The whole line: "Total 2:57 · Clock time 2:50".
+    public var text: String { "\(name) \(total) · \(clockTime)" }
 }

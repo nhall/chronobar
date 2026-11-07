@@ -15,7 +15,10 @@ enum MCPServer {
     static let instructions = """
         Chronobar times work by Label: free text such as "Client A, Ticket 665". Several timers can run at \
         once, one per Label. stop and set_start without a label act on the timer this session started. Times \
-        are ISO 8601 with an offset; convert what the user says ("2:40") to one in their time zone first.
+        are ISO 8601 with an offset; convert what the user says ("2:40") to one in their time zone first. \
+        total_seconds adds up every Label's time; elapsed_seconds is what Chronobar shows the user as "Clock \
+        time": the time when any timer was running, overlapping timers counted once, without time logged by \
+        hand (duration or adjust). Call it clock time when you tell the user.
         """
 
     @MainActor

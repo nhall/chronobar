@@ -13,7 +13,7 @@ extension Output {
         lines += result.rows.map { row in
             "  \(row.label)  \(total(row.totalSeconds))\(row.running ? "  running" : "")"
         }
-        lines += ["Total: \(total(result.day.totalSeconds)) · \(total(result.day.elapsedSeconds)) elapsed"]
+        lines += [totals(result.day.totalSeconds, clockTime: result.day.elapsedSeconds)]
         return lines.joined(separator: "\n")
     }
 
@@ -22,12 +22,12 @@ extension Output {
         var lines = ["Week of \(result.first) to \(result.last)"]
         lines += result.days.map { day in
             let malformed = result.malformed.contains(day.date) ? "  (Day file isn't valid JSON)" : ""
-            return "  \(day.date)  \(total(day.totalSeconds)) · \(total(day.elapsedSeconds)) elapsed\(malformed)"
+            return "  \(day.date)  \(totals(day.totalSeconds, clockTime: day.elapsedSeconds))\(malformed)"
         }
         lines += ["Labels:"] + (result.labels.isEmpty ? ["  No time."] : result.labels.map { label in
             "  \(label.label)  \(total(label.totalSeconds))"
         })
-        lines += ["Total: \(total(result.totalSeconds)) · \(total(result.elapsedSeconds)) elapsed"]
+        lines += [totals(result.totalSeconds, clockTime: result.elapsedSeconds)]
         return lines.joined(separator: "\n")
     }
 
@@ -59,7 +59,7 @@ extension Output {
         [("Today", summary.today), ("Yesterday", summary.yesterday), ("This week", summary.week),
          ("This month", summary.month)].map { name, period in
             let days = period.first == period.last ? period.first : "\(period.first) to \(period.last)"
-            return "\(name): \(total(period.totalSeconds)) · \(total(period.elapsedSeconds)) elapsed  (\(days))"
+            return "\(totals(period.totalSeconds, clockTime: period.elapsedSeconds, name: name))  (\(days))"
         }.joined(separator: "\n")
     }
 }

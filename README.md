@@ -23,8 +23,8 @@ can read and edit. There are no accounts, no sync and no integrations.
   label's timer; every running row is highlighted and shows ⏸ to pause just that timer. Use ＋, under the
   rows, to start a new label or to log time you forgot to track: its form opens just above it, and a
   new label's row appears at the bottom of the rows, right above the form. The header keeps the
-  date, (i) and ⚙. Above the rows a Total line shows the day's total with its elapsed time beside it
-  (`Total  3:00 · 1:00 elapsed`), ending where the rows' times end. ‹ ›
+  date, (i) and ⚙. Above the rows a Total line shows the day's total and its clock time
+  (`Total 3:17 · Clock time 3:00`), starting where the rows' names start. ‹ ›
   move a week back or forward without limit; on any day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
   vacation ahead. While you view another day, a Today button under the strip brings you back, as
   does clicking the date. On a day with more rows than fit, the Panel stops just above the bottom of
@@ -85,7 +85,7 @@ added this way are recorded as started by an agent.
 Reading where time went, and keeping the label list tidy:
 
 ```sh
-chronobar day                           # today's labels, totals and elapsed time
+chronobar day                           # today's labels, totals and clock time
 chronobar day 2026-11-02                # another day's
 chronobar week                          # this week's daily totals and each label's week total
 chronobar week 2026-10-28               # the week containing another day
@@ -102,8 +102,8 @@ never seen (`unknown_label`), and leaves a running timer running.
 
 `--json` prints the app's JSON response instead of text: `{"ok": true, "op": …, "result": {…}}`, or
 `{"ok": false, "error": {"kind": …, "message": …}}`. Times are ISO 8601 with a UTC offset, as stored in
-the day files, and totals are whole seconds (`total_seconds`, `elapsed_seconds`). The exit status is 0
-when the request was carried out, 1 when Chronobar refused it (for example `not_running`,
+the day files, and totals are whole seconds (`total_seconds`, and `elapsed_seconds` for clock time).
+The exit status is 0 when the request was carried out, 1 when Chronobar refused it (for example `not_running`,
 `nothing_running`, `ambiguous`, `invalid_label`, `future_time`, `end_before_start`, `overlap`,
 `invalid_duration` or `malformed_file`), 2 for a usage error and 3 when the
 app couldn't be reached or launched. `--dev` talks to the development copy instead.
@@ -290,10 +290,10 @@ Each day is one JSON file with one entry per line:
   for time logged with ＋ and `adjustment` for a corrected total; it is a marker, not free text.
 - A label's total for the day is the sum of its timed durations and manual seconds, never shown
   below `0:00`, and displayed as hours and minutes rounded down.
-- A day's elapsed time is the clock time covered by at least one timed entry, a running one counted up
-  to now. Time two timers share counts once, so with timers running side by side it is less than the
-  day's total; manual entries count toward the total only. The (i) Time Summary's elapsed times are the
-  sums of their days'.
+- A day's clock time (`elapsed_seconds` in JSON) is the time when any timer was running, a running one
+  counted up to now. Time two timers share counts once, so with timers running side by side it is less
+  than the day's total; time logged by hand (manual entries) counts toward the total only. The (i) Time
+  Summary's clock times are the sums of their days'.
 - Any Day can have a file, past or future: time logged ahead, such as a vacation, goes in that Day's
   file in the same format. Timers run only today, so a day ahead holds only manual entries until it
   arrives.
@@ -443,10 +443,10 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       changes. With VoiceOver off, the shortcut says nothing.
 - [ ] In the Panel, VoiceOver reads a label for every control: the date, Time Summary, Menu, Previous
       week and Next week, each Day in the Week strip with its date, total, and "today" or "viewed" (the
-      viewed Day also reads as selected), the Total line as one element ("Total for the day, 2 hours
-      57 minutes, 2 hours 50 minutes elapsed"), each row's name (with "running" on
+      viewed Day also reads as selected), the Total line as one element ("Total 3 hours
+      17 minutes, clock time 3 hours"), each row's name (with "running" on
       the running row), its total and Start or Pause, then, with the ＋ form open, Duration in the form,
-      and last Start or log time (＋) under it. Each Time Summary line reads as one: "This week, 12 hours 5 minutes, 9 hours elapsed".
+      and last Start or log time (＋) under it. Each Time Summary line reads as one: "This week 12 hours 5 minutes, clock time 9 hours".
 - [ ] With Differentiate Without Color on, view a Day other than today: the viewed Day has a ring and
       today's date is bold, so they differ without color.
 - [ ] With Increase Contrast on, the Pill's time segment is opaque, darker, and outlined; with Reduce
@@ -488,17 +488,18 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] From a past or future Day, click the date header instead: it also returns to today.
 - [ ] Repeat with the longest weekday (Wednesday) and a two-digit total (hand-edit a Day file to over
       10 hours): the header, strip, Today button and Total line fit without truncating or overlapping,
-      and the Total line reads in full (`Total  12:30 · 11:00 elapsed`). Hovering it shows a help tag
-      saying what elapsed means.
+      and the Total line reads in full (`Total 12:30 · Clock time 11:00`). Hovering it shows a help tag
+      saying clock time counts the time when any timer was running, overlapping timers once, and
+      doesn't include time logged by hand.
 - [ ] The Total line sits between the Week strip (or the Today button) and the rows, "Total" lined up
-      with the rows' names and the end of "elapsed" with the end of the rows' times: on today with the
-      ▶/⏸ column empty to its right, on a past or future Day at the rows' trailing edge. An empty Day shows only
-      "No time tracked", with no Total line. The elapsed time is smaller and gray, and the whole line
-      is gray, so it never reads as a row.
-- [ ] With two timers running side by side for 10 minutes, the Total line reads `0:20 · 0:10 elapsed`; with
-      no overlap the two times match, and logging `1:00` with ＋ raises the total only. Open (i): each
-      line shows its elapsed time beside the total in smaller gray text, and VoiceOver reads it as one:
-      "Today, 20 minutes, 10 minutes elapsed".
+      with the rows' names and each figure right after its words (`Total 3:17 · Clock time 3:00`), not
+      pushed to the right. Both figures are the same size. An empty Day shows only "No time tracked",
+      with no Total line. The whole line is gray, so it never reads as a row.
+- [ ] With two timers running side by side for 10 minutes, the Total line reads
+      `Total 0:20 · Clock time 0:10`; with no overlap the two times match, and logging `1:00` with ＋
+      raises the total only. Open (i): each line reads like `Today 0:20 · Clock time 0:10`, the clock
+      time in gray, hovering it shows the same help tag, and VoiceOver reads it as one:
+      "Today 20 minutes, clock time 10 minutes".
 - [ ] Click a row's time, type `1:15`, Return: the row reads `1:15`. Try `+15` and `-10` too.
 - [ ] `-9:00` on a short row stops at `0:00`; a typo like `1:7x` beeps and changes nothing.
 - [ ] Adjusting the running row keeps the timer running from the new total.
@@ -540,15 +541,15 @@ Try these against the development copy (`chronobar --dev …`) unless you are ch
       icon shows "Started by an agent; not paused for idle time". The day file's entry has
       `"source": "agent"`.
 - [ ] `chronobar status` lists Client A with its time and "started by an agent", then today's total and
-      elapsed time. A timer started with ▶ in the Panel is listed too, without "started by an agent",
-      and its row has no terminal icon.
+      clock time (`Today: Total 0:10 · Clock time 0:10`). A timer started with ▶ in the Panel is
+      listed too, without "started by an agent", and its row has no terminal icon.
 - [ ] `chronobar start "client a"` again: "Client A was already running, since …"; there is still one row.
 - [ ] With two timers running, `chronobar stop` stops nothing, exits 1 and lists both;
       `chronobar stop client a` stops just that one, and the Pill and Panel update within a second.
 - [ ] With one timer running, `chronobar stop` stops it; with none, it exits 1 with "No timer is running."
 - [ ] `chronobar --json status` prints one line of JSON with `"ok":true` and times with a UTC offset;
       `chronobar --json stop` with nothing running prints `"ok":false` and `"kind":"nothing_running"`.
-- [ ] `chronobar day` shows the same rows, totals and elapsed time as the Panel, with "running" on running
+- [ ] `chronobar day` shows the same rows, totals and clock time as the Panel, with "running" on running
       rows; `chronobar day <a past date>` matches the Panel on that day; `chronobar day 2026-11-31` exits 1.
 - [ ] `chronobar week` shows the same daily totals as the Week strip, and each label's total for the
       week; `chronobar week <a date last week>` matches the strip after ⌘[.

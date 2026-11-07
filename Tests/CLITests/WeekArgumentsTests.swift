@@ -27,12 +27,12 @@ import ChronobarOperations
 
         #expect(Output.text(.week(week)) == """
             Week of 2026-11-01 to 2026-11-07
-              2026-11-01  2:00 · 0:00 elapsed
-              2026-11-02  1:30 · 0:00 elapsed  (Day file isn't valid JSON)
+              2026-11-01  Total 2:00 · Clock time 0:00
+              2026-11-02  Total 1:30 · Clock time 0:00  (Day file isn't valid JSON)
             Labels:
               Website Redesign  2:30
               Internal  1:00
-            Total: 4:30 · 1:00 elapsed
+            Total 4:30 · Clock time 1:00
             """)
     }
 }

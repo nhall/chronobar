@@ -2,29 +2,33 @@ import Foundation
 import Testing
 import ChronobarCore
 
-/// The Panel's "Total" line between the Week strip and the rows: the Day total, then the elapsed time in
-/// smaller text, and one VoiceOver element for both.
+/// The Panel's "Total" line between the Week strip and the rows, and the (i) Time Summary's lines: the
+/// total, then the clock time, and one VoiceOver element for both.
 @Suite struct DayTotalLineTests {
-    @Test func showsTheTotalAndTheElapsedTimeAfterIt() {
-        let line = DayTotalLine(total: 177 * 60, elapsed: 170 * 60)
-        #expect(line.label == "Total")
-        #expect(line.total == "2:57")
-        #expect(line.elapsed == "· 2:50 elapsed")
+    @Test func showsTheTotalThenTheClockTime() {
+        let line = DayTotalLine(total: 197 * 60, elapsed: 180 * 60)
+        #expect(line.text == "Total 3:17 · Clock time 3:00")
     }
 
     @Test func voiceOverReadsTheLineAsOneInWords() {
-        let line = DayTotalLine(total: 20 * 60, elapsed: 10 * 60)
-        #expect(line.accessibilityLabel == "Total for the day, 20 minutes, 10 minutes elapsed")
+        let line = DayTotalLine(total: 197 * 60, elapsed: 180 * 60)
+        #expect(line.accessibilityLabel == "Total 3 hours 17 minutes, clock time 3 hours")
     }
 
-    @Test func theHelpTagSaysWhatElapsedMeans() {
+    @Test func theHelpTagSaysWhatClockTimeCounts() {
         let line = DayTotalLine(total: 20 * 60, elapsed: 10 * 60)
-        #expect(line.help == "Total for the day · 0:10 elapsed, the clock time at least one timer ran")
+        #expect(line.help == "Total adds up every Label's time. Clock time counts the time when any timer was "
+                + "running, overlapping timers once, and doesn't include time logged by hand.")
+    }
+
+    @Test func aTimeSummaryLineKeepsItsPeriodsName() {
+        let line = DayTotalLine("This week", total: 197 * 60, elapsed: 180 * 60)
+        #expect(line.text == "This week 3:17 · Clock time 3:00")
+        #expect(line.accessibilityLabel == "This week 3 hours 17 minutes, clock time 3 hours")
     }
 
     @Test func theWidestDayReadsInFull() {
         let line = DayTotalLine(total: 86_399, elapsed: 86_399)
-        #expect(line.total == "23:59")
-        #expect(line.elapsed == "· 23:59 elapsed")
+        #expect(line.text == "Total 23:59 · Clock time 23:59")
     }
 }
