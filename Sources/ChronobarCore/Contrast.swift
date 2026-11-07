@@ -35,9 +35,9 @@ public enum Contrast {
     }
 }
 
-/// The running count drawn on the running color in the Pill's square: white wherever white is readable,
-/// black otherwise. Black always meets the minimum where white doesn't, so every running color,
-/// including any system accent, passes.
+/// The count drawn in the Pill's square, on the running color or on stopped gray: white wherever white
+/// is readable, black otherwise. Black always meets the minimum where white doesn't, so every running
+/// color, including any system accent, passes.
 public enum Foreground: Equatable, Sendable {
     case white, black
 

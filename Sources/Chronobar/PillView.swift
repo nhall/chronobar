@@ -11,40 +11,34 @@ enum PillMetrics {
     static let cornerRadius: CGFloat = 4
 }
 
-/// The two-segment menu bar item: the square, with the running count or ▶, and today's Day total.
-/// It only shows; any click on it opens the Panel.
+/// The two-segment menu bar item: the square, with the running count (0 on gray when nothing runs), and
+/// today's Day total. It only shows; any click on it opens the Panel.
 struct PillView: View {
     let tracker: Tracker
     let preferences: Preferences
     /// A development copy's mark (`BuildVariant.badge`), drawn after the time so two Pills side by side
     /// can be told apart. Nil for the everyday copy, whose Pill is unchanged.
     let badge: String?
-    /// For the running color's light, dark or Increase Contrast variant, as the menu bar draws it.
+    /// For the running color's or gray's light, dark or Increase Contrast variant, as the menu bar draws it.
     @Environment(\.self) private var environment
 
     var body: some View {
         let count = tracker.timers.count
         let isRunning = count > 0
         HStack(spacing: PillMetrics.gap) {
-            Group {
-                if isRunning {
-                    // Shrinks rather than truncating should the count ever reach three digits.
-                    Text("\(count)")
-                        .font(.system(size: 11, weight: .bold).monospacedDigit())
-                        .minimumScaleFactor(0.6)
-                        .lineLimit(1)
-                        .padding(.horizontal, 2)
-                } else {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 9, weight: .bold))
-                }
-            }
-            // White on stopped gray; on the running color, whichever of white and black reads.
-            .foregroundStyle(isRunning ? preferences.runningColor.foregroundColor(in: environment) : .white)
-            .frame(width: PillMetrics.squareWidth, height: PillMetrics.height)
-            .background(
-                RoundedRectangle(cornerRadius: PillMetrics.cornerRadius)
-                    .fill(isRunning ? preferences.runningColor.color : Color(nsColor: .systemGray)))
+            // Shrinks rather than truncating should the count ever reach three digits.
+            Text("\(count)")
+                .font(.system(size: 11, weight: .bold).monospacedDigit())
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+                .padding(.horizontal, 2)
+                // Whichever of white and black reads on the running color, or on stopped gray.
+                .foregroundStyle(isRunning ? preferences.runningColor.foregroundColor(in: environment)
+                                           : StoppedSquare.foregroundColor(in: environment))
+                .frame(width: PillMetrics.squareWidth, height: PillMetrics.height)
+                .background(
+                    RoundedRectangle(cornerRadius: PillMetrics.cornerRadius)
+                        .fill(isRunning ? preferences.runningColor.color : StoppedSquare.color))
             Text(time)
                 .font(.system(size: 12, weight: .medium).monospacedDigit())
                 .foregroundStyle(.white)
