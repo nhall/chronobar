@@ -140,7 +140,6 @@ struct PanelView: View {
                 .help(isToday ? "" : PanelCommand.today.help(Self.backToToday))
                 .accessibilityHint(isToday ? "" : Self.backToToday)
                 Spacer()
-                DayTotalView(total: tracker.dayTotal(day), elapsed: tracker.elapsed(day))
                 Button {
                     panel.showingSummary.toggle()
                 } label: {
@@ -203,6 +202,10 @@ struct PanelView: View {
             if rows.isEmpty {
                 Text("No time tracked").foregroundStyle(.secondary)
             } else {
+                // Above the rows, out of the title row, which a long past Day's title and two-digit hours
+                // would crowd. An empty Day has none: "No time tracked" says it.
+                DayTotalLineView(line: DayTotalLine(total: tracker.dayTotal(day), elapsed: tracker.elapsed(day)),
+                                 hasToggleColumn: isToday)
                 RowList(panel: panel) {
                     ForEach(rows, id: \.project) { row in
                         // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
@@ -374,36 +377,33 @@ private enum DayMark {
     }
 }
 
-/// The header's "3:00 · 1:00 elapsed": the Day total, and in smaller text the clock time at least one
-/// timer covered, which is less when timers ran side by side. A long past Day's title leaves no room for
-/// it all, so it drops "elapsed", then moves the elapsed time under the total.
-private struct DayTotalView: View {
-    let total: TimeInterval
-    let elapsed: TimeInterval
+/// "Total          2:57 · 2:50 elapsed" (`DayTotalLine`), in the secondary color so it doesn't read as a
+/// row. Laid out like a row, so the times end where the rows' times do: the same insets, and on today
+/// room for the ▶/⏸ column. Even "23:59 · 23:59 elapsed" leaves about 80 points spare at the Panel's
+/// width, so it needs no shorter form.
+private struct DayTotalLineView: View {
+    let line: DayTotalLine
+    /// Whether the rows end with ▶/⏸, as only today's do.
+    let hasToggleColumn: Bool
 
     var body: some View {
-        let total = DurationFormat.hoursMinutes(self.total)
-        let elapsed = DurationFormat.hoursMinutes(self.elapsed)
-        ViewThatFits(in: .horizontal) {
+        HStack {
+            Text(line.label)
+            Spacer()
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(total)
-                Text("· \(elapsed) elapsed").font(.caption)
+                Text(line.total)
+                Text(line.elapsed).font(.caption)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(total)
-                Text("· \(elapsed)").font(.caption)
-            }
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(total)
-                Text("\(elapsed) elapsed").font(.caption)
+            .monospacedDigit()
+            if hasToggleColumn {
+                Color.clear.frame(width: RowView.toggleWidth, height: 0)
             }
         }
-        .monospacedDigit()
         .foregroundStyle(.secondary)
-        .help("Total for the day · \(elapsed) elapsed, the clock time at least one timer ran")
+        .padding(.horizontal, RowView.horizontalPadding)
+        .help(line.help)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "Total for the day, \(DurationFormat.spoken(self.total)), \(DurationFormat.spoken(self.elapsed)) elapsed")
+        .accessibilityLabel(line.accessibilityLabel)
     }
 }
 
@@ -488,6 +488,10 @@ private struct RowView: View {
         case total, toggle
     }
 
+    /// The ▶/⏸ column's width and the row's side insets, which the Total line above the rows matches.
+    static let toggleWidth: CGFloat = 16
+    static let horizontalPadding: CGFloat = 6
+
     var body: some View {
         let presentation = RowPresentation(row: row, isRunning: isRunning, source: source)
         HStack {
@@ -530,7 +534,7 @@ private struct RowView: View {
             if canStart {
                 Button(action: toggle) {
                     Image(systemName: presentation.toggle == .pause ? "pause.fill" : "play.fill")
-                        .frame(width: 16)
+                        .frame(width: Self.toggleWidth)
                 }
                 .iconButton(presentation.toggleTone.style)
                 .focused($focusedButton, equals: .toggle)
@@ -542,7 +546,7 @@ private struct RowView: View {
             if button != nil { panel.projectToReveal = row.project }
         }
         .foregroundStyle(.primary)
-        .padding(.horizontal, 6)
+        .padding(.horizontal, Self.horizontalPadding)
         .padding(.vertical, 4)
         // The same quiet fill as the Start at login message, so the Panel never shows the running color.
         .background(
