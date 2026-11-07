@@ -288,8 +288,14 @@ Each day is one JSON file with one entry per line:
   `"agent"`. Chronobar always writes it; an entry without it, as in older files, is the app's.
 - A **manual** entry has a whole number of `seconds`, negative for subtractions. `note` is `manual`
   for time logged with ＋ and `adjustment` for a corrected total; it is a marker, not free text.
-- A label's total for the day is the sum of its timed durations and manual seconds, never shown
-  below `0:00`, and displayed as hours and minutes rounded down.
+- A label's total for the day is the sum of its timed durations and manual seconds, rounded down to
+  the whole second and never below zero (`0:00`). The day's total is the sum of its labels' totals,
+  and a week's the sum of its days', so in JSON the rows always add up to the total exactly.
+- Hours and minutes always add up too. A total is rounded down to the minute; the rows under it are
+  rounded down as well, and the minutes that loses go one each to the rows with the most seconds left
+  over (the first row on a tie). So 2:08:45 and 1:08:49 show as 2:08 and 1:09 under Total 3:17. This
+  applies to the Panel's rows and to `chronobar day` and `chronobar week` (both the days and the
+  labels add up to the week total). Clock time is rounded down on its own.
 - A day's clock time (`elapsed_seconds` in JSON) is the time when any timer was running, a running one
   counted up to now. Time two timers share counts once, so with timers running side by side it is less
   than the day's total; time logged by hand (manual entries) counts toward the total only. The (i) Time
@@ -502,6 +508,9 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       raises the total only. Open (i): each line reads like `Today 0:20 · Clock time 0:10`, the clock
       time in gray, hovering it shows the same help tag, and VoiceOver reads it as one:
       "Today 20 minutes, clock time 10 minutes".
+- [ ] With rows whose seconds don't fall on the minute (for example two timers started 30 seconds
+      apart), the rows' minutes always add up to the Total line's, and VoiceOver reads each row's
+      time as shown. `chronobar day` shows the same row times and total as the Panel.
 - [ ] Click a row's time, type `1:15`, Return: the row reads `1:15`. Try `+15` and `-10` too.
 - [ ] `-9:00` on a short row stops at `0:00`; a typo like `1:7x` beeps and changes nothing.
 - [ ] Adjusting the running row keeps the timer running from the new total.

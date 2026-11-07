@@ -25,8 +25,16 @@ public struct RowPresentation: Equatable, Sendable {
     /// The help tag of the terminal icon on a row whose timer an agent started; nil for no icon.
     public let agentMark: String?
 
+    /// The row's total: "1:09".
+    public let total: String
+    /// What VoiceOver reads for the total: "Two total, 1 hour 9 minutes".
+    public let totalLabel: String
+
+    /// `minutes` is the row's share of the Total line above it (`RowMinutes`), so the rows add up to it.
     /// `source` is who started the row's running timer.
-    public init(row: Row, isRunning: Bool, source: EntrySource = .app) {
+    public init(row: Row, minutes: Int, isRunning: Bool, source: EntrySource = .app) {
+        total = DurationFormat.hoursMinutes(minutes: minutes)
+        totalLabel = "\(row.project) total, \(DurationFormat.spoken(minutes: minutes))"
         let byAgent = isRunning && source == .agent
         isHighlighted = isRunning
         toggle = isRunning ? .pause : .start

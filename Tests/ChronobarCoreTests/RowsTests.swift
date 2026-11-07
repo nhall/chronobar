@@ -138,4 +138,19 @@ import ChronobarCore
         #expect(tracker.rows(tracker.today).last == Row(project: "Internal", total: 60 * 60))
         #expect(tracker.dayTotal(tracker.today) == 130 * 60)
     }
+
+    /// Rows count whole seconds, and the Day total is their sum, so what each shows adds up.
+    @Test func rowsCountWholeSecondsAndTheDayTotalAddsThemUp() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        try tracker.start("Internal")
+        clock.advance(90.6)
+        tracker.tick()
+
+        #expect(tracker.rows(tracker.today) == [
+            Row(project: "Website Redesign", total: 90),
+            Row(project: "Internal", total: 90),
+        ])
+        #expect(tracker.dayTotal(tracker.today) == 180)
+    }
 }

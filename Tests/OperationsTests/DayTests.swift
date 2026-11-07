@@ -89,4 +89,32 @@ import ChronobarOperations
         #expect(day.malformed)
         #expect(day.rows.isEmpty)
     }
+
+    /// Each row is counted in whole seconds and the Day total adds those up, so with two timers running
+    /// the rows never come to a second less than the total.
+    @Test func theDayTotalIsTheSumOfItsRowsInWholeSeconds() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        try tracker.start("Internal", source: .agent)
+        clock.now += 90.6
+
+        let day = try Operations(tracker: tracker).day(nil)
+
+        #expect(day.rows.map(\.totalSeconds) == [90, 90])
+        #expect(day.day.totalSeconds == 180)
+    }
+
+    /// Each Day's total, each Label's week total and the week total all add up from the same rows.
+    @Test func theWeeksTotalsAddUpFromItsRowsInWholeSeconds() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redesign")
+        try tracker.start("Internal", source: .agent)
+        clock.now += 90.6
+
+        let week = try Operations(tracker: tracker).week(nil)
+
+        #expect(week.days[2].totalSeconds == 180)
+        #expect(week.labels.map(\.totalSeconds) == [90, 90])
+        #expect(week.totalSeconds == 180)
+    }
 }

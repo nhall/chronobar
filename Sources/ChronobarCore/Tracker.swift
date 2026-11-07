@@ -406,13 +406,14 @@ public final class Tracker {
     }
 
     /// One Row per Project with Entries on `day`, in the order each first appears in the Day file. Names
-    /// that match are one Project, shown as the Project list spells it, else as its first Entry does.
+    /// that match are one Project, shown as the Project list spells it, else as its first Entry does. A
+    /// Row's total is in whole seconds, rounded down, so the Day total built from them adds up exactly.
     public func rows(_ day: Day) -> [Row] {
         var names: [String] = []
         for entry in files.entries(on: day) where !names.contains(where: { ProjectName.matches($0, entry.project) }) {
             names.append(storedName(entry.project))
         }
-        return names.map { Row(project: $0, total: total($0, on: day)) }
+        return names.map { Row(project: $0, total: total($0, on: day).rounded(.down)) }
     }
 
     /// The Project list's spelling of `name`, else `name` trimmed.
@@ -420,7 +421,7 @@ public final class Tracker {
         projects.first { ProjectName.matches($0, name) } ?? ProjectName.trimmed(name)
     }
 
-    /// The Day's grand total: the sum of its Rows, each already clamped at zero.
+    /// The Day's grand total: the sum of its Rows, each already clamped at zero and in whole seconds.
     public func dayTotal(_ day: Day) -> TimeInterval {
         rows(day).reduce(0) { $0 + $1.total }
     }

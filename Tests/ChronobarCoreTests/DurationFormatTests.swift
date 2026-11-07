@@ -39,3 +39,13 @@ private let spokenExamples: [(TimeInterval, String)] = [
         #expect(DurationFormat.spoken(seconds) == expected)
     }
 }
+
+/// A row's minutes from `RowMinutes`, shown and read the same way as a total in seconds.
+@Suite struct MinutesFormatTests {
+    @Test func formatsWholeMinutes() {
+        #expect(DurationFormat.hoursMinutes(minutes: 69) == "1:09")
+        #expect(DurationFormat.hoursMinutes(minutes: 0) == "0:00")
+        #expect(DurationFormat.spoken(minutes: 69) == "1 hour 9 minutes")
+        #expect(DurationFormat.spoken(minutes: 120) == "2 hours")
+    }
+}
