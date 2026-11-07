@@ -43,6 +43,7 @@ enum Output {
             return "\(adjusted.label) on \(adjusted.date): \(total(adjusted.totalSeconds)) (\(change)).\n"
                 + day(adjusted.day)
         case .day(let day): return rows(day)
+        case .week(let week): return weekText(week)
         case .summary(let summary): return periods(summary)
         case .labels(let labels): return list(labels)
         case .pin(let pinned): return pinnedText(pinned)

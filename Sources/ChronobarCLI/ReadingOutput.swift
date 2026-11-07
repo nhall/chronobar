@@ -17,6 +17,20 @@ extension Output {
         return lines.joined(separator: "\n")
     }
 
+    /// A week's Days with their totals, then each Label's week total, then the week's totals.
+    static func weekText(_ result: WeekResult) -> String {
+        var lines = ["Week of \(result.first) to \(result.last)"]
+        lines += result.days.map { day in
+            let malformed = result.malformed.contains(day.date) ? "  (Day file isn't valid JSON)" : ""
+            return "  \(day.date)  \(total(day.totalSeconds)) · \(total(day.elapsedSeconds)) elapsed\(malformed)"
+        }
+        lines += ["Labels:"] + (result.labels.isEmpty ? ["  No time."] : result.labels.map { label in
+            "  \(label.label)  \(total(label.totalSeconds))"
+        })
+        lines += ["Total: \(total(result.totalSeconds)) · \(total(result.elapsedSeconds)) elapsed"]
+        return lines.joined(separator: "\n")
+    }
+
     /// The suggestions a line each, then what the query names if the suggestions leave it out.
     static func list(_ result: LabelsResult) -> String {
         var lines = result.labels.map { "\($0.label)\($0.pinned ? "  (pinned)" : "")" }

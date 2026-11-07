@@ -7,7 +7,7 @@ import MCP
 @Suite struct ToolListTests {
     @Test func everyOperationIsATool() {
         #expect(MCPTools.all.map(\.name) == ["status", "start", "stop", "set_start", "add_entry", "adjust",
-                                                 "day", "summary", "labels", "archive", "pin"])
+                                                 "day", "week", "summary", "labels", "archive", "pin"])
     }
 
     @Test func everyToolHasADescriptionAndAnObjectSchema() {
@@ -32,6 +32,7 @@ import MCP
         #expect(required("add_entry") == ["label"])
         #expect(required("adjust") == ["label", "input"])
         #expect(required("day") == [])
+        #expect(required("week") == [])
         #expect(required("labels") == [])
         #expect(required("archive") == ["label"])
         #expect(required("pin") == ["label"])
@@ -39,6 +40,6 @@ import MCP
 
     @Test func readingToolsAreMarkedReadOnly() {
         let readOnly = MCPTools.all.filter { $0.annotations.readOnlyHint == true }.map(\.name)
-        #expect(readOnly == ["status", "day", "summary", "labels"])
+        #expect(readOnly == ["status", "day", "week", "summary", "labels"])
     }
 }

@@ -97,15 +97,25 @@ import ChronobarOperations
         #expect(mcp.error("stop")?.kind == "no_session_timer")
     }
 
-    @Test func startingALabelThatAlreadyRunsMakesItTheSessionsToo() throws {
+    /// A start that found the Label already running didn't start it, so the timer stays someone else's.
+    @Test func startingALabelThatAlreadyRunsDoesNotMakeItTheSessions() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Internal")
         let mcp = session(Operations(tracker: tracker), clock)
         _ = try mcp.result("start", ["label": "internal"])
 
-        let stopped = try mcp.result("stop")
+        #expect(mcp.error("stop")?.kind == "no_session_timer")
+        #expect(tracker.timers.map(\.project) == ["Internal"])
+    }
 
-        #expect(stopped["entry"]?.objectValue?["label"] == "Internal")
+    /// Starting its own running timer again keeps it the session's.
+    @Test func startingItsOwnRunningTimerAgainKeepsItTheSessions() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        let mcp = session(Operations(tracker: tracker), clock)
+        _ = try mcp.result("start", ["label": "Internal"])
+        _ = try mcp.result("start", ["label": "internal"])
+
+        #expect(try mcp.result("stop")["entry"]?.objectValue?["label"] == "Internal")
     }
 
     @Test func eachSessionDefaultsToItsOwnTimer() throws {

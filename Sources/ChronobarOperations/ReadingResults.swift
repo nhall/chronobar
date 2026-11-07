@@ -132,6 +132,46 @@ public struct ArchiveResult: Codable, Equatable, Sendable {
     }
 }
 
+/// One Label's total across several Days.
+public struct LabelTotalResult: Codable, Equatable, Sendable {
+    /// The Label as its first row in the Days shows it.
+    public let label: String
+    /// The sum of the Label's total on each Day, each rounded down to the second.
+    public let totalSeconds: Int
+
+    public init(label: String, totalSeconds: Int) {
+        self.label = label
+        self.totalSeconds = totalSeconds
+    }
+}
+
+/// A week, as the Week strip has it, Sunday to Saturday or as the calendar starts weeks.
+public struct WeekResult: Codable, Equatable, Sendable {
+    /// The first and last Day, `YYYY-MM-DD`.
+    public let first: String
+    public let last: String
+    /// The sum of the Days' totals, and of their Elapsed time.
+    public let totalSeconds: Int
+    public let elapsedSeconds: Int
+    /// Each of the seven Days with its Day total and Elapsed time, first to last.
+    public let days: [DayResult]
+    /// One per Label with Entries in the week, in the order each first appears, with its week total.
+    public let labels: [LabelTotalResult]
+    /// The Days whose file won't parse, so they read as empty; `YYYY-MM-DD`.
+    public let malformed: [String]
+
+    public init(first: String, last: String, totalSeconds: Int, elapsedSeconds: Int, days: [DayResult],
+                labels: [LabelTotalResult], malformed: [String]) {
+        self.first = first
+        self.last = last
+        self.totalSeconds = totalSeconds
+        self.elapsedSeconds = elapsedSeconds
+        self.days = days
+        self.labels = labels
+        self.malformed = malformed
+    }
+}
+
 public struct DayRowsResult: Codable, Equatable, Sendable {
     /// The Day's date with its Day total and Elapsed time.
     public let day: DayResult

@@ -108,18 +108,19 @@ import ChronobarCore
         #expect(tracker.total("Internal", on: tracker.today) == 30 * 60)
     }
 
-    /// Starting the one running Project with the setting on still keeps it going, and pauses the rest.
-    @Test func withTheSettingOnStartingARunningProjectKeepsItAndPausesTheRest() throws {
+    /// Starting a running Project is a no-op with the setting on too: the others keep running.
+    @Test func withTheSettingOnStartingARunningProjectChangesNothing() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         try tracker.start("Internal")
         tracker.startPausesOthers = true
+        let before = contents(dayFile(root, "2026-11-03"))
         clock.set("2026-11-03T10:00:00")
         try tracker.start("Website Redesign", source: .agent)
 
-        #expect(tracker.timers.map(\.project) == ["Website Redesign"])
-        #expect(tracker.timers.map(\.start) == [FakeClock("2026-11-03T09:00:00").now])
-        #expect(tracker.total("Internal", on: tracker.today) == 60 * 60)
+        #expect(tracker.timers.map(\.project) == ["Website Redesign", "Internal"])
+        #expect(tracker.timers.map(\.start) == [FakeClock("2026-11-03T09:00:00").now, FakeClock("2026-11-03T09:00:00").now])
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
     }
 
     @Test func startingARunningProjectKeepsItsTimerGoing() throws {

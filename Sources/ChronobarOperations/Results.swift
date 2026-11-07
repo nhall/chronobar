@@ -11,6 +11,7 @@ public enum OperationResult: Equatable, Sendable {
     case addEntry(AddEntryResult)
     case adjust(AdjustResult)
     case day(DayRowsResult)
+    case week(WeekResult)
     case summary(SummaryResult)
     case labels(LabelsResult)
     case pin(PinResult)
@@ -26,6 +27,7 @@ public enum OperationResult: Equatable, Sendable {
         case .addEntry: "add_entry"
         case .adjust: "adjust"
         case .day: "day"
+        case .week: "week"
         case .summary: "summary"
         case .labels: "labels"
         case .pin: "pin"

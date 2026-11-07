@@ -94,11 +94,10 @@ extension Tracker {
         guard end <= now else { throw FutureTime(time: end) }
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
-        // Checked under the name as typed first, so a refusal doesn't take the Project off `archived.txt`.
-        _ = try replacing(name, [], with: split(name, from: start, to: end, source: source))
         let project = try resolve(name)
         let stored = split(project, from: start, to: end, source: source)
         try replace(project, [], with: stored)
+        bringBackAfterWriting(project)
         return stored
     }
 

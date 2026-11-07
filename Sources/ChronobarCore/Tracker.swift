@@ -32,6 +32,8 @@ public final class Tracker {
     @ObservationIgnored private let defaults: UserDefaults?
     /// The runs `tick()` has reported as long-running, so each is reported once, across relaunches too.
     @ObservationIgnored private var warned: [LongRunning]
+    /// The warned runs `takeLongRunning()` hasn't handed out yet.
+    @ObservationIgnored private var unreported: [LongRunning] = []
 
     private static let heartbeatKey = "heartbeat"
     private static let warnedKey = "longRunningWarned"
@@ -80,7 +82,8 @@ public final class Tracker {
     public func isMalformed(_ day: Day) -> Bool { malformedDays.contains(day) }
 
     /// Starts a timer for `project`, leaving the running ones running unless `startPausesOthers` is on. A
-    /// Project already running keeps its timer, start and source, so this is a no-op for it. A new name
+    /// Project already running keeps its timer, start and source, and the others keep running whatever the
+    /// setting, so this is a no-op for it. A new name
     /// creates a Project. Refused, leaving the running timers alone, while today's file is malformed.
     /// Timers run only today: unlike `log` and `adjust` this takes no Day, so no Day other than today ever
     /// gets a timer. Returns the Project's name with its stored spelling, the name its row is shown under.
@@ -90,13 +93,17 @@ public final class Tracker {
         files.retryPending()
         _ = try files.read(today)
         let project = try resolve(name)
-        if startPausesOthers {
-            for other in timers where !ProjectName.matches(other.project, project) { try pause(other.project) }
-        }
         guard !timers.contains(project) else { return project }
         let timer = Running(project: project, start: now, source: source)
-        try files.update(today) { $0.append(.timed(project: project, start: timer.start, end: nil, source: source)) }
+        let pausesOthers = startPausesOthers
+        // One write closes the others and opens the new Entry, so a failed save leaves every timer as it was.
+        try files.update(today) { entries in
+            if pausesOthers { Self.close(&entries, at: timer.start) }
+            entries.append(.timed(project: project, start: timer.start, end: nil, source: source))
+        }
+        if pausesOthers { timers = RunningTimers() }
         timers.insert(timer)
+        bringBackAfterWriting(project)
         return project
     }
 
@@ -160,32 +167,41 @@ public final class Tracker {
         }
     }
 
-    /// Called every second by the UI so running totals advance, and on wake. Rolls over to a new Day and
-    /// retries deferred writes, then recovers any Entry left open in a Day file that parsed again. Returns
-    /// the timers that have now run for `longRunningThreshold`, each once per run.
-    @discardableResult
-    public func tick() -> [LongRunning] {
+    /// Called every second by the UI so running totals advance, on wake, and before each Panel opening or
+    /// agent request. Rolls over to a new Day and retries deferred writes, then recovers any Entry left open
+    /// in a Day file that parsed again. Timers that have now run for `longRunningThreshold` wait in
+    /// `takeLongRunning()`, so whichever caller ticked, the app still hears of each.
+    public func tick() {
         catchUp()
         files.retryPending()
         recover(reparsed: files.takeReparsed())
         unblockPendingIdle()
-        return newlyLongRunning()
+        noteLongRunning()
     }
 
-    /// The timers that ran past `longRunningThreshold` since last asked, each marked as warned.
-    private func newlyLongRunning() -> [LongRunning] {
-        guard let threshold = longRunningThreshold else { return [] }
+    /// The timers `tick()` found past `longRunningThreshold` since last asked, each once per run, leaving
+    /// none to take until another passes it. A run that ended before it was taken is left out.
+    public func takeLongRunning() -> [LongRunning] {
+        let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
+        defer { unreported = [] }
+        return unreported.filter(running.contains)
+    }
+
+    /// Marks the timers that ran past `longRunningThreshold` as warned and queues them for
+    /// `takeLongRunning()`.
+    private func noteLongRunning() {
+        guard let threshold = longRunningThreshold else { return }
         let passed = timers.compactMap { timer -> LongRunning? in
             let run = LongRunning(project: timer.project, since: runStart(of: timer))
             guard now.timeIntervalSince(run.since) >= threshold, !warned.contains(run) else { return nil }
             return run
         }
-        guard !passed.isEmpty else { return [] }
+        guard !passed.isEmpty else { return }
         // Runs that ended are dropped, so the list holds only timers still running.
         let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
         warned = warned.filter(running.contains) + passed
+        unreported += passed
         defaults?.set(warned.map { ["project": $0.project, "since": $0.since] }, forKey: Self.warnedKey)
-        return passed
     }
 
     /// The runs reported before the last quit, as `newlyLongRunning` saved them.
@@ -415,21 +431,33 @@ public final class Tracker {
     private static let suggestedDays = 30
 
     /// The Project `name` refers to, for start and log to write under: the spelling of the Pinned Project,
-    /// else of the archived one, else of its latest Entry, else `name` trimmed. An archived Project comes
-    /// off `archived.txt`. Throws if either list won't parse, so a write never replaces it.
+    /// else of the archived one, else of its latest Entry, else `name` trimmed. Throws if either list won't
+    /// parse, so a write never replaces it. Writes nothing: a caller brings an archived Project back with
+    /// `bringBack` once its own write has landed, so a refused or failed write changes nothing.
     func resolve(_ name: String) throws -> String {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
         let pinned = try projectStore.load()
-        var archived = try archivedStore.load()
-        let unarchived = archived.first { ProjectName.matches($0, name) }
-        if unarchived != nil {
-            archived.removeAll { ProjectName.matches($0, name) }
-            try archivedStore.save(archived)
-        }
+        let archived = try archivedStore.load()
         projects = pinned
         self.archived = archived
-        return pinned.first { ProjectName.matches($0, name) } ?? unarchived ?? historicalName(matching: name) ?? name
+        return pinned.first { ProjectName.matches($0, name) }
+            ?? archived.first { ProjectName.matches($0, name) }
+            ?? historicalName(matching: name) ?? name
+    }
+
+    /// Takes `project` off `archived.txt`, as `resolve` last read it.
+    func bringBack(_ project: String) throws {
+        guard archived.contains(where: { ProjectName.matches($0, project) }) else { return }
+        let kept = archived.filter { !ProjectName.matches($0, project) }
+        try archivedStore.save(kept)
+        archived = kept
+    }
+
+    /// `bringBack` after time was written under `project`. If that save fails the time stays written, so
+    /// the write still succeeds, and the Project stays archived until time is next written under it.
+    func bringBackAfterWriting(_ project: String) {
+        try? bringBack(project)
     }
 
     /// Pins `name`: adds it to `projects.txt`, so it is always suggested, and takes it off `archived.txt`.
@@ -437,6 +465,7 @@ public final class Tracker {
     @discardableResult
     public func pinProject(_ name: String) throws -> String {
         let project = try resolve(name)
+        try bringBack(project)
         guard !projects.contains(where: { ProjectName.matches($0, project) }) else { return project }
         try projectStore.save(projects + [project])
         projects.append(project)
@@ -534,6 +563,7 @@ public final class Tracker {
         catchUp()
         let project = try resolve(name)
         try files.update(day) { $0.append(.manual(project: project, seconds: seconds, note: .manual)) }
+        bringBackAfterWriting(project)
         return project
     }
 

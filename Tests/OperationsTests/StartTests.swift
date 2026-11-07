@@ -63,6 +63,21 @@ import ChronobarOperations
         #expect(tracker.timers.map(\.project) == ["Website Redesign"])
     }
 
+    @Test func withPausesTheOthersOnStartingARunningLabelPausesNothing() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Internal")
+        try tracker.start("Website Redesign", source: .agent)
+        tracker.startPausesOthers = true
+        clock.set("2026-11-03T09:30:00")
+
+        let started = try Operations(tracker: tracker).start("Internal")
+
+        #expect(started.alreadyRunning)
+        #expect(started.paused.isEmpty)
+        #expect(started.timer.label == "Internal")
+        #expect(tracker.timers.map(\.project).sorted() == ["Internal", "Website Redesign"])
+    }
+
     @Test func aBlankLabelIsRefused() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
 

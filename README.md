@@ -1,13 +1,13 @@
 # Chronobar
 
-A project timer that lives in the macOS menu bar. Pick a project, click ▶ to start, click ⏸ to pause,
+A timer that lives in the macOS menu bar. Type a label, click ▶ to start, click ⏸ to pause,
 and open the panel to see what each day went to. Everything stays on your Mac in plain JSON files you
 can read and edit. There are no accounts, no sync and no integrations.
 
 <!-- TODO: screenshots
   - docs/screenshots/pill.png         the Pill, stopped and running, in light and dark menu bars
-  - docs/screenshots/panel.png        the Panel: date header with ⚙, Week strip, project rows, ＋ under them
-  - docs/screenshots/new-project.png  the ＋ form with project suggestions and a duration
+  - docs/screenshots/panel.png        the Panel: date header with ⚙, Week strip, label rows, ＋ under them
+  - docs/screenshots/new-project.png  the ＋ form with label suggestions and a duration
   - docs/screenshots/idle-alert.png   the idle alert after waking the Mac
   - docs/screenshots/settings.png     the Settings window
 -->
@@ -16,13 +16,13 @@ can read and edit. There are no accounts, no sync and no integrations.
 
 - **The Pill** sits in the menu bar. Its left square shows how many timers are running (`1`, `2`, …) on
   a colored background, or ▶ on gray when none are. The right side shows today's total across all
-  projects (`1:23`), ticking while any timer runs. Any click on the Pill opens the Panel, where you start
+  labels (`1:23`), ticking while any timer runs. Any click on the Pill opens the Panel, where you start
   and pause timers; so does the global shortcut you can record in Settings.
 - **The Panel** shows the day you are viewing, a strip with the week's daily totals, and one row per
-  project with its total for that day. Each of today's rows ends with a ▶ button that starts that
-  project's timer; every running row is highlighted and shows ⏸ to pause just that timer. Use ＋, under the
-  rows, to start a new project or to log time you forgot to track: its form opens just above it, and a
-  new project's row appears at the bottom of the rows, right above the form. The header keeps the
+  label with its total for that day. Each of today's rows ends with a ▶ button that starts that
+  label's timer; every running row is highlighted and shows ⏸ to pause just that timer. Use ＋, under the
+  rows, to start a new label or to log time you forgot to track: its form opens just above it, and a
+  new label's row appears at the bottom of the rows, right above the form. The header keeps the
   date, the day's total with its elapsed time beside it (`3:00 · 1:00 elapsed`), (i) and ⚙. ‹ ›
   move a week back or forward without limit; on any day other than today, ＋ only logs time and rows have no ▶, so you can fix last week or log a
   vacation ahead. While you view another day, a Today button under the strip brings you back, as
@@ -35,7 +35,7 @@ can read and edit. There are no accounts, no sync and no integrations.
   keyboard layout: ⌘[ is ⌘ with whatever types `[` (⌘⌥5 on German, ⌘⌥⇧5 on French), and ⌘T is ⌘ with
   the key that types `t`. On layouts such as Russian, which type Latin letters with ⌘ held, the keys are
   where they are on a US keyboard.
-- Several timers can run at once, one per project. Starting a project leaves the others running, and
+- Several timers can run at once, one per label. Starting a label leaves the others running, and
   starting one that is already running keeps it going. Turn on "Starting a timer pauses the others" in
   Settings to have each start pause every other timer instead.
 - If you come back to a running timer after the Mac slept, locked, or sat with no input, Chronobar asks
@@ -45,7 +45,7 @@ can read and edit. There are no accounts, no sync and no integrations.
 - Quitting Chronobar stops the timers you started in the app and leaves agents' timers running; they
   continue when it opens again. After a crash, the app's timers bring up the idle alert on the next
   launch, and agents' timers keep running.
-- A timer still running after 4 hours raises a notification naming its project, once per run, with a
+- A timer still running after 4 hours raises a notification naming its label, once per run, with a
   Stop button that stops it then. Nothing is cut on its own. Pick 2 to 8 hours, or Off, in Settings.
 - **Agents and scripts** start and stop timers through MCP (see [Agents](#agents)) or the `chronobar`
   command (see [The command line](#the-command-line)). A row whose timer an agent started shows a small terminal
@@ -86,6 +86,8 @@ Reading where time went, and keeping the label list tidy:
 ```sh
 chronobar day                           # today's labels, totals and elapsed time
 chronobar day 2026-11-02                # another day's
+chronobar week                          # this week's daily totals and each label's week total
+chronobar week 2026-10-28               # the week containing another day
 chronobar summary                       # today, yesterday, this week and this month
 chronobar labels client a               # suggested labels containing "client a"
 chronobar pin "Internal meeting"        # always suggest it
@@ -162,12 +164,13 @@ followed by `/bin/chronobar` (`/usr/local/bin/chronobar` on an Intel Mac). Then 
 app. The full path works in the other clients too, if one can't find `chronobar`.
 
 It offers a tool for each command: `status`, `start`, `stop`, `set_start`, `add_entry`, `adjust`, `day`,
-`summary`, `labels`, `archive` and `pin`, with the same rules. Then ask the agent things like "start a
-timer for Client A, Ticket 665", "stop it back when you finished" or "add a line item for the hour that
-took us". Each tool returns the stored times and totals as structured JSON; a refusal is a tool error
+`week`, `summary`, `labels`, `archive` and `pin`, with the same rules. Then ask the agent things like
+"start a timer for Client A, Ticket 665", "stop it back when you finished", "add a line item for the hour
+that took us" or "how much time went to Client A this week?". Each tool returns the stored times and totals as structured JSON; a refusal is a tool error
 with its message and, where it helps, the running timers.
 
-Each session runs its own server, which remembers the labels that session started. `stop` and
+Each session runs its own server, which remembers the labels that session started (a `start` that found
+the label already running doesn't count). `stop` and
 `set_start` with no label act on that session's timer, whatever else is running; if it started several
 that are still running, or none, they change nothing and list the running timers (`ambiguous` or
 `no_session_timer`), so the agent asks which. Any session can stop any timer by name. Closing a session
@@ -253,8 +256,8 @@ Everything lives in `~/Library/Application Support/Chronobar`. The ⚙ menu has 
 
 ```
 Chronobar/
-  projects.txt          pinned projects, one per line
-  archived.txt          archived projects, one per line
+  projects.txt          pinned labels, one per line
+  archived.txt          archived labels, one per line
   chronobar.sock        the socket the chronobar command reaches the app on
   days/
     2026-11-02.json
@@ -269,21 +272,22 @@ Each day is one JSON file with one entry per line:
 {
   "date": "2026-11-03",
   "entries": [
-    { "project": "Website Redesign", "start": "2026-11-03T09:02:11-05:00", "end": "2026-11-03T10:47:30-05:00" },
-    { "project": "Website Redesign", "start": "2026-11-03T13:15:00-05:00", "end": null },
+    { "project": "Website Redesign", "start": "2026-11-03T09:02:11-05:00", "end": "2026-11-03T10:47:30-05:00", "source": "app" },
+    { "project": "Website Redesign", "start": "2026-11-03T13:15:00-05:00", "end": null, "source": "app" },
+    { "project": "Client A, Ticket 665", "start": "2026-11-03T13:40:00-05:00", "end": null, "source": "agent" },
     { "project": "Internal", "seconds": 900, "note": "manual" },
     { "project": "Internal", "seconds": -300, "note": "adjustment" }
   ]
 }
 ```
 
-- `date` must match the file name.
+- `date` must match the file name. `project` holds the entry's label.
 - A **timed** entry has `start` and `end` as ISO 8601 times with a UTC offset, to the second. `end` is
-  `null` only for a running timer, at most one per project. `source` says who started it: `"app"` or
+  `null` only for a running timer, at most one per label. `source` says who started it: `"app"` or
   `"agent"`. Chronobar always writes it; an entry without it, as in older files, is the app's.
 - A **manual** entry has a whole number of `seconds`, negative for subtractions. `note` is `manual`
   for time logged with ＋ and `adjustment` for a corrected total; it is a marker, not free text.
-- A project's total for the day is the sum of its timed durations and manual seconds, never shown
+- A label's total for the day is the sum of its timed durations and manual seconds, never shown
   below `0:00`, and displayed as hours and minutes rounded down.
 - A day's elapsed time is the clock time covered by at least one timed entry, a running one counted up
   to now. Time two timers share counts once, so with timers running side by side it is less than the
@@ -299,22 +303,22 @@ You can edit these files by hand, for example to fix a start time. Chronobar re-
 before every change, so it won't overwrite your edit. If a file stops being valid JSON, Chronobar
 leaves it untouched and refuses to change that day until you fix it.
 
-### Project list
+### Label lists
 
-The ＋ form suggests every project with time on today or the 29 days before it, plus your pinned
-projects, minus archived ones. Starting or logging a project doesn't add it to a list; it is suggested
+The ＋ form suggests every label with time on today or the 29 days before it, plus your pinned
+labels, minus archived ones. Starting or logging a label doesn't add it to a list; it is suggested
 for 30 days after it was last used, then drops out until you type it again.
 
-`projects.txt` is UTF-8 text with one pinned project per line: pinned projects are always suggested.
-`archived.txt`, in the same format, lists archived projects, which are never suggested. Right-click a
+`projects.txt` is UTF-8 text with one pinned label per line: pinned labels are always suggested.
+`archived.txt`, in the same format, lists archived labels, which are never suggested. Right-click a
 suggestion, or use the buttons under the field, to pin it (adding its line to `projects.txt`) or archive
-it (moving its line to `archived.txt`). Starting, logging or pinning an archived project takes it off
+it (moving its line to `archived.txt`). Starting, logging or pinning an archived label takes it off
 `archived.txt`, with the spelling stored there. Neither list touches the day files, so archiving never
 loses time. Names match regardless of case and surrounding spaces, so `internal ` and `Internal` are the
-same project. Chronobar re-reads both files when the Panel opens, and leaves a file that isn't UTF-8
+same label. Chronobar re-reads both files when the Panel opens, and leaves a file that isn't UTF-8
 untouched, refusing to pin or archive until you fix it.
 
-Upgrading from an earlier version: every project in your old `projects.txt` becomes pinned. Projects you archived
+Upgrading from an earlier version: every line of your old `projects.txt` becomes a pinned label. Labels you archived
 before have no line in `archived.txt`, so any of them used in the last 30 days is suggested again until
 you archive it once more.
 
@@ -335,38 +339,38 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 
 - [ ] With no timer running, the square shows ▶ on gray. Click it, then the time segment: each opens the
       Panel, and no timer starts.
-- [ ] ＋, type a new project name, Start: the square turns colored with `1` and the time starts at `0:00`.
-      The form closes back to the rows, the new project's row is highlighted, and the Panel stays open.
+- [ ] ＋, type a new label, Start: the square turns colored with `1` and the time starts at `0:00`.
+      The form closes back to the rows, the new label's row is highlighted, and the Panel stays open.
 - [ ] ＋ sits at the bottom of the Panel, on its left edge: under "No time tracked" on an empty Day, and
       under the last row with one row and with many. The header shows the date, the Day total, (i) and
       ⚙, and no ＋.
 - [ ] Click ＋: its form opens under the rows, just above ＋, with the Project field focused; the Panel
       grows smoothly and stays attached to the Pill. Click ＋ again: the form closes and the Panel
-      shrinks back smoothly. Start or Log a new project: its row appears last, right above where the
+      shrinks back smoothly. Start or Log a new label: its row appears last, right above where the
       form was.
-- [ ] With enough rows to pass the bottom of the screen (add projects, or hand-edit a Day file): the
+- [ ] With enough rows to pass the bottom of the screen (add labels, or hand-edit a Day file): the
       Panel stops a little above the bottom of the screen's visible area, above the Dock, still
       attached to the Pill. The rows scroll with the trackpad or mouse wheel; the header, the Week
-      strip and ＋ stay put, and so does the ＋ form when open. Start or Log a new project: the rows
+      strip and ＋ stay put, and so does the ＋ form when open. Start or Log a new label: the rows
       scroll to its row. Tab or ⇧Tab onto a row out of view: the rows scroll to it, and the Panel's
       keys still work. With a few rows there is no scroll bar and the Panel is as tall as its content.
       Repeat with the Pill on a smaller external display, if you have one.
 - [ ] Click outside the Panel: it closes.
 - [ ] After a minute the time reads `0:01`; the day file has one entry with `"end": null`.
 - [ ] Click the row's ⏸: the square goes gray with ▶, the time stays, the entry now has an `end`.
-- [ ] Click the row's ▶: the same project resumes on its row and its total keeps counting from where it
+- [ ] Click the row's ▶: the same label resumes on its row and its total keeps counting from where it
       was.
 - [ ] With a timer running and the Panel closed, click the square on its edge, its middle, the time
       segment and the gap between them: each click opens the Panel and the timer keeps running. With
       the Panel open, a click anywhere on the Pill closes it and the timer keeps running.
 - [ ] Repeat both with a trackpad (tap to click and a full press) as well as a mouse.
 - [ ] ⌘-drag the Pill along the menu bar: it moves, and the Panel doesn't open.
-- [ ] Start a second project from ＋: the first keeps running, the day file has two entries with
+- [ ] Start a second label from ＋: the first keeps running, the day file has two entries with
       `"end": null`, both rows are highlighted with ⏸, the square shows `2`, and the Pill's time is the
       sum of both, going up by two minutes each minute. Start a third: the square shows `3`.
 - [ ] Each of today's rows shows its time, then ▶ at the far right; every running row shows ⏸ instead
       and is highlighted. Rows on any other Day have no button.
-- [ ] Type a running project's name in ＋ and Start: nothing changes; its row keeps counting, with no
+- [ ] Type a running label in ＋ and Start: nothing changes; its row keeps counting, with no
       new entry and no alert.
 - [ ] Click one running row's ⏸: only that timer pauses, its row loses its highlight and shows ▶, and
       the other keeps running and the square shows `1`. Pause the last one: the Pill's square goes gray
@@ -374,12 +378,12 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] In Settings, the shortcut is labelled "Open Panel shortcut". Record one, and with zero, one and two
       timers running and another app in front, press it: the Panel opens under the Pill with every timer
       as it was. A shortcut recorded in an earlier version still works.
-- [ ] In Settings, "Starting a timer pauses the others" is off. Turn it on, start two projects one after
+- [ ] In Settings, "Starting a timer pauses the others" is off. Turn it on, start two labels one after
       the other: the first pauses. Turn it off: starting another leaves the running one running.
 - [ ] With two timers running before midnight, wait past it (or set the clock): both entries end at
       midnight in the old day's file and both continue in the new day's file.
 - [ ] Clicking a row's time still opens the field to change its total; ▶/⏸ does not.
-- [ ] ＋, click ▾ in the Project field (or press ↓): projects used in the last 30 days and pinned ones
+- [ ] ＋, click ▾ in the Project field (or press ↓): labels used in the last 30 days and pinned ones
       are listed, most recently used first, and the list scrolls when long. Type part of a name: the list narrows to names containing it, those
       starting with it first. Clicking one, or ↓ to it and Return, fills the field, closes the list and
       starts nothing; Start (or Return) then starts it.
@@ -387,18 +391,18 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       the field keeps `test`; Return starts `test`.
 - [ ] The line under the field reads New Project for a new name and Existing Project for a suggested,
       archived or long-unused one. Pin, shown for one not pinned, adds its line to `projects.txt`.
-      Archive, shown for a suggested project, moves it to `archived.txt`, drops it from the list and
+      Archive, shown for a suggested label, moves it to `archived.txt`, drops it from the list and
       empties the field; its rows and totals stay.
 - [ ] With the list open, right-click a name: the menu offers Pin (unless it is pinned) and Archive.
       Archive drops it from the open list; Pin keeps it there, and it is still listed after 30 days
       without use. The field keeps what was typed unless it held the archived name.
-- [ ] Type an archived project in different case and Start: its row uses the spelling it was archived
+- [ ] Type an archived label in different case and Start: its row uses the spelling it was archived
       with, it is listed again, and its line is gone from `archived.txt`.
 - [ ] Add a name to `archived.txt` by hand and reopen the Panel: it is no longer listed.
 - [ ] With VoiceOver on, the Project field is announced as a combo box, with whether its list is open and
       each item as you move through it; New Project / Existing Project is read when it changes; Tab
       reaches Pin and Archive with keyboard navigation on.
-- [ ] Type a project name in different case with extra spaces: it starts on the existing row.
+- [ ] Type a label in different case with extra spaces: it starts on the existing row.
 - [ ] The Pill reads clearly in light and dark menu bars and on a notched display.
 - [ ] In Settings, open Running color in light and in dark mode: each option's dot is the color it
       names, and Accent color's dot matches the accent in System Settings › Appearance, changing
@@ -454,7 +458,7 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 
 **Logging and adjusting time**
 
-- [ ] ＋, pick a project, type `1:30`: the button reads Log; Log adds 1:30 without starting a timer.
+- [ ] ＋, pick a label, type `1:30`: the button reads Log; Log adds 1:30 without starting a timer.
       The form closes back to the rows, the row shows the new total, and the Panel stays open.
 - [ ] On a past or future Day, ＋ reads Log and stays disabled until a duration is typed; it never
       starts a timer.
@@ -481,7 +485,7 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 **Idle after sleep and lock**
 
 - [ ] Start a timer, sleep the Mac for a few minutes, wake it: one alert says when you went idle and
-      which project is running.
+      which label is running.
 - [ ] Remove idle time: the entry ends at the idle time and the timer continues from now.
 - [ ] Repeat with ⌃⌘Q (lock screen) and unlock; repeat with no input past the idle threshold.
 - [ ] In Settings, Idle after no input for is a pop-up of Off, 5, 10, 15, 20, 30, 45 and 60 minutes,
@@ -525,6 +529,8 @@ Try these against the development copy (`chronobar --dev …`) unless you are ch
       `chronobar --json stop` with nothing running prints `"ok":false` and `"kind":"nothing_running"`.
 - [ ] `chronobar day` shows the same rows, totals and elapsed time as the Panel, with "running" on running
       rows; `chronobar day <a past date>` matches the Panel on that day; `chronobar day 2026-11-31` exits 1.
+- [ ] `chronobar week` shows the same daily totals as the Week strip, and each label's total for the
+      week; `chronobar week <a date last week>` matches the strip after ⌘[.
 - [ ] `chronobar summary` matches the (i) Time Summary.
 - [ ] `chronobar labels` matches the ＋ form's list; `chronobar pin X` adds X to it at once (open the ＋
       form again) and to `projects.txt`; `chronobar archive X` takes it off both and adds it to
@@ -576,7 +582,7 @@ Register the development copy in your client under a name of its own (in Claude 
 - [ ] In Settings, Warn when a timer runs for is a pop-up of Off, 2, 3, 4, 6 and 8 hours, 4 on a first
       launch.
 - [ ] Pick 2 hours and leave a timer running for 2 hours: the first time, macOS asks whether
-      Chronobar may send notifications. Allow: a notification names the project. It doesn't come back
+      Chronobar may send notifications. Allow: a notification names the label. It doesn't come back
       while that timer keeps running, nor after quitting and relaunching with it still open (an
       agent's timer, which quitting leaves running).
 - [ ] Wait a few minutes, then click Stop on the notification: the timer stops at the click, not at

@@ -31,6 +31,7 @@ public final class Operations {
             case .addEntry(let label, let span): return .success(.addEntry(try addEntry(label, span)))
             case .adjust(let label, let input, let date): return .success(.adjust(try adjust(label, input, on: date)))
             case .day(let date): return .success(.day(try day(date)))
+            case .week(let date): return .success(.week(try week(date)))
             case .summary: return .success(.summary(summary()))
             case .labels(let query): return .success(.labels(labels(query)))
             case .pin(let label): return .success(.pin(try pin(label)))
@@ -57,7 +58,7 @@ public final class Operations {
     }
 
     private func stop(_ label: String?) throws(OperationError) -> StopResult {
-        let label = if let label { try named(label) } else { try onlyRunningLabel() }
+        let label = try namedOrOnlyRunning(label)
         guard let timer = try core({ try tracker.pause(label) }) else {
             throw OperationError(.notRunning, "\(label) isn't running.\(runningList())", running: runningTimers())
         }
@@ -71,22 +72,16 @@ public final class Operations {
         return label
     }
 
-    /// The Label of the one running timer, for a request that names none. `verb` says what the request
-    /// would do to it, for the error with several running.
-    func onlyRunningLabel(to verb: String = "stop") throws(OperationError) -> String {
-        switch tracker.timers.count {
-        case 0: throw OperationError(.nothingRunning, "No timer is running.", running: [])
-        case 1: return tracker.timers[0].project
-        default:
-            throw OperationError(.ambiguous, "\(tracker.timers.count) timers are running, so say which to \(verb)."
-                                 + runningList(), running: runningTimers())
-        }
+    /// `label` trimmed, or for a request that names none, the Label of the one running timer. `verb` says
+    /// what the request would do to it, for the error with several running.
+    func namedOrOnlyRunning(_ label: String?, to verb: String = "stop") throws(OperationError) -> String {
+        if let label { return try named(label) }
+        let running = runningTimers()
+        return try UnnamedTimer.label(among: running, running: running, to: verb)
     }
 
     /// " Running: A, B." naming the running timers, or "" with none.
-    func runningList() -> String {
-        tracker.timers.isEmpty ? "" : " Running: \(tracker.timers.map(\.project).joined(separator: ", "))."
-    }
+    func runningList() -> String { UnnamedTimer.runningList(runningTimers()) }
 
     private var emptyLabel: OperationError {
         OperationError(.invalidLabel, "The Label is empty. Give the timer a name.")
@@ -95,7 +90,7 @@ public final class Operations {
     /// `timer` as the Entry it became when it stopped at `end`.
     func closed(_ timer: Running, at end: Date) -> EntryResult {
         EntryResult(label: timer.project, start: timer.start, end: end, source: timer.source,
-                    totalSeconds: seconds(tracker.total(timer.project, on: tracker.today)))
+                    totalSeconds: totalSeconds(timer.project, on: tracker.today))
     }
 
     /// Runs a Core call, turning what it throws into an `OperationError`.
@@ -130,15 +125,14 @@ public final class Operations {
     func runningTimers() -> [TimerResult] {
         tracker.timers.map { timer in
             TimerResult(label: timer.project, start: timer.start, source: timer.source,
-                        totalSeconds: seconds(tracker.total(timer.project, on: tracker.today)))
+                        totalSeconds: totalSeconds(timer.project, on: tracker.today))
         }
     }
 
-    func todayResult() -> DayResult {
-        let today = tracker.today
-        return DayResult(date: today.description, totalSeconds: seconds(tracker.dayTotal(today)),
-                         elapsedSeconds: seconds(tracker.elapsed(today)))
-    }
+    func todayResult() -> DayResult { dayResult(tracker.today) }
+
+    /// `label`'s total on `day` in whole seconds.
+    func totalSeconds(_ label: String, on day: Day) -> Int { seconds(tracker.total(label, on: day)) }
 
     /// Whole seconds, rounded down like every total Chronobar shows.
     func seconds(_ interval: TimeInterval) -> Int { Int(interval.rounded(.down)) }
