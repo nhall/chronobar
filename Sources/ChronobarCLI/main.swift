@@ -33,10 +33,12 @@ func fail(_ error: OperationError) -> Never {
     exit(ExitCode.of(error))
 }
 
-func run() throws(OperationError) {
-    switch try Invocation(arguments) {
+func run(_ invocation: Invocation) throws(OperationError) {
+    switch invocation {
     case .help:
         print(Invocation.usage)
+    case .mcp:
+        break
     case .request(let request, let json, let copy):
         let client = try connect(to: copy)
         let reply: Data
@@ -64,8 +66,26 @@ func run() throws(OperationError) {
     }
 }
 
+let invocation: Invocation
 do {
-    try run()
+    invocation = try Invocation(arguments)
+} catch {
+    fail(error)
+}
+
+if case .mcp(let copy) = invocation {
+    // Runs until the client closes standard input; the session's timers keep running after it.
+    do {
+        try await MCPServer.run(copy)
+    } catch {
+        FileHandle.standardError.write(Data("chronobar mcp: \(error)\n".utf8))
+        exit(ExitCode.refused)
+    }
+    exit(ExitCode.done)
+}
+
+do {
+    try run(invocation)
 } catch {
     fail(error)
 }

@@ -30,6 +30,9 @@ public struct OperationError: Error, Codable, Equatable, Sendable {
         /// A Day file, `projects.txt` or `archived.txt` won't parse, so Chronobar won't write it until it's
         /// fixed by hand.
         case malformedFile = "malformed_file"
+        /// `stop` or `set_start` from an MCP session without a Label, and none of the timers that session
+        /// started is running, though others are; `running` lists them. Only `chronobar mcp` reports this.
+        case noSessionTimer = "no_session_timer"
         /// The app couldn't be reached or launched. Only the `chronobar` command reports this.
         case appUnreachable = "app_unreachable"
         /// The `chronobar` command was called with arguments it doesn't take. Only it reports this.
@@ -41,7 +44,8 @@ public struct OperationError: Error, Codable, Equatable, Sendable {
     public let kind: Kind
     /// One or two sentences for a person, naming what to do next where there is something.
     public let message: String
-    /// The running timers, where knowing them helps pick one: `notRunning`, `nothingRunning`, `ambiguous`.
+    /// The running timers, where knowing them helps pick one: `notRunning`, `nothingRunning`, `ambiguous`,
+    /// `noSessionTimer`.
     public let running: [TimerResult]?
 
     public init(_ kind: Kind, _ message: String, running: [TimerResult]? = nil) {

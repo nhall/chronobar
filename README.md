@@ -42,8 +42,8 @@ can read and edit. There are no accounts, no sync and no integrations.
   whether to remove the time you were away.
 - A timer still running after 4 hours raises a notification naming its project, once per run, with a
   Stop button that stops it then. Nothing is cut on its own. Pick 2 to 8 hours, or Off, in Settings.
-- **Agents and scripts** start and stop timers with the `chronobar` command (see
-  [The command line](#the-command-line)). A row whose timer an agent started shows a small terminal
+- **Agents and scripts** start and stop timers through MCP (see [Agents](#agents)) or the `chronobar`
+  command (see [The command line](#the-command-line)). A row whose timer an agent started shows a small terminal
   icon; hover over it for "Started by an agent; not paused for idle time".
 
 ## The command line
@@ -102,6 +102,30 @@ app couldn't be reached or launched. `--dev` talks to the development copy inste
 
 The command never writes your data itself: the app is the only writer, and the command talks to it
 over `chronobar.sock` in the data folder, which only your user can open.
+
+## Agents
+
+`chronobar mcp` is an MCP server on standard input and output, so any MCP client can launch it. In
+Claude Code:
+
+```sh
+claude mcp add --scope user chronobar -- chronobar mcp
+```
+
+Other clients take the same command (`chronobar`, with the argument `mcp`) as a stdio server.
+
+It offers a tool for each command: `status`, `start`, `stop`, `set_start`, `add_entry`, `adjust`, `day`,
+`summary`, `labels`, `archive` and `pin`, with the same rules. Then ask the agent things like "start a
+timer for Client A, Ticket 665", "stop it back when you finished" or "add a line item for the hour that
+took us". Each tool returns the stored times and totals as structured JSON; a refusal is a tool error
+with its message and, where it helps, the running timers.
+
+Each session runs its own server, which remembers the labels that session started. `stop` and
+`set_start` with no label act on that session's timer, whatever else is running; if it started several
+that are still running, or none, they change nothing and list the running timers (`ambiguous` or
+`no_session_timer`), so the agent asks which. Any session can stop any timer by name. Closing a session
+leaves its timers running; the long-running warning catches one that's forgotten. `chronobar --dev mcp`
+talks to the development copy.
 
 ## Install
 
@@ -470,6 +494,26 @@ Try these against the development copy (`chronobar --dev …`) unless you are ch
       1 with "already has time".
 - [ ] `chronobar add Client B --duration 15 --day YYYY-MM-DD` for yesterday: that Day in the Panel
       shows the extra 0:15. `chronobar adjust Client B -10` takes 0:10 off today's total.
+
+**Agents (MCP)**
+
+Register the development copy in your client under a name of its own (in Claude Code,
+`claude mcp add chronobar-dev -- <path>/build/bin/chronobar --dev mcp`), and remove it afterwards.
+
+- [ ] The client lists the eleven tools, with descriptions, and connects without errors.
+- [ ] Ask "start a timer for Client A": the Panel shows Client A running with the terminal icon, and the
+      agent repeats the stored start time.
+- [ ] A few minutes later, ask it to stop the timer back at a minute ago: it calls `stop` without a
+      label (or with Client A), the Panel row stops at that time, and the agent gives the stored end and
+      Client A's total.
+- [ ] Ask "add a line item for Client B from 9:00 to 9:30 today": a 0:30 Client B row appears without a
+      timer.
+- [ ] Start Client A from the agent and Client B with ▶ in the Panel, then ask it to "stop the timer": it
+      stops Client A only. Start a second label from the agent and ask again: it stops nothing and asks
+      which, listing all three.
+- [ ] Start a timer from the agent, then close the session (quit the client): the timer keeps running.
+      In a new session, "stop the timer" stops nothing and lists it; "stop Client A" stops it.
+- [ ] Try the same session in a second MCP client.
 
 **Long-running warning**
 
