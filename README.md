@@ -4,11 +4,7 @@ A menu bar time tracker for macOS that times several pieces of work at once, and
 can start, stop and correct for you.
 
 <p>
-  <img src="docs/images/pill.png" alt="The Chronobar Pill in the menu bar: 3 timers running, 7:31 today" height="32">
-</p>
-
-<p>
-  <img src="docs/images/panel.png" alt="The Panel: Friday's Week strip, Total 7:31 · Clock time 4:22, and four Labels, three of them running and two marked as started by an agent" width="303">
+  <img src="docs/images/panel.png" alt="The Chronobar Pill in the menu bar, 3 timers running and 6:39 today, with the Panel open below it: Saturday's Week strip, Total 6:39 · Clock time 2:59, and four Labels, three of them running and two marked as started by an agent" width="346" height="350">
 </p>
 
 ## Why
