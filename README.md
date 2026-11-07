@@ -339,7 +339,8 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 **Start, pause, switch**
 
 - [ ] With no timer running, the square shows `0` on gray, in the same digit style as a running count,
-      dark on the gray in light and dark mode, white with Increase Contrast on in light mode. Click it, then the time segment: each opens the
+      dark on the gray in light and dark mode, white with Increase Contrast on in light mode. The gray is
+      lighter than the Gray running color, and lighter again with Increase Contrast on in dark mode. Click it, then the time segment: each opens the
       Panel, and no timer starts.
 - [ ] ＋, type a new label, Start: the square turns colored with `1` and the time starts at `0:00`.
       The form closes back to the rows, the new label's row is highlighted, and the Panel stays open.
