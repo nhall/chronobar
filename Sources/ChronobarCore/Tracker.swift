@@ -96,14 +96,15 @@ public final class Tracker {
         guard !timers.contains(project) else { return project }
         let timer = Running(project: project, start: now, source: source)
         let pausesOthers = startPausesOthers
-        // One write closes the others and opens the new Entry, so a failed save leaves every timer as it was.
-        try files.update(today) { entries in
+        // One write closes the others, opens the new Entry and brings the Project back, so a failed save
+        // leaves every timer and file as it was.
+        try files.update(today, alongWith: bringingBack(project)) { entries in
             if pausesOthers { Self.close(&entries, at: timer.start) }
             entries.append(.timed(project: project, start: timer.start, end: nil, source: source))
         }
         if pausesOthers { timers = RunningTimers() }
         timers.insert(timer)
-        bringBackAfterWriting(project)
+        broughtBack(project)
         return project
     }
 
@@ -327,7 +328,7 @@ public final class Tracker {
     /// from `idleStart` to `idleEnd` (nil: now) from every Day it covers: an app-started timed Entry
     /// straddling either end is cut there, those inside are deleted and manual Entries stay. `remove` then
     /// restarts from now each app timer the cut stopped; `removeAndStop` leaves every app timer stopped. If
-    /// any of those Day files won't parse, nothing is changed.
+    /// any of those Day files won't parse, or one can't be saved, nothing is changed.
     public func resolveIdle(since idleStart: Date, until idleEnd: Date? = nil, choice: IdleChoice) throws {
         catchUp()
         guard choice != .keep else { return pendingIdle = nil }
@@ -351,22 +352,28 @@ public final class Tracker {
             pendingIdle = PendingIdle(since: since, until: idleEnd ?? now, blockedBy: error.day)
             throw error
         }
-        for (day, entries) in loaded {
-            let kept = Self.removing(entries, from: idleStart, to: idleEnd, asOf: now)
-            if kept != entries { try files.save(day, kept) }
+        // The removal and the restart or stop after it are one write, every Day or none.
+        let changed = loaded.compactMap { day, entries -> (Day, [Entry])? in
+            var kept = Self.removing(entries, from: idleStart, to: idleEnd, asOf: now)
+            if day == today { kept = Self.resumed(kept, running: running, choice: choice, at: now) }
+            return kept == entries ? nil : (day, kept)
         }
+        try files.save(changed)
         pendingIdle = nil
         reload()
-        if choice == .removeAndStop { return try pauseAppTimers() }
-        let stopped = running.filter { $0.source == .app && !timers.contains($0.project) }
-        guard !stopped.isEmpty else { return }
-        let start = now
-        try files.update(today) { entries in
-            for timer in stopped {
-                entries.append(.timed(project: timer.project, start: start, end: nil, source: timer.source))
-            }
+    }
+
+    /// Today's `entries` after an idle removal, with the app timers it stopped started again at `now`
+    /// (`remove`), or with every app timer stopped at `now` (`removeAndStop`).
+    private static func resumed(_ entries: [Entry], running: RunningTimers, choice: IdleChoice, at now: Date) -> [Entry] {
+        if choice == .removeAndStop {
+            return entries.map { $0.openTimer?.source == .app ? $0.closed(at: now) : $0 }
         }
-        for timer in stopped { timers.insert(Running(project: timer.project, start: start, source: timer.source)) }
+        let open = entries.compactMap(\.openTimer)
+        let stopped = running.filter { timer in
+            timer.source == .app && !open.contains { ProjectName.matches($0.project, timer.project) }
+        }
+        return entries + stopped.map { .timed(project: $0.project, start: now, end: nil, source: $0.source) }
     }
 
     /// `entries` without their app-started time from `cut` to `resume` (nil: no end); an open Entry counts
@@ -432,8 +439,8 @@ public final class Tracker {
 
     /// The Project `name` refers to, for start and log to write under: the spelling of the Pinned Project,
     /// else of the archived one, else of its latest Entry, else `name` trimmed. Throws if either list won't
-    /// parse, so a write never replaces it. Writes nothing: a caller brings an archived Project back with
-    /// `bringBack` once its own write has landed, so a refused or failed write changes nothing.
+    /// parse, so a write never replaces it. Writes nothing: a caller brings an archived Project back in
+    /// its own write (`bringingBack`), so a refused or failed write changes nothing.
     func resolve(_ name: String) throws -> String {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
@@ -446,18 +453,17 @@ public final class Tracker {
             ?? historicalName(matching: name) ?? name
     }
 
-    /// Takes `project` off `archived.txt`, as `resolve` last read it.
-    func bringBack(_ project: String) throws {
-        guard archived.contains(where: { ProjectName.matches($0, project) }) else { return }
-        let kept = archived.filter { !ProjectName.matches($0, project) }
-        try archivedStore.save(kept)
-        archived = kept
+    /// The `archived.txt` write taking `project` off it, as `resolve` last read it, to land with the write
+    /// putting time under `project` or pinning it, all or none; none if it isn't archived. Call
+    /// `broughtBack` once that write has landed.
+    func bringingBack(_ project: String) -> [FileWrite] {
+        guard archived.contains(where: { ProjectName.matches($0, project) }) else { return [] }
+        return [archivedStore.write(archived.filter { !ProjectName.matches($0, project) })]
     }
 
-    /// `bringBack` after time was written under `project`. If that save fails the time stays written, so
-    /// the write still succeeds, and the Project stays archived until time is next written under it.
-    func bringBackAfterWriting(_ project: String) {
-        try? bringBack(project)
+    /// Takes `project` off `archived` after `bringingBack`'s write landed.
+    func broughtBack(_ project: String) {
+        archived.removeAll { ProjectName.matches($0, project) }
     }
 
     /// Pins `name`: adds it to `projects.txt`, so it is always suggested, and takes it off `archived.txt`.
@@ -465,10 +471,12 @@ public final class Tracker {
     @discardableResult
     public func pinProject(_ name: String) throws -> String {
         let project = try resolve(name)
-        try bringBack(project)
-        guard !projects.contains(where: { ProjectName.matches($0, project) }) else { return project }
-        try projectStore.save(projects + [project])
-        projects.append(project)
+        let pinned = projects.contains(where: { ProjectName.matches($0, project) }) ? projects : projects + [project]
+        // Both lists in one write, so a failed save leaves both as they were.
+        let writes = bringingBack(project) + (pinned == projects ? [] : [projectStore.write(pinned)])
+        try FileWrite.replace(writes)
+        broughtBack(project)
+        projects = pinned
         return project
     }
 
@@ -532,21 +540,24 @@ public final class Tracker {
 
     /// Archives the Project matching `name`: takes it off `projects.txt` and adds it to `archived.txt`, so
     /// it isn't suggested until typed again. Its Entries stay in the Day files and a running timer keeps
-    /// running. Reads both lists before writing either, so if one won't parse nothing changes.
+    /// running. Reads both lists before writing either and writes them together, so if one won't parse or
+    /// can't be saved nothing changes.
     public func archiveProject(_ name: String) throws {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
         var pinned = try projectStore.load()
         var archived = try archivedStore.load()
+        var writes: [FileWrite] = []
         if !archived.contains(where: { ProjectName.matches($0, name) }) {
             let project = pinned.first { ProjectName.matches($0, name) } ?? historicalName(matching: name) ?? name
             archived.append(project)
-            try archivedStore.save(archived)
+            writes.append(archivedStore.write(archived))
         }
         if pinned.contains(where: { ProjectName.matches($0, name) }) {
             pinned.removeAll { ProjectName.matches($0, name) }
-            try projectStore.save(pinned)
+            writes.append(projectStore.write(pinned))
         }
+        try FileWrite.replace(writes)
         projects = pinned
         self.archived = archived
     }
@@ -562,8 +573,10 @@ public final class Tracker {
         }
         catchUp()
         let project = try resolve(name)
-        try files.update(day) { $0.append(.manual(project: project, seconds: seconds, note: .manual)) }
-        bringBackAfterWriting(project)
+        try files.update(day, alongWith: bringingBack(project)) {
+            $0.append(.manual(project: project, seconds: seconds, note: .manual))
+        }
+        broughtBack(project)
         return project
     }
 
