@@ -1,5 +1,8 @@
 # Using the app
 
+The Pill, the Panel, its keys, idle handling and Settings.
+[Back to the README](../README.md)
+
 ## The Pill
 
 The Pill sits in the menu bar. Its left square shows how many timers are running (`1`, `2`, …) on a

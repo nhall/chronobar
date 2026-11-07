@@ -1,10 +1,21 @@
 # The command line
 
+Every `chronobar` command, its rules, its JSON output and its exit status, for scripts and hooks.
+[Back to the README](../README.md)
+
+```sh
+chronobar start "Northwind, Ticket 665"
+chronobar status
+chronobar stop --at 14:40          # the only running timer, back when the work finished
+chronobar day                      # today's Labels, Total and Clock time
+chronobar --json week              # this week, as JSON
+```
+
 `chronobar` sends one request to the running app and prints the answer. If Chronobar isn't running, it
 launches it in the background first. Homebrew puts it on your `PATH`; a build from source leaves it in
-`build/bin` (see [Development](development.md)).
+`build/bin` (see [Install](install.md#build-from-source)).
 
-The MCP server offers the same operations as tools; see [Agents](agents.md).
+The MCP server offers the same operations as tools; see [Connecting agents](connecting-agents.md).
 
 ## Starting and stopping
 
@@ -87,7 +98,7 @@ The exit status is:
 Error kinds: `invalid_request`, `unknown_operation`, `invalid_label`, `unknown_label`, `invalid_date`,
 `not_running`, `nothing_running`, `ambiguous`, `future_time`, `end_before_start`, `overlap`,
 `invalid_duration` and `malformed_file`. Over MCP there is also `no_session_timer` (see
-[Agents](agents.md#which-timer-stop-the-timer-means)).
+[Connecting agents](connecting-agents.md#which-timer-stop-the-timer-means)).
 
 ## Options
 

@@ -1,5 +1,11 @@
 # Data format
 
+Where Chronobar keeps your time, the format of each file, and how totals are counted.
+[Back to the README](../README.md)
+
+Chronobar has no accounts, no sync and no network access. The app is the only writer of your data, and
+it re-reads a file before every change, so a hand edit is never overwritten.
+
 Everything lives in `~/Library/Application Support/Chronobar`. The ⚙ menu has **Open data folder**.
 
 ```

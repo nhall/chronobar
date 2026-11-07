@@ -1,5 +1,8 @@
 # Releasing
 
+How to tag a release and update the Homebrew formula.
+[Back to the README](../README.md)
+
 The Homebrew formula's source of truth is [`packaging/homebrew/chronobar.rb`](../packaging/homebrew/chronobar.rb).
 The tap is the `nhall/homebrew-tap` repository, which holds a copy at `Formula/chronobar.rb`.
 

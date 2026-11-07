@@ -1,19 +1,12 @@
 # Development
 
-## Building from source
+Running the tests, and a development copy that runs beside your everyday Chronobar.
+[Back to the README](../README.md)
 
-You need macOS 14 Sonoma or later and the Command Line Tools 16 or later (`xcode-select --install`), for
-Swift 6.0 or later. Xcode is not required to build.
+## Building and testing
 
-```sh
-git clone https://github.com/nhall/chronobar.git
-cd chronobar
-scripts/bundle-app.sh            # builds build/Chronobar.app and build/bin/chronobar
-open build/Chronobar.app
-```
-
-Put `build/bin` on your `PATH`, or call `build/bin/chronobar` directly. Without `--dev`, the script
-builds exactly what the Homebrew formula installs.
+[Install](install.md#build-from-source) shows how to build from source. Without `--dev`,
+`scripts/bundle-app.sh` builds exactly what the Homebrew formula installs.
 
 `swift test` runs the tests. The test suite needs Xcode, because Swift Testing isn't usable with the
 Command Line Tools alone; building the app doesn't.

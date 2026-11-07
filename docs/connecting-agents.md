@@ -1,4 +1,7 @@
-# Agents
+# Connecting agents
+
+How to register Chronobar's MCP server with your agent, what to ask it, and the tools it offers.
+[Back to the README](../README.md)
 
 `chronobar mcp` is an MCP server on standard input and output, so any MCP client can launch it: register
 the command `chronobar` with the argument `mcp` as a stdio server. Each setup below adds it for every
@@ -55,6 +58,17 @@ Apps opened from the Dock or Finder don't get your shell's `PATH`, so give the f
 followed by `/bin/chronobar` (`/usr/local/bin/chronobar` on an Intel Mac). Then quit and reopen the
 app. The full path works in the other clients too, if one can't find `chronobar`.
 
+## Things to ask
+
+- "Start a timer for Northwind, Ticket 665."
+- "Stop it back when you finished."
+- "I actually started at 1:15."
+- "Add a line item for the hour that took us."
+- "How much time went to Northwind this week?"
+
+Timers an agent starts are marked in the Panel with a small terminal icon ("Started by an agent; not
+paused for idle time"), and the Day file records them with `"source": "agent"`.
+
 ## Tools
 
 The server offers a tool for each [command](command-line.md), with the same rules:
@@ -77,17 +91,6 @@ The server offers a tool for each [command](command-line.md), with the same rule
 Each tool returns the stored times and totals as structured JSON, so the agent can tell you exactly what
 was recorded. A refusal is a tool error with its message and, where it helps, the running timers.
 Times are ISO 8601 with an offset; `elapsed_seconds` is the clock time.
-
-Things to ask:
-
-- "Start a timer for Northwind, Ticket 665."
-- "Stop it back when you finished."
-- "I actually started at 1:15."
-- "Add a line item for the hour that took us."
-- "How much time went to Northwind this week?"
-
-Timers an agent starts are marked in the Panel with a small terminal icon ("Started by an agent; not
-paused for idle time"), and the Day file records them with `"source": "agent"`.
 
 ## Which timer "stop the timer" means
 
