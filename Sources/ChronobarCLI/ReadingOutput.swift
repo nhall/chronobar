@@ -15,7 +15,7 @@ extension Output {
         lines += result.rows.map { row in
             "  \(row.label)  \(DurationFormat.hoursMinutes(minutes: row.totalMinutes))\(row.running ? "  running" : "")"
         }
-        lines += [totals(minutes: result.day.totalMinutes, clockTime: result.day.elapsedMinutes)]
+        lines += [totals(minutes: result.day.totalMinutes, clockMinutes: result.day.elapsedMinutes)]
         return lines.joined(separator: "\n")
     }
 
@@ -26,12 +26,12 @@ extension Output {
         // of the Day lines, and so is its clock time; the Labels' lines add up to the week total (`WeekSheet`).
         lines += result.days.map { day in
             let malformed = result.malformed.contains(day.date) ? "  (Day file isn't valid JSON)" : ""
-            return "  \(day.date)  \(totals(minutes: day.totalMinutes, clockTime: day.elapsedMinutes))\(malformed)"
+            return "  \(day.date)  \(totals(minutes: day.totalMinutes, clockMinutes: day.elapsedMinutes))\(malformed)"
         }
         lines += ["Labels:"] + (result.labels.isEmpty ? ["  No time."] : result.labels.map { label in
             "  \(label.label)  \(DurationFormat.hoursMinutes(minutes: label.totalMinutes))"
         })
-        lines += [totals(minutes: result.totalMinutes, clockTime: result.elapsedMinutes)]
+        lines += [totals(minutes: result.totalMinutes, clockMinutes: result.elapsedMinutes)]
         return lines.joined(separator: "\n")
     }
 

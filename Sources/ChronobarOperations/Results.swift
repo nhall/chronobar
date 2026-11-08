@@ -79,7 +79,7 @@ public struct DayResult: Codable, Equatable, Sendable {
     /// `YYYY-MM-DD`, as in the Day file's name.
     public let date: String
     public let totalSeconds: Int
-    /// The Day total and Elapsed time in whole minutes, rounded down, as the Panel's Total line shows them.
+    /// The Day total and Clock time in whole minutes, rounded down, as the Panel's Total line shows them.
     public let totalMinutes: Int
     public let elapsedSeconds: Int
     public let elapsedMinutes: Int

@@ -89,11 +89,12 @@ Chronobar has never seen (`unknown_label`), and leaves a running timer running.
 ```
 
 Times are ISO 8601 with a UTC offset, as stored in the Day files. Totals are whole seconds:
-`total_seconds`, and `elapsed_seconds` for Clock time. Beside them, a Day's totals and its rows, and a
-week's totals, its Days and its Labels, have `total_minutes` and `elapsed_minutes`: the hours and
-minutes the Panel and the text output show. These add up: a Day's rows to its Total, a week's Days and
-its Labels to the week's. So a row's minutes can be one more than its seconds rounded down, and a week's
-`total_minutes` can be a few minutes less than its `total_seconds` rounded down.
+`total_seconds`, and `elapsed_seconds` for Clock time. Beside them are the hours and minutes the Panel
+and the text output show: every Day's totals, and a week's totals, have `total_minutes` and
+`elapsed_minutes`, and `day`'s rows and `week`'s Labels have `total_minutes`. These add up: a Day's
+rows to its Total, a week's Days and its Labels to the week's. So a row's minutes can be one more than
+its seconds rounded down, and a week's `total_minutes` can be a few minutes less than its
+`total_seconds` rounded down.
 
 The exit status is:
 

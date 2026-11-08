@@ -22,8 +22,8 @@ public struct DayTotal: Equatable, Sendable {
     }
 }
 
-/// One period of the Time Summary: the Days it covers, the sum of their Day totals and of their Elapsed
-/// time.
+/// One period of the Time Summary: the Days it covers, the sum of their Day totals and of their Clock
+/// times.
 public struct SummaryPeriod: Equatable, Sendable {
     /// The first and last Day; the same for a single Day.
     public let first: Day

@@ -29,7 +29,8 @@ extension Tracker {
                 month: periods.month.elapsed))
     }
 
-    /// The Time Summary's periods with the Days each covers: plain floored figures, not apportioned.
+    /// The Time Summary's periods with the Days each covers. Their figures are plain sums, rounded down only
+    /// when shown, never apportioned (ADR 0005).
     public func summaryPeriods() -> SummaryPeriods {
         let today = today
         let month = calendar.range(of: .day, in: .month, for: today.noon(in: calendar))!.map {

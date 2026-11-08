@@ -78,7 +78,7 @@ enum Output {
 
     private static func day(_ day: DayResult) -> String {
         let name = day.date == date(Date()) ? "Today" : day.date
-        return "\(name): \(totals(minutes: day.totalMinutes, clockTime: day.elapsedMinutes))"
+        return "\(name): \(totals(minutes: day.totalMinutes, clockMinutes: day.elapsedMinutes))"
     }
 
     static func total(_ seconds: Int) -> String { DurationFormat.hoursMinutes(TimeInterval(seconds)) }
@@ -89,8 +89,8 @@ enum Output {
     }
 
     /// The same line from whole minutes, as a Day or week result carries them.
-    static func totals(minutes: Int, clockTime: Int) -> String {
-        totals(minutes * 60, clockTime: clockTime * 60)
+    static func totals(minutes: Int, clockMinutes: Int) -> String {
+        totals(minutes * 60, clockTime: clockMinutes * 60)
     }
 
     private static func clock(_ date: Date) -> String {

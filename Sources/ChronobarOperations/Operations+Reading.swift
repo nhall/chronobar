@@ -90,7 +90,7 @@ extension Operations {
         return day
     }
 
-    /// `day`'s date, Day total and Elapsed time, as its Day sheet has them.
+    /// `day`'s date, Day total and Clock time, as its Day sheet has them.
     func dayResult(_ day: Day) -> DayResult {
         dayResult(tracker.daySheet(day))
     }

@@ -93,8 +93,9 @@ The server offers a tool for each [command](command-line.md), with the same rule
 Each tool returns the stored times and totals as structured JSON, so the agent can tell you exactly what
 was recorded. A refusal is a tool error with its message and, where it helps, the running timers.
 Times are ISO 8601 with an offset; `elapsed_seconds` is the Clock time: how long any timer was
-running, counting overlaps once. `day` and `week` also give `total_minutes` and `elapsed_minutes`, the
-hours and minutes the Panel shows, which add up to the Total under them. Agents are told to quote those
+running, counting overlaps once. Each Day's totals, and `day`'s rows and `week`'s totals and Labels,
+also give `total_minutes` (and for totals `elapsed_minutes`), the hours and minutes the Panel shows,
+which add up to the Total under them. Agents are told to quote those
 to you and to do arithmetic with the seconds, so the figures they give you match the Panel.
 
 ## Which timer "stop the timer" means
