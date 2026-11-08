@@ -111,13 +111,16 @@ public final class Tracker {
     /// setting, so this is a no-op for it. A new name
     /// creates a Project. Refused, leaving the running timers alone, while today's file is malformed.
     /// Timers run only today: unlike `log` and `adjust` this takes no Day, so no Day other than today ever
-    /// gets a timer. Returns the Project's name with its stored spelling, the name its row is shown under.
+    /// gets a timer. Returns what it did: the Project's stored spelling, whether it was already running,
+    /// its running timer and the timers it paused.
     @discardableResult
-    public func start(_ name: String, source: EntrySource = .app) throws -> String {
+    public func start(_ name: String, source: EntrySource = .app) throws -> StartOutcome {
         catchUp()
         try files.checkReadable(today)
         return try labels.resolvingForWrite(name) { project, bringingBack in
-            guard !timers.contains(project) else { return project }
+            if let running = timers[project] {
+                return StartOutcome(label: project, alreadyRunning: true, timer: running, paused: [])
+            }
             let timer = Running(project: project, start: now, source: source)
             let pausesOthers = startPausesOthers
             // One write closes the others, opens the new Entry and brings the Project back, so a failed save
@@ -126,9 +129,10 @@ public final class Tracker {
                 if pausesOthers { Self.close(&entries, at: timer.start) }
                 entries.append(.timed(project: project, start: timer.start, end: nil, source: source))
             }
+            let paused = pausesOthers ? timers.map { PausedTimer(timer: $0, end: timer.start) } : []
             if pausesOthers { timers = RunningTimers() }
             timers.insert(timer)
-            return project
+            return StartOutcome(label: project, alreadyRunning: false, timer: timer, paused: paused)
         }
     }
 
