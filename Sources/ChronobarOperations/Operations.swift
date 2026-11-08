@@ -94,26 +94,20 @@ public final class Operations {
         } catch is EmptyProjectName {
             throw emptyLabel
         } catch let error as MalformedDayFile {
-            throw malformed(error.day)
-        } catch is MalformedFileError {
-            throw malformed()
+            throw malformed(error.day == tracker.today
+                ? "Today's Day file (days/\(error.day).json) isn't valid JSON"
+                : "The Day file days/\(error.day).json isn't valid JSON")
+        } catch let error as MalformedLabelList {
+            throw malformed("\(error.fileName) isn't UTF-8 text")
         } catch {
             throw correctionError(error)
                 ?? OperationError(.failed, "Chronobar couldn't save the change: \(error.localizedDescription)")
         }
     }
 
-    /// Which file is malformed: `day`'s Day file, else today's, else one of the Label lists.
-    private func malformed(_ day: Day? = nil) -> OperationError {
-        let day = day ?? (tracker.isMalformed(tracker.today) ? tracker.today : nil)
-        let file = if let day {
-            day == tracker.today
-                ? "Today's Day file (days/\(day).json) isn't valid JSON"
-                : "The Day file days/\(day).json isn't valid JSON"
-        } else {
-            "projects.txt or archived.txt isn't UTF-8 text"
-        }
-        return OperationError(.malformedFile, "\(file), so Chronobar won't change it. Fix it by hand, then try again.")
+    /// The refusal for the malformed file Core named; `problem` says which file and what's wrong with it.
+    private func malformed(_ problem: String) -> OperationError {
+        OperationError(.malformedFile, "\(problem), so Chronobar won't change it. Fix it by hand, then try again.")
     }
 
     func runningTimers() -> [TimerResult] {
