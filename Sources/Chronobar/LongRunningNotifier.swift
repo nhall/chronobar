@@ -28,13 +28,13 @@ final class LongRunningNotifier: NSObject, UNUserNotificationCenterDelegate {
         ])
     }
 
-    /// Posts one notification per run, once permission is granted.
-    func warn(_ runs: [LongRunning], threshold: LongRunningThreshold) {
-        guard let center, !runs.isEmpty, let hours = threshold.hours else { return }
+    /// Posts one notification per run, with Core's title and text, once permission is granted.
+    func warn(_ runs: [LongRunning]) {
+        guard let center, !runs.isEmpty else { return }
         let requests = runs.map { run in
             let content = UNMutableNotificationContent()
-            content.title = "\(run.project) is still running"
-            content.body = "Running for over \(hours) hours, since \(Self.time(run.since)). Stop it if it's done."
+            content.title = run.title
+            content.body = run.body
             content.sound = .default
             content.categoryIdentifier = Self.category
             content.userInfo = ["project": run.project, "since": run.since.timeIntervalSinceReferenceDate]
@@ -49,13 +49,6 @@ final class LongRunningNotifier: NSObject, UNUserNotificationCenterDelegate {
                 reportFailure(error, category: "long-running", beep: false)
             }
         }
-    }
-
-    /// The start time, with its date when it wasn't today.
-    private static func time(_ date: Date) -> String {
-        Calendar.current.isDateInToday(date)
-            ? date.formatted(date: .omitted, time: .shortened)
-            : date.formatted(date: .abbreviated, time: .shortened)
     }
 
     nonisolated func userNotificationCenter(

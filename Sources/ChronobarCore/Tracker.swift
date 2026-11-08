@@ -190,14 +190,18 @@ public final class Tracker {
 
     /// Called by the app only, every second so running totals advance, and on wake. Catches up as
     /// `reload()` does (without re-reading), then returns the timers that have run for
-    /// `longRunningThreshold` since the last tick, each once per run. Nothing else ticks, so the app sees
-    /// every warning; callers that tick only to catch up can ignore the result.
+    /// `longRunningThreshold` since the last tick, each once per run and worded on this Tracker's calendar.
+    /// Nothing else ticks, so the app sees every warning; callers that tick only to catch up can ignore the
+    /// result.
     @discardableResult
     public func tick() -> [LongRunning] {
         catchUp()
         unblockPendingIdle()
+        guard let threshold = longRunningThreshold else { return [] }
         let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
-        return warnings.due(among: running, at: now, threshold: longRunningThreshold)
+        let times = TimeWording(calendar: calendar, today: today)
+        return warnings.due(among: running, at: now, threshold: threshold)
+            .map { $0.worded(threshold: threshold, times: times) }
     }
 
     /// When `timer`'s run began: its start, or for a timer carried over at midnight, the start of the Entry
