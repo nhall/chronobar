@@ -26,3 +26,20 @@ public struct PendingIdle: Equatable, Sendable {
         self.blockedBy = blockedBy
     }
 }
+
+/// What the idle alert asks about, from `Tracker.takeIdleQuestion()`. Answer it with `Tracker.resolveIdle`
+/// for `since` and `until`.
+public struct IdleQuestion: Equatable, Sendable {
+    public let since: Date
+    /// Where the Idle time ends; nil runs up to now.
+    public let until: Date?
+    /// The Labels of the running Timers started in the app, in the order they started: the Timers the
+    /// answer applies to.
+    public let labels: [String]
+
+    public init(since: Date, until: Date?, labels: [String]) {
+        self.since = since
+        self.until = until
+        self.labels = labels
+    }
+}

@@ -12,6 +12,9 @@ public final class Tracker {
     /// How long a timer runs before `tick()` reports it for the long-running warning; nil for Off. The
     /// Settings pop-up; nothing is ever cut automatically.
     public var longRunningThreshold: TimeInterval?
+    /// How long without keyboard or mouse input before `reportInput(idleFor:)` counts as Idle time; nil
+    /// for Off. The Settings pop-up; sleep and lock count either way.
+    public var idleThreshold: TimeInterval?
     /// The Pinned Projects, always suggested, in `projects.txt` order.
     public private(set) var projects: [String] = []
     /// The archived Projects, never suggested until typed again, in `archived.txt` order.
@@ -34,6 +37,12 @@ public final class Tracker {
     @ObservationIgnored private var warned: [LongRunning]
     /// The warned runs `takeLongRunning()` hasn't handed out yet.
     @ObservationIgnored private var unreported: [LongRunning] = []
+    /// When the Mac went to sleep or locked with a timer started in the app running, until it came back.
+    @ObservationIgnored private var awaySince: Date?
+    /// Whether `takeIdleQuestion()` handed out a question `resolveIdle` hasn't answered yet.
+    @ObservationIgnored private var idleQuestionOut = false
+    /// Whether `pendingIdle` holds Idle time from crash recovery or a refused removal, not only reports.
+    @ObservationIgnored private var idleHeld = false
 
     private static let heartbeatKey = "heartbeat"
     private static let warnedKey = "longRunningWarned"
@@ -226,6 +235,62 @@ public final class Tracker {
         pendingIdle = PendingIdle(since: idle.since, until: idle.until)
     }
 
+    // MARK: Idle time
+
+    /// The running timers started in the app, the only ones Idle time applies to: agents keep working
+    /// while the user is away.
+    private var appTimers: [Running] { timers.filter { $0.source == .app } }
+
+    /// Whether a timer started in the app runs, so input inactivity is worth sampling for
+    /// `reportInput(idleFor:)`.
+    public var appTimerRuns: Bool { !appTimers.isEmpty }
+
+    /// The Mac went to sleep or locked its screen. Recorded on Chronobar's clock while a timer started in
+    /// the app runs; a second report before `reportBack()` keeps the earlier time.
+    public func reportAway() {
+        catchUp()
+        guard !appTimers.isEmpty else { return }
+        awaySince = min(awaySince ?? now, now)
+    }
+
+    /// The Mac woke or its screen unlocked: the time since `reportAway()` is Idle time running up to now.
+    public func reportBack() {
+        catchUp()
+        guard let since = awaySince else { return }
+        awaySince = nil
+        noteReported(PendingIdle(since: since))
+    }
+
+    /// How long the app has had no keyboard or mouse input, sampled every second while a timer started in
+    /// the app runs. Once it reaches `idleThreshold`, the time since the last input is Idle time running up
+    /// to now.
+    public func reportInput(idleFor seconds: TimeInterval) {
+        catchUp()
+        guard !appTimers.isEmpty, let idleThreshold, seconds >= idleThreshold else { return }
+        noteReported(PendingIdle(since: now - seconds))
+    }
+
+    /// The idle alert's question, if one is due, marked out until `resolveIdle` answers it. One is due for
+    /// `pendingIdle` once no Day blocks it and no question is out, while a timer started in the app runs or
+    /// for Idle time Core holds. Idle time only reported, with no such timer left to cut, is dropped.
+    public func takeIdleQuestion() -> IdleQuestion? {
+        guard !idleQuestionOut, let idle = pendingIdle, idle.blockedBy == nil else { return nil }
+        let labels = appTimers.map(\.project)
+        guard !labels.isEmpty || idleHeld else {
+            clearPendingIdle()
+            return nil
+        }
+        idleQuestionOut = true
+        return IdleQuestion(since: idle.since, until: idle.until, labels: labels)
+    }
+
+    /// Folds a report's Idle time into `pendingIdle`, unless a question is out: reports that arrive while
+    /// the alert is open are left out, so alerts never stack.
+    private func noteReported(_ idle: PendingIdle) {
+        guard !idleQuestionOut else { return }
+        noteIdle(idle, held: false)
+    }
+
     /// Records the clock's time as the last moment Chronobar was alive, while any timer runs. The UI calls
     /// it every minute and on sleep; `recoverAfterLaunch()` reads it after a crash.
     public func heartbeat() {
@@ -270,7 +335,7 @@ public final class Tracker {
         if timers.allSatisfy(found.contains) {
             timers = RunningTimers(found)
             for timer in found where timer.source == .app {
-                noteIdle(PendingIdle(since: max(timer.start, lastAlive ?? timer.start)))
+                noteIdle(PendingIdle(since: max(timer.start, lastAlive ?? timer.start)), held: true)
             }
             apply(files.catchUp(to: today, carrying: found, from: day))
             return
@@ -281,15 +346,24 @@ public final class Tracker {
             try? files.changeOrDefer(day) { entries in
                 entries = entries.map { $0.openTimer == timer ? $0.closed(at: end) : $0 }
             }
-            if timer.source == .app { noteIdle(PendingIdle(since: min(lastAlive, end), until: end)) }
+            if timer.source == .app { noteIdle(PendingIdle(since: min(lastAlive, end), until: end), held: true) }
         }
     }
 
-    /// Adds `idle` to `pendingIdle`, which then covers both.
-    private func noteIdle(_ idle: PendingIdle) {
+    /// Adds `idle` to `pendingIdle`, which then covers both: the earliest start, up to now if either runs
+    /// up to now and otherwise to the later end, still blocked if it was. `held` is for Idle time Core holds
+    /// (after a crash, or a refused removal), asked about even with no timer started in the app running.
+    private func noteIdle(_ idle: PendingIdle, held: Bool) {
+        idleHeld = idleHeld || held
         guard let pendingIdle else { return self.pendingIdle = idle }
         let until = pendingIdle.until.flatMap { a in idle.until.map { max(a, $0) } }
-        self.pendingIdle = PendingIdle(since: min(pendingIdle.since, idle.since), until: until)
+        self.pendingIdle = PendingIdle(since: min(pendingIdle.since, idle.since), until: until,
+                                       blockedBy: pendingIdle.blockedBy ?? idle.blockedBy)
+    }
+
+    private func clearPendingIdle() {
+        pendingIdle = nil
+        idleHeld = false
     }
 
     /// The newest past Day whose file has a timed Entry, with its Entries. Malformed Days are skipped.
@@ -308,8 +382,10 @@ public final class Tracker {
     /// restarts from now each app timer the cut stopped; `removeAndStop` leaves every app timer stopped. If
     /// any of those Day files won't parse, or one can't be saved, nothing is changed.
     public func resolveIdle(since idleStart: Date, until idleEnd: Date? = nil, choice: IdleChoice) throws {
+        // Whatever the answer, and whether the removal goes through or not, the question is answered.
+        defer { idleQuestionOut = false }
         catchUp()
-        guard choice != .keep else { return pendingIdle = nil }
+        guard choice != .keep else { return clearPendingIdle() }
         let idleEnd = idleEnd.map { min($0, now) }
         let idleStart = min(idleStart, idleEnd ?? now)
         let running = timers
@@ -326,9 +402,10 @@ public final class Tracker {
         } catch let error as MalformedDayFile {
             let since = min(idleStart, pendingIdle?.since ?? idleStart)
             pendingIdle = PendingIdle(since: since, until: idleEnd ?? now, blockedBy: error.day)
+            idleHeld = true
             throw error
         }
-        pendingIdle = nil
+        clearPendingIdle()
         reload()
     }
 

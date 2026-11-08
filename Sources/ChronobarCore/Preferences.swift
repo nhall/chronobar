@@ -22,6 +22,9 @@ public enum IdleThreshold: Hashable, Sendable {
         if case .minutes(let minutes) = self { minutes } else { nil }
     }
 
+    /// What `Tracker.idleThreshold` takes; nil when off.
+    public var seconds: TimeInterval? { minutes.map { TimeInterval($0 * 60) } }
+
     /// The preset nearest a stored value, a tie going to the longer one. 0 or less is Off.
     public init(snapping minutes: Int) {
         guard minutes > 0 else { self = .off; return }
