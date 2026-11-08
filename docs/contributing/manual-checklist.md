@@ -296,14 +296,16 @@ Register the development copy in your client under a name of its own (in Claude 
 - [ ] In Settings, Warn when a timer runs for is a pop-up of Off, 2, 3, 4, 6 and 8 hours, 4 on a first
       launch.
 - [ ] Pick 2 hours and leave a Timer running for 2 hours: the first time, macOS asks whether
-      Chronobar may send notifications. Allow: a notification names the Label. It doesn't come back
+      Chronobar may send notifications. Allow: a notification reads "‹Label› is still running" and
+      "Running for over 2 hours, since ‹start›. Stop it if it's done.", the start a time with no date. It
+      shows even with Chronobar frontmost. It doesn't come back
       while that Timer keeps running, nor after quitting and relaunching with it still running (an
       agent's Timer, which quitting leaves running).
 - [ ] Wait a few minutes, then click Stop on the notification: the Timer stops at the click, not at
       the 2-hour mark, and other Timers keep running.
 - [ ] Pause and start the Timer again: a new notification comes 2 hours after the new start.
 - [ ] Start a Timer at 23:00 with 2 hours picked: the notification comes at 01:00, after the midnight
-      split.
+      split, and gives the start with its date, as in "since Nov 3, 2026 at 11:00 PM".
 - [ ] With notifications denied in System Settings › Notifications, nothing appears and the Timer
       keeps running. With Off picked, no notification comes.
 
