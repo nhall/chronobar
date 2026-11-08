@@ -41,7 +41,7 @@ extension Operations {
     func labels(_ query: String?) -> LabelsResult {
         let query = query.map(ProjectName.trimmed) ?? ""
         let labels = tracker.suggestions(for: query).map { label in
-            LabelResult(label: label, pinned: tracker.projects.contains { ProjectName.matches($0, label) })
+            LabelResult(label: label, pinned: tracker.isPinned(label))
         }
         let match: LabelMatchResult? = switch tracker.match(query) {
         case nil: nil
@@ -69,7 +69,7 @@ extension Operations {
             throw OperationError(.unknownLabel, "No Label is called \(name), so there's nothing to archive. "
                                  + "The labels command lists them.")
         }
-        let wasArchived = tracker.archived.contains { ProjectName.matches($0, name) }
+        let wasArchived = if case .archived = match { true } else { false }
         let wasPinned = tracker.isPinned(name)
         let stored = try core { try tracker.archiveProject(name) }
         return ArchiveResult(label: stored, alreadyArchived: wasArchived, unpinned: wasPinned,

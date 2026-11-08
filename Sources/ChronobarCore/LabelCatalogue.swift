@@ -5,7 +5,7 @@ import Observation
 /// files, the spelling a name is stored under, what a typed name matches, the ＋ form's suggestions, and
 /// pinning, archiving and bringing a Label back. It reads the Day history through `DayFiles` and never
 /// writes a Day file; a Label-list write that must land with a Day change is handed to the caller to save
-/// with it (`writing`).
+/// with it (`resolvingForWrite`).
 @MainActor @Observable
 final class LabelCatalogue {
     /// The Pinned Labels, always suggested, in `projects.txt` order.
@@ -50,19 +50,18 @@ final class LabelCatalogue {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
         try load()
-        return pinned.first { ProjectName.matches($0, name) }
-            ?? archived.first { ProjectName.matches($0, name) }
+        return pinned.first(matching: name) ?? archived.first(matching: name)
             ?? historicalName(matching: name) ?? name
     }
 
     /// Whether `name` is on the Pinned Labels, ignoring case and surrounding spaces.
     func isPinned(_ name: String) -> Bool {
-        pinned.contains { ProjectName.matches($0, name) }
+        pinned.contains(matching: name)
     }
 
     /// The Pinned spelling of `name`, else `name` trimmed: what a Row is shown under.
     func shownName(_ name: String) -> String {
-        pinned.first { ProjectName.matches($0, name) } ?? ProjectName.trimmed(name)
+        pinned.first(matching: name) ?? ProjectName.trimmed(name)
     }
 
     /// The name a past Entry used for this Label, newest Day first. Malformed Days are skipped.
@@ -80,7 +79,7 @@ final class LabelCatalogue {
     /// Label-list writes that must land with that change, all or none: taking it off `archived.txt` if it
     /// is archived. `save` writes them with its change, or not at all. Afterwards the lists are re-read, so
     /// they show the Label back only if that save landed, whether `save` returned, threw or skipped it.
-    func writing<T>(_ name: String, _ save: (_ label: String, _ alongWith: [FileWrite]) throws -> T) throws -> T {
+    func resolvingForWrite<T>(_ name: String, _ save: (_ label: String, _ alongWith: [FileWrite]) throws -> T) throws -> T {
         let label = try resolve(name)
         defer { reload() }
         return try save(label, bringingBack(label))
@@ -88,40 +87,36 @@ final class LabelCatalogue {
 
     /// The `archived.txt` write taking `label` off it, as last read; none if it isn't archived.
     private func bringingBack(_ label: String) -> [FileWrite] {
-        guard archived.contains(where: { ProjectName.matches($0, label) }) else { return [] }
+        guard archived.contains(matching: label) else { return [] }
         return [archivedStore.write(archived.filter { !ProjectName.matches($0, label) })]
     }
 
     /// Pins `name`, bringing it back if archived, both lists in one write. Returns its stored spelling.
     /// Pinning a Pinned Label changes nothing.
     func pin(_ name: String) throws -> String {
-        try writing(name) { label, writes in
-            let isPinned = pinned.contains { ProjectName.matches($0, label) }
-            try FileWrite.replace(writes + (isPinned ? [] : [pinnedStore.write(pinned + [label])]))
+        try resolvingForWrite(name) { label, writes in
+            try FileWrite.replace(writes + (isPinned(label) ? [] : [pinnedStore.write(pinned + [label])]))
             return label
         }
     }
 
     /// Archives the Label matching `name`: takes it off `projects.txt` and adds it to `archived.txt`, both
     /// in one write after reading both, so if one won't parse or can't be saved nothing changes. Returns
-    /// the stored spelling archived: the Archived one if it already was, else as `resolve` spells it.
+    /// the stored spelling archived: the Archived one if it already was, else as start spells it.
     @discardableResult
     func archive(_ name: String) throws -> String {
-        let name = ProjectName.trimmed(name)
-        guard !name.isEmpty else { throw EmptyProjectName() }
-        var pinned = try pinnedStore.load()
-        var archived = try archivedStore.load()
+        var label = try resolve(name)
+        var pinned = pinned
+        var archived = archived
         var writes: [FileWrite] = []
-        let label: String
-        if let already = archived.first(where: { ProjectName.matches($0, name) }) {
+        if let already = archived.first(matching: label) {
             label = already
         } else {
-            label = pinned.first { ProjectName.matches($0, name) } ?? historicalName(matching: name) ?? name
             archived.append(label)
             writes.append(archivedStore.write(archived))
         }
-        if pinned.contains(where: { ProjectName.matches($0, name) }) {
-            pinned.removeAll { ProjectName.matches($0, name) }
+        if pinned.contains(matching: label) {
+            pinned.removeAll { ProjectName.matches($0, label) }
             writes.append(pinnedStore.write(pinned))
         }
         try FileWrite.replace(writes)
@@ -154,10 +149,8 @@ final class LabelCatalogue {
     func match(_ name: String, today: Day, calendar: Calendar) -> ProjectMatch? {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { return nil }
-        if let active = suggested(today: today, calendar: calendar).first(where: { ProjectName.matches($0, name) }) {
-            return .active(active)
-        }
-        if let archived = archived.first(where: { ProjectName.matches($0, name) }) { return .archived(archived) }
+        if let active = suggested(today: today, calendar: calendar).first(matching: name) { return .active(active) }
+        if let archived = archived.first(matching: name) { return .archived(archived) }
         for day in files.days() {
             if let entry = files.entries(on: day).last(where: { ProjectName.matches($0.project, name) }) {
                 return .unused(shownName(entry.project))
@@ -174,11 +167,23 @@ final class LabelCatalogue {
         var used: [String] = []
         for day in [today] + files.days().filter({ $0 < today && $0 >= first }) {
             for entry in files.entries(on: day).reversed()
-            where !used.contains(where: { ProjectName.matches($0, entry.project) }) {
+            where !used.contains(matching: entry.project) {
                 used.append(shownName(entry.project))
             }
         }
-        let unused = pinned.filter { label in !used.contains { ProjectName.matches($0, label) } }
-        return (used + unused).filter { label in !archived.contains { ProjectName.matches($0, label) } }
+        let unused = pinned.filter { !used.contains(matching: $0) }
+        return (used + unused).filter { !archived.contains(matching: $0) }
+    }
+}
+
+private extension [String] {
+    /// The first name matching `name`, ignoring case and surrounding spaces.
+    func first(matching name: String) -> String? {
+        first { ProjectName.matches($0, name) }
+    }
+
+    /// Whether a name matches `name`, ignoring case and surrounding spaces.
+    func contains(matching name: String) -> Bool {
+        contains { ProjectName.matches($0, name) }
     }
 }

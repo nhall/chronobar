@@ -47,9 +47,9 @@ public enum ProjectMatch: Equatable, Sendable {
     case new
     /// A Project the suggestions list (pinned, or used in the last 30 days and not archived), as they spell it.
     case active(String)
-    /// A Project on the Archived Labels, as they spell it. Starting or logging it brings it back.
+    /// A Label on the Archived Labels, as they spell it. Starting or logging it brings it back.
     case archived(String)
-    /// A Project with time in the Day files but none in the last 30 days, and not archived, spelled as
+    /// A Label with time in the Day files but none in the last 30 days, and not archived, spelled as
     /// start would write it.
     case unused(String)
 

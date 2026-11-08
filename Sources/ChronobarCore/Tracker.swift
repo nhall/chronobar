@@ -116,7 +116,7 @@ public final class Tracker {
     public func start(_ name: String, source: EntrySource = .app) throws -> String {
         catchUp()
         try files.checkReadable(today)
-        return try labels.writing(name) { project, bringingBack in
+        return try labels.resolvingForWrite(name) { project, bringingBack in
             guard !timers.contains(project) else { return project }
             let timer = Running(project: project, start: now, source: source)
             let pausesOthers = startPausesOthers
@@ -270,13 +270,13 @@ public final class Tracker {
     public func takeIdleQuestion() -> IdleQuestion? {
         guard !idleQuestionAwaitingAnswer, case let (idle, held)? = pending, idle.blockedBy == nil
         else { return nil }
-        let labels = appTimers.map(\.project)
-        guard !labels.isEmpty || held else {
+        let timedLabels = appTimers.map(\.project)
+        guard !timedLabels.isEmpty || held else {
             clearPendingIdle()
             return nil
         }
         idleQuestionAwaitingAnswer = true
-        let subject = IdleSubject(since: idle.since, until: idle.until, labels: labels)
+        let subject = IdleSubject(since: idle.since, until: idle.until, labels: timedLabels)
         return IdleQuestion(subject: subject,
                             message: IdleWording(calendar: calendar, today: today).message(for: subject))
     }
@@ -505,8 +505,7 @@ public final class Tracker {
 
     /// What a typed name would start or log: a suggested Project, an archived one, an unused one (time in
     /// the Day files but not lately), each spelled as start would write it, or a new one. Nil for a blank
-    /// name. Reads other Days' files once until the next `reload`, so it can be asked on
-    /// every keystroke.
+    /// name. Reads other Days' files once until the next `reload`, so it can be asked on every keystroke.
     public func match(_ name: String) -> ProjectMatch? {
         labels.match(name, today: today, calendar: calendar)
     }
@@ -531,7 +530,7 @@ public final class Tracker {
             throw InvalidDuration(text: duration)
         }
         catchUp()
-        return try labels.writing(name) { project, bringingBack in
+        return try labels.resolvingForWrite(name) { project, bringingBack in
             try files.change([day], alongWith: bringingBack) { _, entries in
                 entries.append(.manual(project: project, seconds: seconds, note: .manual))
             }

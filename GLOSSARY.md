@@ -53,8 +53,8 @@ _Avoid_: Deleted Labels, hidden Labels
 
 **Unused Label**:
 A Label with time in the Day files that the suggestions leave out without it being archived: none of its
-time is in the last 30 days, and it isn't pinned. Starting or logging it makes it suggested again. The `labels` command says it "has no time
-in the last 30 days".
+time is in the last 30 days, and it isn't pinned. Starting or logging it makes it suggested again. The
+`labels` command says it "has no time in the last 30 days".
 _Avoid_: Old Labels, inactive Labels
 
 ## Agents
