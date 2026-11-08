@@ -21,7 +21,7 @@ import ChronobarCore
         let question = try #require(tracker.takeIdleQuestion())
         #expect(question.since == clock.date("2026-11-03T14:00:00"))
         #expect(question.until == nil)
-        #expect(question.labels == ["Website Redesign"])
+        #expect(question.subject.labels == ["Website Redesign"])
     }
 
     @Test func goingAwayWithOnlyAgentsTimersRunningAsksNothing() throws {
@@ -49,7 +49,7 @@ import ChronobarCore
         let question = try #require(tracker.takeIdleQuestion())
         #expect(question.since == clock.date("2026-11-03T14:10:00"))
         #expect(question.until == nil)
-        #expect(question.labels == ["Website Redesign"])
+        #expect(question.subject.labels == ["Website Redesign"])
     }
 
     @Test func inputInactivityWithTheThresholdOffAsksNothing() throws {
@@ -127,8 +127,8 @@ import ChronobarCore
         clock.set("2026-11-05T08:10:00")
         tracker.tick()
         let again = try #require(tracker.takeIdleQuestion())
-        #expect(again == IdleQuestion(since: clock.date("2026-11-03T22:30:00"),
-                                      until: clock.date("2026-11-05T08:00:00"), labels: ["Website Redesign"]))
+        #expect(again.subject == IdleSubject(since: clock.date("2026-11-03T22:30:00"),
+                                             until: clock.date("2026-11-05T08:00:00"), labels: ["Website Redesign"]))
         #expect(tracker.takeIdleQuestion() == nil)
 
         try tracker.resolveIdle(since: again.since, until: again.until, choice: .keep)
@@ -158,8 +158,8 @@ import ChronobarCore
         try good.write(to: dayFile(root, "2026-11-04"), atomically: true, encoding: .utf8)
         tracker.tick()
         let again = try #require(tracker.takeIdleQuestion())
-        #expect(again == IdleQuestion(since: clock.date("2026-11-03T22:30:00"), until: nil,
-                                      labels: ["Website Redesign"]))
+        #expect(again.subject == IdleSubject(since: clock.date("2026-11-03T22:30:00"), until: nil,
+                                             labels: ["Website Redesign"]))
     }
 
     @Test func idleTimeReportedForATimerStoppedBeforeTheAlertIsNeverAskedAbout() throws {
@@ -197,8 +197,8 @@ import ChronobarCore
         relaunched.reportBack()
 
         let question = try #require(relaunched.takeIdleQuestion())
-        #expect(question == IdleQuestion(since: clock.date("2026-11-03T10:59:00"), until: nil,
-                                         labels: ["Website Redesign"]))
+        #expect(question.subject == IdleSubject(since: clock.date("2026-11-03T10:59:00"), until: nil,
+                                                labels: ["Website Redesign"]))
         try relaunched.resolveIdle(since: question.since, until: question.until, choice: .removeAndStop)
         #expect(relaunched.takeIdleQuestion() == nil)
         #expect(relaunched.total("Website Redesign", on: relaunched.today) == 119 * 60)
@@ -230,7 +230,8 @@ import ChronobarCore
         relaunched.reportInput(idleFor: 20 * 60)
 
         let question = try #require(relaunched.takeIdleQuestion())
-        #expect(question == IdleQuestion(since: clock.date("2026-11-03T23:30:00"), until: nil, labels: ["Internal"]))
+        #expect(question.subject == IdleSubject(since: clock.date("2026-11-03T23:30:00"), until: nil,
+                                                labels: ["Internal"]))
     }
 
     /// Crashed at about 11:00 with the Heartbeat; the timer was stopped after relaunching, before the alert.
@@ -249,6 +250,6 @@ import ChronobarCore
         try relaunched.pause()
 
         let question = try #require(relaunched.takeIdleQuestion())
-        #expect(question == IdleQuestion(since: clock.date("2026-11-03T10:59:00"), until: nil, labels: []))
+        #expect(question.subject == IdleSubject(since: clock.date("2026-11-03T10:59:00"), until: nil, labels: []))
     }
 }

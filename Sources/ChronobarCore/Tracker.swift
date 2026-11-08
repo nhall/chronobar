@@ -286,9 +286,9 @@ public final class Tracker {
             return nil
         }
         idleQuestionAwaitingAnswer = true
-        let message = IdleWording(calendar: calendar, today: today)
-            .message(since: idle.since, until: idle.until, labels: labels)
-        return IdleQuestion(since: idle.since, until: idle.until, labels: labels, message: message)
+        let subject = IdleSubject(since: idle.since, until: idle.until, labels: labels)
+        return IdleQuestion(subject: subject,
+                            message: IdleWording(calendar: calendar, today: today).message(for: subject))
     }
 
     /// The alert to show when `resolveIdle` throws `error`: which Day and file refused the removal, with the
