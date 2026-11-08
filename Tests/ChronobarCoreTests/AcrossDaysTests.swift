@@ -98,6 +98,22 @@ import ChronobarCore
         return tracker
     }
 
+    /// The open Entry still in the file is the paused timer's, waiting to be closed, not a timer to run.
+    @Test func aPausedTimerStaysPausedWhileItsCloseWaitsInAFileThatParsesAgain() throws {
+        let clock = FakeClock("2026-11-03T22:00:00")
+        let tracker = try todayWithDeferredWrites(clock)
+        defer { mutable(dayFile(root, "2026-11-04")) }
+
+        tracker.reload()
+        #expect(tracker.timers.isEmpty)
+
+        mutable(dayFile(root, "2026-11-04"))
+        clock.set("2026-11-04T09:00:00")
+        tracker.tick()
+        #expect(tracker.timers.isEmpty)
+        #expect(contents(dayFile(root, "2026-11-04"))?.contains(#""end": "2026-11-04T08:00:00-05:00""#) == true)
+    }
+
     @Test func removingIdleTimeIsRefusedWhileADayItCoversHasDeferredWrites() throws {
         let clock = FakeClock("2026-11-03T22:00:00")
         let tracker = try todayWithDeferredWrites(clock)

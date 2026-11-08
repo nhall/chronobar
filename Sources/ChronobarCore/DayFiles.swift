@@ -52,11 +52,12 @@ final class DayFiles {
     }
 
     /// The Day's Entries: the loaded Day's from memory, any other Day's from its file, read once until the
-    /// next `load`. A missing file is empty; a malformed one is flagged and reads as just its deferred writes.
+    /// next `load`, with any deferred writes to it applied. A missing file is empty; a malformed one is
+    /// flagged and reads as just its deferred writes.
     func entries(on day: Day) -> [Entry] {
         if day == loadedDay { return loadedEntries }
         if let cached = otherDays[day] { return cached }
-        let entries = (try? read(day)) ?? replayed(day)
+        let entries = replayed(day, onto: (try? read(day)) ?? [])
         otherDays[day] = entries
         return entries
     }
@@ -73,15 +74,15 @@ final class DayFiles {
         _ = try strictRead(day)
     }
 
-    /// Retries deferred writes and forgets other Days' Entries, then loads `day`. If its file won't parse
-    /// its last good read is kept (for a Day not loaded before, just its deferred writes). Returns the Days
-    /// that have parsed again, as `catchUp` does.
+    /// Retries deferred writes and forgets other Days' Entries, then loads `day`, with any deferred writes
+    /// that still can't land applied. If its file won't parse its last good read is kept (for a Day not
+    /// loaded before, just its deferred writes). Returns the Days that have parsed again, as `catchUp` does.
     func load(_ day: Day) -> Set<Day> {
         otherDays = [:]
         listedDays = nil
         retryPending()
         if let entries = try? read(day) {
-            loadedEntries = entries
+            loadedEntries = replayed(day, onto: entries)
         } else if loadedDay != day {
             loadedEntries = replayed(day)
         }
@@ -286,9 +287,9 @@ final class DayFiles {
         if day == loadedDay { loadedEntries = entries } else { otherDays[day] = entries }
     }
 
-    /// A malformed Day as its deferred writes would leave an empty file.
-    private func replayed(_ day: Day) -> [Entry] {
-        var entries: [Entry] = []
+    /// `entries`, `day`'s as read (none for a malformed file), as its deferred writes would leave them.
+    private func replayed(_ day: Day, onto entries: [Entry] = []) -> [Entry] {
+        var entries = entries
         for (pendingDay, change) in pending where pendingDay == day { change(&entries) }
         return entries
     }
