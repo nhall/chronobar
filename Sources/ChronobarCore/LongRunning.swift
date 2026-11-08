@@ -28,7 +28,7 @@ public struct LongRunning: Equatable, Sendable {
 
     /// This run with its warning's text, for a threshold of `threshold` seconds.
     func worded(threshold: TimeInterval, times: TimeWording) -> LongRunning {
-        let hours = (threshold / 3600).formatted(.number.locale(times.locale))
+        let hours = Int(threshold / 3600)
         return LongRunning(project: project, since: since,
                            body: "Running for over \(hours) hours, since \(times.time(since)). Stop it if it's done.")
     }
