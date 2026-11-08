@@ -228,7 +228,7 @@ import ChronobarCore
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T10:00:00")
 
-        let project = try tracker.start("  website REDESIGN").label
+        let project = try tracker.start("  website REDESIGN").project
 
         #expect(project == "Website Redesign")
         #expect(tracker.rows(tracker.today).map(\.project) == ["Website Redesign"])

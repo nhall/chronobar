@@ -3,7 +3,7 @@ import Foundation
 /// What `Tracker.start` did, as an agent would be told it.
 public struct StartOutcome: Equatable, Sendable {
     /// The Label with its stored spelling, the name its row is shown under.
-    public let label: String
+    public let project: String
     /// Whether the Label was already running, in which case nothing changed.
     public let alreadyRunning: Bool
     /// The Timer now running for the Label: the one it already had, or the one this start began.

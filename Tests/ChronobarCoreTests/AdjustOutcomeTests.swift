@@ -46,7 +46,7 @@ import ChronobarCore
         #expect(adjustment.after == 90 * 60)
     }
 
-    /// A running timer's Total has a fraction of a second; the outcome shows it floored, as Chronobar does.
+    /// A running Timer's Total has a fraction of a second; the outcome shows it floored, as Chronobar does.
     @Test func totalsAreFlooredToWholeSeconds() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
