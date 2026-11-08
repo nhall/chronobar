@@ -4,8 +4,8 @@ How to register Chronobar's MCP server with your agent, what to ask it, and the 
 [Back to the README](../README.md)
 
 `chronobar mcp` is an MCP server on standard input and output, so any MCP client can launch it: register
-the command `chronobar` with the argument `mcp` as a stdio server. Each setup below adds it for every
-project.
+the command `chronobar` with the argument `mcp` as a stdio server. Each setup below adds it so it's available
+everywhere you use that client.
 
 ## Setup
 
@@ -73,7 +73,7 @@ paused for idle time"), and the Day file records them with `"source": "agent"`.
 
 ## Tools
 
-The server offers a tool for each [command](command-line.md), with the same rules:
+The server offers a tool for each [command](command-line.md), with the same rules, except which timer a bare `stop` or `set_start` means (see below):
 
 | Tool | Does |
 |---|---|
@@ -83,8 +83,8 @@ The server offers a tool for each [command](command-line.md), with the same rule
 | `set_start` | Moves a running timer's start. |
 | `add_entry` | Adds a finished line item, by start and end or by duration on a Day. |
 | `adjust` | Sets or changes a Label's total on a Day. |
-| `day` | Reads a Day's rows, total and clock time. |
-| `week` | Reads a week's daily totals and each Label's week total. |
+| `day` | Reads a Day's rows, Total and Clock time. |
+| `week` | Reads a week's daily Totals and each Label's week total. |
 | `summary` | Reads today, yesterday, this week and this month. |
 | `labels` | Finds suggested Labels matching what you said. |
 | `archive` | Unpins a Label and hides it from suggestions; its time stays. |
@@ -92,7 +92,7 @@ The server offers a tool for each [command](command-line.md), with the same rule
 
 Each tool returns the stored times and totals as structured JSON, so the agent can tell you exactly what
 was recorded. A refusal is a tool error with its message and, where it helps, the running timers.
-Times are ISO 8601 with an offset; `elapsed_seconds` is the clock time: how long any timer was
+Times are ISO 8601 with an offset; `elapsed_seconds` is the Clock time: how long any timer was
 running, counting overlaps once.
 
 ## Which timer "stop the timer" means
@@ -107,6 +107,5 @@ warning catches one that's forgotten.
 
 ## Away from the keyboard
 
-Idle detection applies only to timers started in the app. When you come back after the Mac slept,
-locked or sat idle, agents' timers are left as they are: the agent's work went on while you were away.
-Quitting Chronobar leaves them running too, and they continue when it opens again.
+Idle detection applies only to timers started in the app, and quitting Chronobar leaves agents' timers
+running. See [Using the app](app.md#idle-quitting-and-long-running-timers).

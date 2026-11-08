@@ -1,4 +1,4 @@
-# Releases install from a private tap that clones the source at a pinned tag and revision
+# Releases install from a private tap that clones the source at a release tag, with its commit recorded
 
 The Homebrew formula (source of truth `packaging/homebrew/chronobar.rb`, copied to the
 `nhall/homebrew-tap` repository) uses a git `url` with both `tag` and `revision`, not a release

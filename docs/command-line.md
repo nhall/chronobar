@@ -42,18 +42,18 @@ Recordings can be fixed after the fact:
 ```sh
 chronobar stop Northwind --at 14:40                    # stop it back when the work finished
 chronobar set-start Northwind --at 13:15               # it actually started at 13:15
-chronobar add Northwind --start 9:00 --end 10:30       # a finished entry, without a timer
-chronobar add Northwind --duration 1:30 --day 2026-11-02   # or a duration on a day
-chronobar adjust Northwind 1:15 --day 2026-11-02       # set the day's total; +15 or -10 change it
+chronobar add Northwind --start 9:00 --end 10:30       # a finished Entry, without a timer
+chronobar add Northwind --duration 1:30 --day 2026-11-02   # or a duration on a Day
+chronobar adjust Northwind 1:15 --day 2026-11-02       # set the Day's total; +15 or -10 change it
 ```
 
 ## Reading and tidying
 
 ```sh
-chronobar day                           # today's Labels, totals and clock time
-chronobar day 2026-11-02                # another day's
-chronobar week                          # this week's daily totals and each Label's week total
-chronobar week 2026-10-28               # the week containing another day
+chronobar day                           # today's Labels, totals and Clock time
+chronobar day 2026-11-02                # another Day's
+chronobar week                          # this week's daily Totals and each Label's week total
+chronobar week 2026-10-28               # the week containing another Day
 chronobar summary                       # today, yesterday, this week and this month
 chronobar labels northwind              # suggested Labels containing "northwind"
 chronobar pin "Internal meeting"        # always suggest it
@@ -61,7 +61,7 @@ chronobar archive "Northwind, Ticket 665"   # unpin it and stop suggesting it; i
 ```
 
 `labels` follows the ＋ form's rules: Labels with time in the last 30 days and pinned ones, minus
-archived ones. With a query it also says what the query names exactly, even if it isn't suggested
+archived ones. With a query it also reports the status of the Label that exactly matches the query, even if it isn't suggested
 (`archived`, or `unused` with no time in 30 days), or that it would be `new`. `archive` refuses a Label
 Chronobar has never seen (`unknown_label`), and leaves a running timer running.
 
@@ -75,8 +75,8 @@ Chronobar has never seen (`unknown_label`), and leaves a running timer running.
   `--day` is `YYYY-MM-DD` and defaults to today. Options take `--at 14:40` or `--at=14:40`.
 - Times in the future, an end that isn't after its start, and time a Label already has (which would
   count it twice) are refused.
-- A stop, start or entry that crosses midnight is split so each Day file holds its own time.
-- Timers and entries added this way are recorded as started by an agent, so idle detection leaves them
+- A stop, start or Entry that crosses midnight is split so each Day file holds its own time.
+- Timers and Entries added from the command line are recorded as started by an agent, so idle detection leaves them
   alone.
 
 ## JSON and exit status
@@ -89,7 +89,7 @@ Chronobar has never seen (`unknown_label`), and leaves a running timer running.
 ```
 
 Times are ISO 8601 with a UTC offset, as stored in the Day files. Totals are whole seconds:
-`total_seconds`, and `elapsed_seconds` for clock time.
+`total_seconds`, and `elapsed_seconds` for Clock time.
 
 The exit status is:
 
@@ -105,7 +105,7 @@ Error kinds: `invalid_request`, `unknown_operation`, `invalid_label`, `unknown_l
 `invalid_duration` and `malformed_file`. Over MCP there is also `no_session_timer` (see
 [Connecting agents](connecting-agents.md#which-timer-stop-the-timer-means)).
 
-## Options
+## Global options
 
 | Option | Effect |
 |---|---|
