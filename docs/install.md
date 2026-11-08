@@ -46,7 +46,8 @@ To let your agents drive it, see [Connecting agents](connecting-agents.md).
 
 ## Update and uninstall
 
-Update with `brew upgrade chronobar`. To remove it, quit Chronobar, then:
+Update with `brew upgrade chronobar`, then quit Chronobar and open it again, so the app and the
+`chronobar` command are the same version. To remove it, quit Chronobar, then:
 
 ```sh
 brew uninstall chronobar
