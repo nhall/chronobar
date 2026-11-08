@@ -47,9 +47,8 @@ extension Operations {
         case nil: nil
         case .new: LabelMatchResult(kind: .new, label: nil)
         case .active(let label): LabelMatchResult(kind: .suggested, label: label)
-        case .archived(let label):
-            LabelMatchResult(kind: tracker.archived.contains { ProjectName.matches($0, label) } ? .archived : .unused,
-                             label: label)
+        case .archived(let label): LabelMatchResult(kind: .archived, label: label)
+        case .unused(let label): LabelMatchResult(kind: .unused, label: label)
         }
         return LabelsResult(labels: labels, match: match)
     }
