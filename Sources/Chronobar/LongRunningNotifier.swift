@@ -28,15 +28,16 @@ final class LongRunningNotifier: NSObject, UNUserNotificationCenterDelegate {
         ])
     }
 
-    /// Posts one notification per run, with Core's title and text, once permission is granted.
-    func warn(_ runs: [LongRunning]) {
-        guard let center, !runs.isEmpty else { return }
-        let requests = runs.map { run in
+    /// Posts one notification per warning, with Core's title and text, once permission is granted.
+    func warn(_ warnings: [LongRunningWarning]) {
+        guard let center, !warnings.isEmpty else { return }
+        let requests = warnings.map { warning in
             let content = UNMutableNotificationContent()
-            content.title = run.title
-            content.body = run.body
+            content.title = warning.title
+            content.body = warning.body
             content.sound = .default
             content.categoryIdentifier = Self.category
+            let run = warning.run
             content.userInfo = ["project": run.project, "since": run.since.timeIntervalSinceReferenceDate]
             let id = "longRunning \(run.project) \(run.since.timeIntervalSinceReferenceDate)"
             return UNNotificationRequest(identifier: id, content: content, trigger: nil)
@@ -57,7 +58,7 @@ final class LongRunningNotifier: NSObject, UNUserNotificationCenterDelegate {
         guard response.actionIdentifier == Self.stopAction else { return }
         let info = response.notification.request.content.userInfo
         guard let project = info["project"] as? String, let since = info["since"] as? TimeInterval else { return }
-        let run = LongRunning(project: project, since: Date(timeIntervalSinceReferenceDate: since))
+        let run = TimerRun(project: project, since: Date(timeIntervalSinceReferenceDate: since))
         await MainActor.run {
             do {
                 try tracker.pause(run)

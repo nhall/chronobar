@@ -14,7 +14,7 @@ import ChronobarCore
         clock.set("2026-11-03T12:59:59")
         #expect(tracker.tick().isEmpty)
         clock.set("2026-11-03T13:00:00")
-        #expect(tracker.tick() == [LongRunning(project: "Client A, Ticket 665", since: FakeClock("2026-11-03T09:00:00").now)])
+        #expect(tracker.tick().map(\.run) == [TimerRun(project: "Client A, Ticket 665", since: FakeClock("2026-11-03T09:00:00").now)])
     }
 
     /// Reported once, however long it then runs, while a timer started later is reported on its own.
@@ -27,11 +27,11 @@ import ChronobarCore
         try tracker.start("Website Redesign")
 
         clock.set("2026-11-03T11:00:00")
-        #expect(tracker.tick().map(\.project) == ["Client A, Ticket 665"])
+        #expect(tracker.tick().map(\.run.project) == ["Client A, Ticket 665"])
         clock.set("2026-11-03T11:00:01")
         #expect(tracker.tick().isEmpty)
         clock.set("2026-11-03T12:00:00")
-        #expect(tracker.tick().map(\.project) == ["Website Redesign"])
+        #expect(tracker.tick().map(\.run.project) == ["Website Redesign"])
         clock.set("2026-11-03T18:00:00")
         #expect(tracker.tick().isEmpty)
         #expect(tracker.timers.count == 2)
@@ -53,7 +53,7 @@ import ChronobarCore
         clock.set("2026-11-03T13:59:59")
         #expect(tracker.tick().isEmpty)
         clock.set("2026-11-03T14:00:00")
-        #expect(tracker.tick() == [LongRunning(project: "Website Redesign", since: FakeClock("2026-11-03T12:00:00").now)])
+        #expect(tracker.tick().map(\.run) == [TimerRun(project: "Website Redesign", since: FakeClock("2026-11-03T12:00:00").now)])
     }
 
     @Test func offReportsNothing() throws {
@@ -74,7 +74,7 @@ import ChronobarCore
         clock.set("2026-11-03T14:00:00")
         #expect(tracker.tick().isEmpty)
         tracker.longRunningThreshold = 4 * 3600
-        #expect(tracker.tick().map(\.project) == ["Website Redesign"])
+        #expect(tracker.tick().map(\.run.project) == ["Website Redesign"])
     }
 
     /// The midnight split doesn't start a new run: 22:00 to 02:00 is four hours.
@@ -86,7 +86,7 @@ import ChronobarCore
         clock.set("2026-11-04T00:30:00")
         #expect(tracker.tick().isEmpty)
         clock.set("2026-11-04T02:00:00")
-        #expect(tracker.tick() == [LongRunning(project: "Client A, Ticket 665", since: FakeClock("2026-11-03T22:00:00").now)])
+        #expect(tracker.tick().map(\.run) == [TimerRun(project: "Client A, Ticket 665", since: FakeClock("2026-11-03T22:00:00").now)])
         clock.set("2026-11-05T02:00:00")
         #expect(tracker.tick().isEmpty)
     }
@@ -102,7 +102,7 @@ import ChronobarCore
         let reported = tracker.tick()
 
         clock.set("2026-11-03T11:20:00")
-        try tracker.pause(reported[0])
+        try tracker.pause(reported[0].run)
         #expect(!tracker.isRunning("Client A, Ticket 665"))
         #expect(tracker.isRunning("Website Redesign"))
         #expect(tracker.total("Client A, Ticket 665", on: tracker.today) == 2 * 3600 + 20 * 60)
@@ -121,7 +121,7 @@ import ChronobarCore
         try tracker.start("Website Redesign")
 
         clock.set("2026-11-03T11:20:00")
-        try tracker.pause(reported[0])
+        try tracker.pause(reported[0].run)
         #expect(tracker.isRunning("Website Redesign"))
     }
 
@@ -138,12 +138,12 @@ import ChronobarCore
         try tracker.pause("Website Redesign")
         try tracker.start("Website Redesign", source: .agent)
         clock.set("2026-11-03T11:00:00")
-        #expect(tracker.tick().map(\.project) == ["Client A, Ticket 665"])
+        #expect(tracker.tick().map(\.run.project) == ["Client A, Ticket 665"])
 
         clock.set("2026-11-03T12:30:00")
         let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         relaunched.longRunningThreshold = 2 * 3600
-        #expect(relaunched.tick().map(\.project) == ["Website Redesign"])
+        #expect(relaunched.tick().map(\.run.project) == ["Website Redesign"])
     }
 
 
@@ -157,7 +157,7 @@ import ChronobarCore
 
         clock.set("2026-11-03T11:00:00")
         tracker.reload()
-        #expect(tracker.tick().map(\.project).sorted() == ["Client A, Ticket 665", "Website Redesign"])
+        #expect(tracker.tick().map(\.run.project).sorted() == ["Client A, Ticket 665", "Website Redesign"])
         #expect(tracker.tick().isEmpty)
         tracker.reload()
         clock.set("2026-11-03T11:00:01")
@@ -182,6 +182,6 @@ import ChronobarCore
         clock.set("2026-11-03T12:59:59")
         #expect(tracker.tick().isEmpty)
         clock.set("2026-11-03T13:00:00")
-        #expect(tracker.tick() == [LongRunning(project: "Website Redesign", since: FakeClock("2026-11-03T11:00:00").now)])
+        #expect(tracker.tick().map(\.run) == [TimerRun(project: "Website Redesign", since: FakeClock("2026-11-03T11:00:00").now)])
     }
 }

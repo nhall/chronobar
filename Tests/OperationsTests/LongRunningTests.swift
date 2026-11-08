@@ -17,7 +17,7 @@ import ChronobarOperations
 
         _ = try Operations(tracker: tracker).status()
 
-        #expect(tracker.tick() == [LongRunning(project: "Client A, Ticket 665", since: clock.date("2026-11-03T09:00:00"))])
+        #expect(tracker.tick().map(\.run) == [TimerRun(project: "Client A, Ticket 665", since: clock.date("2026-11-03T09:00:00"))])
         _ = try Operations(tracker: tracker).status()
         #expect(tracker.tick().isEmpty)
     }

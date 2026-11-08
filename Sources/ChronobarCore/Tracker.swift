@@ -152,9 +152,9 @@ public final class Tracker {
 
     /// The long-running warning's Stop: pauses `run`'s timer now, unless that run has already ended, so a
     /// late click never stops a timer started again since.
-    public func pause(_ run: LongRunning) throws {
+    public func pause(_ run: TimerRun) throws {
         catchUp()
-        guard let timer = timers[run.project], runStart(of: timer) == run.since else { return }
+        guard let timer = timers[run.project], self.run(of: timer) == run else { return }
         try pause(timer.project)
     }
 
@@ -189,25 +189,32 @@ public final class Tracker {
     }
 
     /// Called by the app only, every second so running totals advance, and on wake. Catches up as
-    /// `reload()` does (without re-reading), then returns the timers that have run for
-    /// `longRunningThreshold` since the last tick, each once per run and worded on this Tracker's calendar.
+    /// `reload()` does (without re-reading), then returns a Long-running warning for each timer that has run
+    /// for `longRunningThreshold` since the last tick, once per run and worded on this Tracker's calendar.
     /// Nothing else ticks, so the app sees every warning; callers that tick only to catch up can ignore the
     /// result.
     @discardableResult
-    public func tick() -> [LongRunning] {
+    public func tick() -> [LongRunningWarning] {
         catchUp()
         unblockPendingIdle()
         guard let threshold = longRunningThreshold else { return [] }
-        let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
-        let times = TimeWording(calendar: calendar, today: today)
-        return warnings.due(among: running, at: now, threshold: threshold)
-            .map { $0.worded(threshold: threshold, times: times) }
+        return warnings.due(among: timers.map(run(of:)), at: now, threshold: threshold)
+            .map { warning(for: $0, threshold: threshold) }
     }
 
-    /// When `timer`'s run began: its start, or for a timer carried over at midnight, the start of the Entry
-    /// it was split from on the Day before, followed back as far as the splits go.
-    private func runStart(of timer: Running) -> Date {
-        files.run(of: timer)[0].start
+    /// The Long-running warning for `run`, past a threshold of `threshold` seconds, on this Tracker's
+    /// calendar.
+    private func warning(for run: TimerRun, threshold: TimeInterval) -> LongRunningWarning {
+        let since = TimeWording(calendar: calendar, today: today).time(run.since)
+        return LongRunningWarning(
+            run: run, title: "\(run.project) is still running",
+            body: "Running for over \(Int(threshold / 3600)) hours, since \(since). Stop it if it's done.")
+    }
+
+    /// `timer`'s current run, which began at its start, or for a timer carried over at midnight, at the
+    /// start of the Entry it was split from on the Day before, followed back as far as the splits go.
+    private func run(of timer: Running) -> TimerRun {
+        TimerRun(project: timer.project, since: files.run(of: timer)[0].start)
     }
 
     /// Clears `pendingIdle.blockedBy` once that Day's file parses and its deferred writes have landed.
