@@ -197,7 +197,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         panel.opened(by: opening)
         guard let button = statusItem.button else { return }
         // Each opening starts on today, picks up hand edits to any Day file and the Project list, and
-        // retries writes deferred while a Day file was malformed. The re-read rolls a timer running past
+        // retries writes deferred while a Day file was malformed. `reload()` rolls a timer running past
         // midnight over first.
         tracker.reload()
         panel.viewedDay = nil
