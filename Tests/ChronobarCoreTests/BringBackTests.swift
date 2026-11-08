@@ -41,7 +41,7 @@ import ChronobarCore
         try archivedMobileApp()
         let tracker = Tracker(clock: clock, storageRoot: root)
 
-        #expect(try tracker.start("MOBILE APP").label == "Mobile App")
+        #expect(try tracker.start("MOBILE APP").project == "Mobile App")
 
         #expect(contents(archivedFile(root)) == "")
         #expect(tracker.timers.newest?.project == "Mobile App")

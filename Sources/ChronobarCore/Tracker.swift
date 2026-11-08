@@ -112,14 +112,14 @@ public final class Tracker {
     /// creates a Project. Refused, leaving the running timers alone, while today's file is malformed.
     /// Timers run only today: unlike `log` and `adjust` this takes no Day, so no Day other than today ever
     /// gets a timer. Returns what it did: the Project's stored spelling, whether it was already running,
-    /// its running timer and the timers it paused.
+    /// its running Timer and the Timers it paused.
     @discardableResult
     public func start(_ name: String, source: EntrySource = .app) throws -> StartOutcome {
         catchUp()
         try files.checkReadable(today)
         return try labels.resolvingForWrite(name) { project, bringingBack in
             if let running = timers[project] {
-                return StartOutcome(label: project, alreadyRunning: true, timer: running, paused: [])
+                return StartOutcome(project: project, alreadyRunning: true, timer: running, paused: [])
             }
             let timer = Running(project: project, start: now, source: source)
             let pausesOthers = startPausesOthers
@@ -132,7 +132,7 @@ public final class Tracker {
             let paused = pausesOthers ? timers.map { PausedTimer(timer: $0, end: timer.start) } : []
             if pausesOthers { timers = RunningTimers() }
             timers.insert(timer)
-            return StartOutcome(label: project, alreadyRunning: false, timer: timer, paused: paused)
+            return StartOutcome(project: project, alreadyRunning: false, timer: timer, paused: paused)
         }
     }
 
@@ -543,9 +543,10 @@ public final class Tracker {
     }
 
     /// Sets the Project's total on `day`, past, today or future, to a typed total (`1:15`) or changes it
-    /// (`+15`, `-10`), starting from the total shown and never going below zero. Writes one adjustment Entry of the new total minus
-    /// the stored sum; a running timer keeps running. Throws `InvalidDuration` for a typo. Returns the
-    /// Project as stored, the Day, and its Total before and after; equal Totals when nothing was written.
+    /// (`+15`, `-10`), starting from the total shown and never going below zero. Writes one adjustment
+    /// Entry of the new total minus the stored sum; a running timer keeps running. Throws `InvalidDuration`
+    /// for a typo. Returns the Project as stored, the Day, and its Total before and after; equal Totals
+    /// when nothing was written.
     @discardableResult
     public func adjust(_ project: String, _ input: String, on day: Day) throws -> Adjustment {
         let input = try DurationInput(parsing: input)
@@ -561,8 +562,8 @@ public final class Tracker {
             Int((target - Self.sum(of: project, in: entries, asOf: now)).rounded())
         }
         func outcome() -> Adjustment {
-            Adjustment(project: project, day: day, before: Int(before.rounded(.down)),
-                       after: Int(total(project, on: day).rounded(.down)))
+            Adjustment(project: project, day: day, before: before.wholeSeconds,
+                       after: total(project, on: day).wholeSeconds)
         }
         guard difference(files.entries(on: day)) != 0 else { return outcome() }
         // The difference is taken again from the Entries as re-read, so a hand edit can't skew it.

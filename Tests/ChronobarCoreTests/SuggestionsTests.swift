@@ -100,7 +100,7 @@ import ChronobarCore
         try tracker.log("Garden Shed", "15", on: tracker.today)
         try tracker.archiveProject("garden shed")
 
-        #expect(try tracker.start(" GARDEN shed").label == "Garden Shed")
+        #expect(try tracker.start(" GARDEN shed").project == "Garden Shed")
 
         #expect(tracker.archived == [])
         #expect(contents(archivedFile(root)) == "")

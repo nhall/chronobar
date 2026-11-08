@@ -123,8 +123,5 @@ public final class Operations {
     func todayResult() -> DayResult { dayResult(tracker.today) }
 
     /// `label`'s total on `day` in whole seconds.
-    func totalSeconds(_ label: String, on day: Day) -> Int { seconds(tracker.total(label, on: day)) }
-
-    /// Whole seconds, rounded down like every total Chronobar shows.
-    func seconds(_ interval: TimeInterval) -> Int { Int(interval.rounded(.down)) }
+    func totalSeconds(_ label: String, on day: Day) -> Int { tracker.total(label, on: day).wholeSeconds }
 }

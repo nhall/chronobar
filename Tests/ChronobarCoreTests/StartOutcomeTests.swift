@@ -23,7 +23,7 @@ import ChronobarCore
         #expect(outcome.paused.map(\.timer.source) == [.app, .agent])
         #expect(outcome.paused.map(\.end) == [clock.date("2026-11-03T10:00:00"), clock.date("2026-11-03T10:00:00")])
         #expect(!outcome.alreadyRunning)
-        #expect(outcome.label == "Internal")
+        #expect(outcome.project == "Internal")
         #expect(outcome.timer.project == "Internal")
         #expect(outcome.timer.start == clock.date("2026-11-03T10:00:00"))
         #expect(outcome.timer.source == .app)
@@ -67,7 +67,7 @@ import ChronobarCore
 
         let outcome = try tracker.start("  website REDESIGN ")
 
-        #expect(outcome.label == "Website Redesign")
+        #expect(outcome.project == "Website Redesign")
         #expect(outcome.timer.project == "Website Redesign")
         #expect(!outcome.alreadyRunning)
     }
