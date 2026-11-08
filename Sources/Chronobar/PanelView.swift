@@ -249,7 +249,7 @@ struct PanelView: View {
                         if ProjectName.matches(panel.newProjectName, project) { panel.newProjectName = "" }
                         panel.newProjectFocusRequests += 1
                     },
-                    isPinned: { project in tracker.projects.contains { ProjectName.matches($0, project) } },
+                    isPinned: tracker.isPinned,
                     pin: actions.pin)
             }
             Button {

@@ -41,21 +41,20 @@ extension Operations {
     func labels(_ query: String?) -> LabelsResult {
         let query = query.map(ProjectName.trimmed) ?? ""
         let labels = tracker.suggestions(for: query).map { label in
-            LabelResult(label: label, pinned: tracker.projects.contains { ProjectName.matches($0, label) })
+            LabelResult(label: label, pinned: tracker.isPinned(label))
         }
         let match: LabelMatchResult? = switch tracker.match(query) {
         case nil: nil
         case .new: LabelMatchResult(kind: .new, label: nil)
         case .active(let label): LabelMatchResult(kind: .suggested, label: label)
-        case .archived(let label):
-            LabelMatchResult(kind: tracker.archived.contains { ProjectName.matches($0, label) } ? .archived : .unused,
-                             label: label)
+        case .archived(let label): LabelMatchResult(kind: .archived, label: label)
+        case .unused(let label): LabelMatchResult(kind: .unused, label: label)
         }
         return LabelsResult(labels: labels, match: match)
     }
 
     func pin(_ label: String) throws(OperationError) -> PinResult {
-        let wasPinned = isPinned(label)
+        let wasPinned = tracker.isPinned(label)
         let project = try core { try tracker.pinProject(label) }
         return PinResult(label: project, alreadyPinned: wasPinned, pinned: tracker.projects)
     }
@@ -70,16 +69,11 @@ extension Operations {
             throw OperationError(.unknownLabel, "No Label is called \(name), so there's nothing to archive. "
                                  + "The labels command lists them.")
         }
-        let wasArchived = tracker.archived.contains { ProjectName.matches($0, name) }
-        let wasPinned = isPinned(name)
-        try core { try tracker.archiveProject(name) }
-        let stored = tracker.archived.first { ProjectName.matches($0, name) } ?? name
+        let wasArchived = if case .archived = match { true } else { false }
+        let wasPinned = tracker.isPinned(name)
+        let stored = try core { try tracker.archiveProject(name) }
         return ArchiveResult(label: stored, alreadyArchived: wasArchived, unpinned: wasPinned,
                              running: tracker.isRunning(stored))
-    }
-
-    private func isPinned(_ label: String) -> Bool {
-        tracker.projects.contains { ProjectName.matches($0, label) }
     }
 
     /// The Day `date` names as `YYYY-MM-DD`; refused unless it is on the calendar (no 31 November).

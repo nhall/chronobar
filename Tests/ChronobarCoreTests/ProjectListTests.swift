@@ -124,7 +124,7 @@ import ChronobarCore
         #expect(tracker.suggestions(for: "est") == ["test 3", "test 2", "test"])
     }
 
-    @Test func aTypedNameIsNewActiveOrArchivedWithItsStoredSpelling() throws {
+    @Test func aTypedNameIsNewActiveUnusedOrArchivedWithItsStoredSpelling() throws {
         try write(root, "2026-09-28", #"    { "project": "Garden Shed", "seconds": 600, "note": "manual" }"#)
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Internal")
@@ -133,10 +133,22 @@ import ChronobarCore
         #expect(tracker.match("  ") == nil)
         #expect(tracker.match("test") == .new)
         #expect(tracker.match(" INTERNAL") == .active("Internal"))
-        #expect(tracker.match("garden shed") == .archived("Garden Shed"))
+        #expect(tracker.match("garden shed") == .unused("Garden Shed"))
 
         try tracker.archiveProject("Internal")
         #expect(tracker.match("internal") == .archived("Internal"))
+    }
+
+    @Test func aTypedNameOnTheArchivedLabelsIsArchivedAndOneWithOnlyOldTimeIsUnused() throws {
+        try write(root, "2026-09-28", """
+            { "project": "Garden Shed", "seconds": 600, "note": "manual" },
+            { "project": "mobile app", "seconds": 600, "note": "manual" }
+        """)
+        try "Mobile App\n".write(to: archivedFile(root), atomically: true, encoding: .utf8)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        #expect(tracker.match(" MOBILE app") == .archived("Mobile App"))
+        #expect(tracker.match("garden SHED ") == .unused("Garden Shed"))
     }
 
     /// The ＋ form asks on every keystroke and redraw, so the data folder is listed once until the next
@@ -149,7 +161,7 @@ import ChronobarCore
         #expect(tracker.match("Garden Shed") == .new)
 
         tracker.reload()
-        #expect(tracker.match("Garden Shed") == .archived("Garden Shed"))
+        #expect(tracker.match("Garden Shed") == .unused("Garden Shed"))
     }
 
     /// Chronobar's own writes to a Day with no file yet count at once, without a reload.

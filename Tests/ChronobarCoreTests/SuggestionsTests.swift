@@ -25,7 +25,7 @@ import ChronobarCore
         let tracker = Tracker(clock: clock, storageRoot: root)
 
         #expect(tracker.suggestions(for: "") == ["Yesterday", "Oldest Kept"])
-        #expect(tracker.match("aged out") == .archived("Aged Out"))
+        #expect(tracker.match("aged out") == .unused("Aged Out"))
         #expect(tracker.match("oldest kept") == .active("Oldest Kept"))
     }
 
