@@ -38,16 +38,13 @@ public final class Tracker {
     @ObservationIgnored private let archivedStore: ProjectStore
     @ObservationIgnored private let defaults: UserDefaults?
     /// The runs `tick()` has reported as long-running, so each is reported once, across relaunches too.
-    @ObservationIgnored private var warned: [LongRunning]
-    /// The warned runs `takeLongRunning()` hasn't handed out yet.
-    @ObservationIgnored private var unreported: [LongRunning] = []
+    @ObservationIgnored private var warnings: LongRunningWarnings
     /// When the Mac went to sleep or locked with a timer started in the app running, until it came back.
     @ObservationIgnored private var awaySince: Date?
     /// Whether `takeIdleQuestion()` handed out a question `resolveIdle` hasn't answered yet.
     @ObservationIgnored private var idleQuestionAwaitingAnswer = false
 
     private static let heartbeatKey = "heartbeat"
-    private static let warnedKey = "longRunningWarned"
     /// Where v1 kept the Project ▶ started. Nothing reads it now; it is removed at launch.
     private static let retiredSelectedProjectKey = "selectedProject"
 
@@ -61,7 +58,7 @@ public final class Tracker {
         self.now = clock.now
         self.launched = clock.now
         self.lastAlive = defaults?.object(forKey: Self.heartbeatKey) as? Date
-        self.warned = Self.savedWarnings(in: defaults)
+        self.warnings = LongRunningWarnings(defaults: defaults)
         defaults?.removeObject(forKey: Self.retiredSelectedProjectKey)
         reread()
     }
@@ -192,46 +189,15 @@ public final class Tracker {
     }
 
     /// Called by the app only, every second so running totals advance, and on wake. Catches up as
-    /// `reload()` does (without re-reading), then queues the timers that have now run for
-    /// `longRunningThreshold` in `takeLongRunning()`.
-    public func tick() {
+    /// `reload()` does (without re-reading), then returns the timers that have run for
+    /// `longRunningThreshold` since the last tick, each once per run. Nothing else ticks, so the app sees
+    /// every warning; callers that tick only to catch up can ignore the result.
+    @discardableResult
+    public func tick() -> [LongRunning] {
         catchUp()
         unblockPendingIdle()
-        noteLongRunning()
-    }
-
-    /// The timers `tick()` found past `longRunningThreshold` since last asked, each once per run, leaving
-    /// none to take until another passes it. A run that ended before it was taken is left out.
-    public func takeLongRunning() -> [LongRunning] {
         let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
-        defer { unreported = [] }
-        return unreported.filter(running.contains)
-    }
-
-    /// Marks the timers that ran past `longRunningThreshold` as warned and queues them for
-    /// `takeLongRunning()`.
-    private func noteLongRunning() {
-        guard let threshold = longRunningThreshold else { return }
-        let passed = timers.compactMap { timer -> LongRunning? in
-            let run = LongRunning(project: timer.project, since: runStart(of: timer))
-            guard now.timeIntervalSince(run.since) >= threshold, !warned.contains(run) else { return nil }
-            return run
-        }
-        guard !passed.isEmpty else { return }
-        // Runs that ended are dropped, so the list holds only timers still running.
-        let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
-        warned = warned.filter(running.contains) + passed
-        unreported += passed
-        defaults?.set(warned.map { ["project": $0.project, "since": $0.since] }, forKey: Self.warnedKey)
-    }
-
-    /// The runs reported before the last quit, as `newlyLongRunning` saved them.
-    private static func savedWarnings(in defaults: UserDefaults?) -> [LongRunning] {
-        let saved = defaults?.array(forKey: warnedKey) as? [[String: Any]] ?? []
-        return saved.compactMap { run in
-            guard let project = run["project"] as? String, let since = run["since"] as? Date else { return nil }
-            return LongRunning(project: project, since: since)
-        }
+        return warnings.due(among: running, at: now, threshold: longRunningThreshold)
     }
 
     /// When `timer`'s run began: its start, or for a timer carried over at midnight, the start of the Entry
