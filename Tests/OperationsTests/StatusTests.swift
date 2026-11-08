@@ -14,7 +14,7 @@ import ChronobarOperations
         let status = try operations.status()
 
         #expect(status.timers.isEmpty)
-        #expect(status.today == DayResult(date: "2026-11-03", totalSeconds: 0, elapsedSeconds: 0))
+        #expect(status.today == DayResult(date: "2026-11-03", totalSeconds: 0, totalMinutes: 0, elapsedSeconds: 0, elapsedMinutes: 0))
     }
 
     @Test func statusListsEachRunningTimerWithItsStartSourceAndTotal() throws {
@@ -33,7 +33,7 @@ import ChronobarOperations
             TimerResult(label: "Internal", start: clock.date("2026-11-03T10:00:00"), source: .agent,
                         totalSeconds: 30 * 60),
         ])
-        #expect(status.today == DayResult(date: "2026-11-03", totalSeconds: 120 * 60, elapsedSeconds: 90 * 60))
+        #expect(status.today == DayResult(date: "2026-11-03", totalSeconds: 120 * 60, totalMinutes: 120, elapsedSeconds: 90 * 60, elapsedMinutes: 90))
     }
 
     /// The app may have sat a while since its last tick; status counts up to the clock, not to then.

@@ -79,12 +79,17 @@ public struct DayResult: Codable, Equatable, Sendable {
     /// `YYYY-MM-DD`, as in the Day file's name.
     public let date: String
     public let totalSeconds: Int
+    /// The Day total and Elapsed time in whole minutes, rounded down, as the Panel's Total line shows them.
+    public let totalMinutes: Int
     public let elapsedSeconds: Int
+    public let elapsedMinutes: Int
 
-    public init(date: String, totalSeconds: Int, elapsedSeconds: Int) {
+    public init(date: String, totalSeconds: Int, totalMinutes: Int, elapsedSeconds: Int, elapsedMinutes: Int) {
         self.date = date
         self.totalSeconds = totalSeconds
+        self.totalMinutes = totalMinutes
         self.elapsedSeconds = elapsedSeconds
+        self.elapsedMinutes = elapsedMinutes
     }
 }
 

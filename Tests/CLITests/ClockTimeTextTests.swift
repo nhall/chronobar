@@ -6,7 +6,7 @@ import ChronobarOperations
 
 /// The readable text gives each total with its clock time, as the Panel does: "Total 3:17 · Clock time 3:00".
 @Suite struct ClockTimeTextTests {
-    let day = DayResult(date: "2026-11-03", totalSeconds: 197 * 60, elapsedSeconds: 180 * 60)
+    let day = DayResult(date: "2026-11-03", totalSeconds: 197 * 60, totalMinutes: 197, elapsedSeconds: 180 * 60, elapsedMinutes: 180)
 
     @Test func statusEndsWithTheDaysTotalAndClockTime() {
         #expect(Output.text(.status(StatusResult(timers: [], today: day))) == """
@@ -16,7 +16,7 @@ import ChronobarOperations
     }
 
     @Test func dayEndsWithTheTotalAndClockTime() {
-        let rows = DayRowsResult(day: day, rows: [RowResult(label: "Internal", totalSeconds: 197 * 60, running: false)],
+        let rows = DayRowsResult(day: day, rows: [RowResult(label: "Internal", totalSeconds: 197 * 60, totalMinutes: 197, running: false)],
                                  malformed: false)
         #expect(Output.text(.day(rows)) == """
             2026-11-03

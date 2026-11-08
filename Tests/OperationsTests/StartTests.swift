@@ -45,7 +45,7 @@ import ChronobarOperations
 
         #expect(started.paused.isEmpty)
         #expect(tracker.timers.map(\.project) == ["Internal", "Website Redesign"])
-        #expect(started.today == DayResult(date: "2026-11-03", totalSeconds: 30 * 60, elapsedSeconds: 30 * 60))
+        #expect(started.today == DayResult(date: "2026-11-03", totalSeconds: 30 * 60, totalMinutes: 30, elapsedSeconds: 30 * 60, elapsedMinutes: 30))
     }
 
     @Test func withPausesTheOthersOnStartingEchoesTheEntriesItClosed() throws {

@@ -23,7 +23,7 @@ import ChronobarOperations
                                              end: clock.date("2026-11-03T10:15:00"), source: .agent,
                                              totalSeconds: 75 * 60))
         #expect(stopped.running.isEmpty)
-        #expect(stopped.today == DayResult(date: "2026-11-03", totalSeconds: 75 * 60, elapsedSeconds: 75 * 60))
+        #expect(stopped.today == DayResult(date: "2026-11-03", totalSeconds: 75 * 60, totalMinutes: 75, elapsedSeconds: 75 * 60, elapsedMinutes: 75))
     }
 
     @Test func stoppingWithoutALabelAtATimeTakesTheOnlyRunningTimer() throws {
@@ -49,7 +49,7 @@ import ChronobarOperations
         #expect(stopped.entry.start == clock.date("2026-11-03T22:00:00"))
         #expect(stopped.entry.end == clock.date("2026-11-03T23:30:00"))
         #expect(stopped.entry.totalSeconds == 90 * 60)
-        #expect(stopped.today == DayResult(date: "2026-11-04", totalSeconds: 0, elapsedSeconds: 0))
+        #expect(stopped.today == DayResult(date: "2026-11-04", totalSeconds: 0, totalMinutes: 0, elapsedSeconds: 0, elapsedMinutes: 0))
     }
 
     @Test func stoppingAtAFutureTimeIsRefused() throws {
@@ -99,7 +99,7 @@ import ChronobarOperations
         #expect(moved.timer == TimerResult(label: "Website Redesign", start: clock.date("2026-11-03T08:15:00"),
                                            source: .agent, totalSeconds: 105 * 60))
         #expect(moved.earlier.isEmpty)
-        #expect(moved.today == DayResult(date: "2026-11-03", totalSeconds: 105 * 60, elapsedSeconds: 105 * 60))
+        #expect(moved.today == DayResult(date: "2026-11-03", totalSeconds: 105 * 60, totalMinutes: 105, elapsedSeconds: 105 * 60, elapsedMinutes: 105))
     }
 
     @Test func settingTheStartBeforeMidnightEchoesTheEntryOnTheDayBefore() throws {
@@ -167,7 +167,7 @@ import ChronobarOperations
                                               end: clock.date("2026-11-03T08:20:00"), source: .agent,
                                               totalSeconds: 80 * 60)])
         #expect(added.manual == nil)
-        #expect(added.days == [DayResult(date: "2026-11-03", totalSeconds: 80 * 60, elapsedSeconds: 80 * 60)])
+        #expect(added.days == [DayResult(date: "2026-11-03", totalSeconds: 80 * 60, totalMinutes: 80, elapsedSeconds: 80 * 60, elapsedMinutes: 80)])
         #expect(tracker.timers.isEmpty)
     }
 
@@ -191,7 +191,7 @@ import ChronobarOperations
         #expect(added.label == "Website Redesign")
         #expect(added.entries.isEmpty)
         #expect(added.manual == ManualEntryResult(date: "2026-11-02", seconds: 90 * 60, totalSeconds: 100 * 60))
-        #expect(added.days == [DayResult(date: "2026-11-02", totalSeconds: 100 * 60, elapsedSeconds: 0)])
+        #expect(added.days == [DayResult(date: "2026-11-02", totalSeconds: 100 * 60, totalMinutes: 100, elapsedSeconds: 0, elapsedMinutes: 0)])
     }
 
     @Test func addingADurationWithNoDayAddsItToday() throws {
@@ -239,7 +239,7 @@ import ChronobarOperations
 
         #expect(adjusted == AdjustResult(label: "Website Redesign", date: "2026-11-02", changeSeconds: 15 * 60,
                                          totalSeconds: 75 * 60,
-                                         day: DayResult(date: "2026-11-02", totalSeconds: 75 * 60, elapsedSeconds: 0)))
+                                         day: DayResult(date: "2026-11-02", totalSeconds: 75 * 60, totalMinutes: 75, elapsedSeconds: 0, elapsedMinutes: 0)))
     }
 
     @Test func adjustingWithNoDayAdjustsToday() throws {
@@ -378,11 +378,4 @@ extension Operations {
         }
         return result
     }
-}
-
-/// Writes a Day file with the given Entry lines, as a hand edit would.
-private func write(_ root: URL, _ date: String, _ entries: String) throws {
-    let url = dayFile(root, date)
-    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-    try "{\n  \"date\": \"\(date)\",\n  \"entries\": [\n\(entries)\n  ]\n}\n".write(to: url, atomically: true, encoding: .utf8)
 }

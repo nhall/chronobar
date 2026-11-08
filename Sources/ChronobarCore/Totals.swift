@@ -22,6 +22,39 @@ public struct DayTotal: Equatable, Sendable {
     }
 }
 
+/// One period of the Time Summary: the Days it covers, the sum of their Day totals and of their Elapsed
+/// time.
+public struct SummaryPeriod: Equatable, Sendable {
+    /// The first and last Day; the same for a single Day.
+    public let first: Day
+    public let last: Day
+    public let total: TimeInterval
+    public let elapsed: TimeInterval
+
+    public init(first: Day, last: Day, total: TimeInterval, elapsed: TimeInterval) {
+        self.first = first
+        self.last = last
+        self.total = total
+        self.elapsed = elapsed
+    }
+}
+
+/// The Time Summary's periods: today, yesterday, today's week (as in the Week strip) and today's calendar
+/// month.
+public struct SummaryPeriods: Equatable, Sendable {
+    public let today: SummaryPeriod
+    public let yesterday: SummaryPeriod
+    public let week: SummaryPeriod
+    public let month: SummaryPeriod
+
+    public init(today: SummaryPeriod, yesterday: SummaryPeriod, week: SummaryPeriod, month: SummaryPeriod) {
+        self.today = today
+        self.yesterday = yesterday
+        self.week = week
+        self.month = month
+    }
+}
+
 /// The (i) Time Summary: grand totals for today, yesterday, this week and this month, with the
 /// Elapsed time beside each.
 public struct Summary: Equatable, Sendable {

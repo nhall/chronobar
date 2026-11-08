@@ -43,6 +43,19 @@ import ChronobarCore
             elapsed: Summary.Elapsed(today: 0, yesterday: 60 * 60, week: 60 * 60, month: 0)))
     }
 
+    @Test func eachPeriodNamesItsFirstAndLastDaysEvenAcrossAMonthEnd() {
+        let clock = FakeClock("2026-11-01T12:00:00")
+        clock.calendar.firstWeekday = 2
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        func day(_ month: Int, _ day: Int) -> Day { Day(year: 2026, month: month, day: day) }
+
+        #expect(tracker.summaryPeriods() == SummaryPeriods(
+            today: SummaryPeriod(first: day(11, 1), last: day(11, 1), total: 30 * 60, elapsed: 0),
+            yesterday: SummaryPeriod(first: day(10, 31), last: day(10, 31), total: 60 * 60, elapsed: 60 * 60),
+            week: SummaryPeriod(first: day(10, 26), last: day(11, 1), total: 100 * 60, elapsed: 60 * 60),
+            month: SummaryPeriod(first: day(11, 1), last: day(11, 30), total: 45 * 60, elapsed: 0)))
+    }
+
     @Test func aSundayWeekStartingOnTheFirstStaysInTheMonth() {
         let clock = FakeClock("2026-11-01T12:00:00")
         clock.calendar.firstWeekday = 1

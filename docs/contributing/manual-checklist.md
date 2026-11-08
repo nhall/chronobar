@@ -180,6 +180,10 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] With rows whose seconds don't fall on the minute (for example two Timers started 30 seconds
       apart), the rows' minutes always add up to the Total line's, and VoiceOver reads each row's
       time as shown. `chronobar day` shows the same row times and total as the Panel.
+- [ ] On a Day whose rows need apportioning (as above), the Panel, `chronobar day` and that Day's line
+      in `chronobar week` show the same Total and Clock time, and `chronobar day --json` gives each
+      row's `total_minutes` as the Panel shows it. `chronobar week --json`'s `total_minutes` matches the
+      `chronobar week` text's last line, and the Labels' week lines add up to it.
 - [ ] Click a row's time, type `1:15`, Return: the row reads `1:15`. Try `+15` and `-10` too.
 - [ ] `-9:00` on a short row stops at `0:00`; a typo like `1:7x` beeps and changes nothing.
 - [ ] Adjusting the running row keeps the Timer running from the new total.

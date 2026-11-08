@@ -69,7 +69,7 @@ import ChronobarOperations
         #expect(contents(projectsFile) == "")
         #expect(contents(archivedFile) == "Website Redesign\n")
         #expect(try operations.labels().labels.isEmpty)
-        #expect(try operations.day().rows == [RowResult(label: "Website Redesign", totalSeconds: 3600, running: false)])
+        #expect(try operations.day().rows == [RowResult(label: "Website Redesign", totalSeconds: 3600, totalMinutes: 60, running: false)])
     }
 
     /// As in the Panel, archiving leaves a running timer running.

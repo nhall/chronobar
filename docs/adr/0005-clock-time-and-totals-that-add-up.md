@@ -16,4 +16,7 @@ invoice, and a Day must show the same figure in the Panel, `chronobar day` and `
 
 - A row can show a minute more than its own seconds rounded down.
 - The Week strip, the Time Summary and the status lines show plain floored figures; only the Panel's
-  rows and `chronobar day` / `week` apportion.
+  rows and `chronobar day` / `week` apportion. The `day` and `week` results carry those apportioned
+  minutes beside the seconds, so agents and scripts quote the figures the Panel shows.
+- Core builds each Day's and week's figures once (the Day sheet and the week sheet), and the Panel,
+  the command line and agents all read them, so a rounding fix is made in one place.

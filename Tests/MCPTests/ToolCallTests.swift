@@ -21,7 +21,8 @@ import ChronobarOperations
         #expect(started["timer"] == ["label": "Website Redesign", "start": "2026-11-03T09:00:00-05:00",
                                      "source": "agent", "total_seconds": 0])
         #expect(started["already_running"] == false)
-        #expect(started["today"] == ["date": "2026-11-03", "total_seconds": 0, "elapsed_seconds": 0])
+        #expect(started["today"] == ["date": "2026-11-03", "total_seconds": 0, "total_minutes": 0,
+                                     "elapsed_seconds": 0, "elapsed_minutes": 0])
         #expect(tracker.timers.map(\.project) == ["Website Redesign"])
     }
 
@@ -33,7 +34,8 @@ import ChronobarOperations
 
         let week = try mcp.result("week", ["date": "2026-11-03"])
 
-        #expect(week["labels"] == [["label": "Website Redesign", "total_seconds": 9000]])
+        #expect(week["labels"] == [["label": "Website Redesign", "total_seconds": 9000, "total_minutes": 150]])
+        #expect(week["total_minutes"] == 150)
         #expect(week["first"] == "2026-11-01")
     }
 

@@ -43,4 +43,10 @@ public struct RowPresentation: Equatable, Sendable {
         toggleLabel = "\(isRunning ? "Pause" : "Start") \(row.project)"
         agentMark = byAgent ? "Started by an agent; not paused for idle time" : nil
     }
+
+    /// A Day sheet's row, with its share of the Total line's minutes and its running Timer's Source.
+    public init(_ row: DaySheet.Row) {
+        self.init(row: Row(project: row.project, total: TimeInterval(row.time.seconds)), minutes: row.time.minutes,
+                  isRunning: row.isRunning, source: row.runningSource ?? .app)
+    }
 }

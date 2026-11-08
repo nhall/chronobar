@@ -99,3 +99,17 @@ _Avoid_: Last seen, ping
 The one notification per Timer start when a Timer passes a threshold (4 hours by default), with a Stop action.
 It never cuts time on its own.
 _Avoid_: Timeout, auto-stop
+
+## Code
+
+Names used in the code and contributor docs, not shown to users.
+
+**Day sheet**:
+A Day's figures as every front end shows them: each row's seconds and its share of the Total's minutes,
+whether it runs and its Source, the Total, the Clock time, and whether the Day's file won't parse.
+_Avoid_: Day view, Day model
+
+**Week sheet**:
+A week's seven Day sheets, each Label's week line fitted to the week's Total, and the week's Total and
+Clock time as the sums of its Days'.
+_Avoid_: Week view, Week strip (that's the Panel's row of Days)

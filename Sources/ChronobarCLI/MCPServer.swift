@@ -18,7 +18,9 @@ enum MCPServer {
         are ISO 8601 with an offset; convert what the user says ("2:40") to one in their time zone first. \
         total_seconds adds up every Label's time; elapsed_seconds is what Chronobar shows the user as "Clock \
         time": the time when any timer was running, overlapping timers counted once, without time logged by \
-        hand (duration or adjust). Call it clock time when you tell the user.
+        hand (duration or adjust). Call it clock time when you tell the user. day and week also give \
+        total_minutes and elapsed_minutes: the hours and minutes the Panel shows, which add up to the total \
+        under them. Quote those to the user (128 minutes is "2:08"), and use the seconds for arithmetic.
         """
 
     @MainActor
