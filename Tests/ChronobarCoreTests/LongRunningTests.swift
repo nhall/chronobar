@@ -164,18 +164,21 @@ import ChronobarCore
         #expect(tracker.tick().isEmpty)
     }
 
-    /// A run that ended short of the threshold is never warned about, and a run started again is timed
-    /// from its new start, not from the one that ended.
+    /// A run that passed the threshold between ticks but was stopped before the next one is never warned
+    /// about, and a run started again is timed from its new start, not from the one that ended.
     @Test func aRunThatEndedBeforeItsWarningFellDueIsNotReturned() throws {
         let clock = FakeClock("2026-11-03T09:00:00")
         let tracker = Tracker(clock: clock, storageRoot: root)
         tracker.longRunningThreshold = 2 * 3600
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T10:59:59")
-        try tracker.pause("Website Redesign")
+        #expect(tracker.tick().isEmpty)
         clock.set("2026-11-03T11:00:00")
+        try tracker.pause("Website Redesign")
         try tracker.start("Website Redesign")
 
+        clock.set("2026-11-03T11:00:01")
+        #expect(tracker.tick().isEmpty)
         clock.set("2026-11-03T12:59:59")
         #expect(tracker.tick().isEmpty)
         clock.set("2026-11-03T13:00:00")
