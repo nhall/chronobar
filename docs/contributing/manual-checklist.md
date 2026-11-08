@@ -45,13 +45,15 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       running. Repeat that close with the press held for a second or two before release.
 - [ ] Repeat both with a trackpad (tap to click and a full press) as well as a mouse.
 - [ ] ⌘-drag the Pill along the menu bar: it moves, and the Panel doesn't open.
+- [ ] With Reduce Motion on (System Settings › Accessibility › Display), open the Panel and click the
+      Pill: the Panel closes and stays closed.
 - [ ] Press and hold the Pill: the menu bar's brief highlight shows behind it and goes on release, in
-      light and dark menu bars (ADR 0007).
+      light and dark menu bars.
 - [ ] With the Panel open, there is no highlight behind the Pill.
 - [ ] With a second display, the same on its copy of the Pill: the highlight on press, a click opens
       the Panel, and no highlight while it's open.
 - [ ] With the Pill in the « overflow (⌘-drag it there, or fill the menu bar until it moves there), the
-      chevron and the neighbouring items click normally.
+      chevron and the neighboring items click normally.
 - [ ] In another app's full screen, clicks near the menu bar, including the band beside the camera
       housing, reach that app.
 - [ ] With "Automatically hide and show the menu bar" on, the first click on the Pill once the menu bar
