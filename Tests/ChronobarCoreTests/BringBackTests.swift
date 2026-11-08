@@ -54,7 +54,7 @@ import ChronobarCore
         try archivedMobileApp()
         let tracker = Tracker(clock: clock, storageRoot: root)
 
-        #expect(try tracker.log(" mobile APP ", "0:30", on: tracker.today) == "Mobile App")
+        #expect(try tracker.log(" mobile APP ", "0:30", on: tracker.today).project == "Mobile App")
 
         #expect(contents(archivedFile(root)) == "")
         #expect(tracker.total("Mobile App", on: tracker.today) == 30 * 60)

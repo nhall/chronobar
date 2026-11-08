@@ -29,7 +29,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             start: { [weak self] project in self?.attempt { try tracker.start(project) } },
             toggle: { [weak self] project in self?.perform { try tracker.toggle(project) } },
             log: { [weak self] project, duration, day in
-                self?.attempt { try tracker.log(project, duration, on: day) }
+                self?.attempt { try tracker.log(project, duration, on: day).project }
             },
             adjust: { [weak self] project, input, day in
                 self?.perform { try tracker.adjust(project, input, on: day) } ?? false
