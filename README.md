@@ -17,16 +17,16 @@ through MCP or a plain command line. Everything stays on your Mac.
 ## Features
 
 - Timers run side by side, one per Label you type, such as "Northwind, Ticket 665".
-- Agents drive it through MCP or the `chronobar` command, and "stop the timer" stops the session's own.
+- Agents drive it through MCP or the `chronobar` command, and over MCP, "stop the timer" stops the session's own.
 - Fix a recording after the fact: stop it back at 14:40, move a start, add a line item, set a total.
 - The Panel, which opens from the menu bar, shows the Total you'll bill beside the Clock time you
   actually worked: the time any timer was running, with overlaps counted once.
-- Idle checks cover the timers you started; agents' timers keep going, and any that runs too long raises a warning.
+- Idle checks cover the timers you started; agents' timers keep going, and any timer, yours or an agent's, that runs too long raises a warning.
 - Your data is plain text you can read and edit, and the app works fully with the keyboard and VoiceOver.
 
 ## Quick start
 
-You need macOS 14 or later and the Command Line Tools (`xcode-select --install`).
+You need macOS 14 or later and the Command Line Tools 16 or later (`xcode-select --install`).
 
 ```sh
 brew install nhall/tap/chronobar

@@ -19,7 +19,7 @@ The parts of the app, the Panel's keys, idle handling and Settings.
 The Pill sits in the menu bar. Its left square shows how many timers are running (`1`, `2`, …) on a
 colored background, or `0` on gray when none are. The right side shows today's total across all
 Labels (`1:23`), ticking while any timer runs. Any click on the Pill opens the Panel, where you start
-and pause timers; so does the global shortcut you can record in Settings.
+and pause timers; the global shortcut you can record in Settings opens it too.
 
 ## The Panel
 
@@ -31,14 +31,13 @@ with its total for that Day.
 - A row whose timer an agent started shows a small terminal icon; hover over it for "Started by an
   agent; not paused for idle time".
 - Above the rows, the Total line shows the Day's total and its clock time
-  (`Total 3:17 · Clock time 3:00`). Clock time counts the time when any timer was running, overlapping
-  timers once, and leaves out time logged by hand. See [Data format](data-format.md#clock-time).
+  (`Total 3:17 · Clock time 3:00`). See [Data format](data-format.md#clock-time).
 - Use ＋, under the rows, to start a new Label or to log time you forgot to track. Its form opens just
   above it, and a new Label's row appears at the bottom of the rows, right above the form. The Label
   field suggests Labels used in the last 30 days and pinned ones; right-click a suggestion to pin or
   archive it.
 - Click a row's time to change its total: type `1:15` to set it, or `+15` and `-10` to change it.
-- The header keeps the date, (i) and ⚙. (i) opens the Time Summary: today, yesterday, this week and
+- The header shows the date, (i) and ⚙. (i) opens the Time Summary: today, yesterday, this week and
   this month, each with its clock time.
 - ‹ › move a week back or forward without limit. On any Day other than today, ＋ only logs time and
   rows have no ▶, so you can fix last week or log a vacation ahead. While you view another Day, a
@@ -53,7 +52,7 @@ The keys work wherever focus is, with or without Keyboard navigation turned on:
 | Key | Does |
 |---|---|
 | ⌘[ and ⌘] | Move a week back or forward. |
-| ← and → | Move a Day (unless you're typing in a field, where they move the insertion point). |
+| ← and → | Move a Day back or forward (unless you're typing in a field, where they move the insertion point). |
 | ⌘T | Go back to today. |
 | ⌘N | Open ＋. |
 | ⌘I | Open or close the (i) Time Summary. |
@@ -83,7 +82,7 @@ have each start pause every other timer instead.
   continue when it opens again. After a crash, the app's timers bring up the idle alert on the next
   launch, and agents' timers keep running.
 - A timer still running after 4 hours raises a notification naming its Label, once per run, with a
-  Stop button that stops it then. Nothing is cut on its own. Pick 2 to 8 hours, or Off, in Settings.
+  Stop button that stops it then. Chronobar never stops or trims it by itself. Pick 2 to 8 hours, or Off, in Settings.
 - Every timer running past midnight is split, so each Day holds its own time.
 
 ## Settings

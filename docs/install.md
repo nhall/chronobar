@@ -40,7 +40,7 @@ without a Gatekeeper warning. You don't need an Apple Developer account.
 Click the Pill, the `0 0:00` in the menu bar: it shows how many timers are running and today's total.
 The Panel opens under it. Click ＋, type a Label (the name you file the time under, such as
 "Northwind, Ticket 665") and press Return: its timer starts and the Pill counts it. Each row's ⏸ pauses that timer, and ▶ starts it again. Turn on
-Start at login in Settings (⚙) if you want Chronobar there every day.
+Start at login in Settings (⚙) if you want Chronobar in the menu bar every day.
 
 To let your agents drive it, see [Connecting agents](connecting-agents.md).
 
@@ -50,7 +50,7 @@ Update with `brew upgrade chronobar`. To remove it, quit Chronobar, then:
 
 ```sh
 brew uninstall chronobar
-rm ~/Applications/Chronobar.app
+rm ~/Applications/Chronobar.app    # if you linked it
 ```
 
 Your data in `~/Library/Application Support/Chronobar` is left alone; delete that folder too if you

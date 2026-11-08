@@ -4,7 +4,7 @@ With Timers side by side, a Day's Total can exceed the time that passed, which i
 To show how long the user actually worked, Clock time is the union of the Day's timed Entries'
 intervals (running ones up to now), so overlapping Timers count once and manual Entries are left out.
 
-Every figure shown under a total adds up to it. Each row is floored to whole seconds and the Day's
+In the Panel's rows and in `chronobar day` and `week`, every figure shown under a total adds up to it. Each row is floored to whole seconds and the Day's
 Total is their sum. For hours and minutes, the total is rounded down to the minute, the rows are
 rounded down too, and the minutes lost go one each to the rows with the largest remainders (the first
 row on a tie). A week is built from its Days: its Total and Clock time are the sums of the Day figures,

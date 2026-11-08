@@ -20,7 +20,7 @@ scripts/bundle-app.sh --dev      # builds "build/Chronobar Dev.app"
 open "build/Chronobar Dev.app"
 ```
 
-It runs next to the everyday copy and shares nothing with it:
+It runs next to the everyday copy and shares no settings or data with it:
 
 | | Everyday copy | Development copy |
 |---|---|---|
@@ -50,6 +50,5 @@ claude mcp add chronobar-dev -- <path>/build/bin/chronobar --dev mcp
 
 ## Checking a release
 
-The timing logic is covered by `swift test`; the menu bar, Panel and system behaviour are checked by
-hand with the [manual test checklist](manual-checklist.md). [Releasing](releasing.md) covers tagging
-and the Homebrew formula.
+See the [manual test checklist](manual-checklist.md). [Releasing](releasing.md) covers tagging and the
+Homebrew formula.

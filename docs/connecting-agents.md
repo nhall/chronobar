@@ -4,8 +4,8 @@ How to register Chronobar's MCP server with your agent, what to ask it, and the 
 [Back to the README](../README.md)
 
 `chronobar mcp` is an MCP server on standard input and output, so any MCP client can launch it: register
-the command `chronobar` with the argument `mcp` as a stdio server. Each setup below adds it for every
-project.
+the command `chronobar` with the argument `mcp` as a stdio server. Each setup below adds it so it's available
+everywhere you use that client.
 
 ## Setup
 
@@ -73,7 +73,7 @@ paused for idle time"), and the Day file records them with `"source": "agent"`.
 
 ## Tools
 
-The server offers a tool for each [command](command-line.md), with the same rules:
+The server offers a tool for each [command](command-line.md), with the same rules, except which timer a bare `stop` or `set_start` means (see below):
 
 | Tool | Does |
 |---|---|
@@ -107,6 +107,5 @@ warning catches one that's forgotten.
 
 ## Away from the keyboard
 
-Idle detection applies only to timers started in the app. When you come back after the Mac slept,
-locked or sat idle, agents' timers are left as they are: the agent's work went on while you were away.
-Quitting Chronobar leaves them running too, and they continue when it opens again.
+Idle detection applies only to timers started in the app, and quitting Chronobar leaves agents' timers
+running. See [Using the app](app.md#idle-quitting-and-long-running-timers).

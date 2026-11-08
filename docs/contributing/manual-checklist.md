@@ -1,10 +1,12 @@
 # Manual test checklist
 
-The hand checks to run before a release: menu bar, Panel, idle, command line, agents and install.
+The hand checks to run before a release: menu bar, Panel, accessibility, logging time, idle, quitting,
+command line, agents, the long-running warning, Dock, Start at login and install.
 [Back to AGENTS.md](../../AGENTS.md)
 
 The timing logic is covered by `swift test`. The menu bar, Panel and system behavior are checked by
-hand. Run through this list before a release (see [Releasing](releasing.md)), on the Homebrew build. Don't use a Mac whose real data
+hand. Run through this list before a release (see [Releasing](releasing.md)), on the Homebrew build, except
+the Command line and Agents (MCP) sections, which use the development copy. Don't use a Mac whose real data
 you care about, or back up the data folder first.
 
 Mark anything that isn't built yet *(not built yet)*, and update this list as features land.
@@ -283,7 +285,7 @@ Register the development copy in your client under a name of its own (in Claude 
       launch.
 - [ ] Pick 2 hours and leave a timer running for 2 hours: the first time, macOS asks whether
       Chronobar may send notifications. Allow: a notification names the label. It doesn't come back
-      while that timer keeps running, nor after quitting and relaunching with it still open (an
+      while that timer keeps running, nor after quitting and relaunching with it still running (an
       agent's timer, which quitting leaves running).
 - [ ] Wait a few minutes, then click Stop on the notification: the timer stops at the click, not at
       the 2-hour mark, and other timers keep running.

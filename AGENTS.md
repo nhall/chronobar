@@ -2,7 +2,7 @@
 
 ## Contributing
 
-The README and the pages it links are for users. Contributor material lives here, unlinked from them:
+The README and the pages it links are for users. Contributor material is in these files, which those pages don't link to:
 
 - `docs/contributing/development.md`: tests, and the development copy (`--dev`) to run instead of the
   everyday app and its data.

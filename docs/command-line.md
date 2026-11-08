@@ -61,7 +61,7 @@ chronobar archive "Northwind, Ticket 665"   # unpin it and stop suggesting it; i
 ```
 
 `labels` follows the ＋ form's rules: Labels with time in the last 30 days and pinned ones, minus
-archived ones. With a query it also says what the query names exactly, even if it isn't suggested
+archived ones. With a query it also reports the status of the Label that exactly matches the query, even if it isn't suggested
 (`archived`, or `unused` with no time in 30 days), or that it would be `new`. `archive` refuses a Label
 Chronobar has never seen (`unknown_label`), and leaves a running timer running.
 
@@ -76,7 +76,7 @@ Chronobar has never seen (`unknown_label`), and leaves a running timer running.
 - Times in the future, an end that isn't after its start, and time a Label already has (which would
   count it twice) are refused.
 - A stop, start or entry that crosses midnight is split so each Day file holds its own time.
-- Timers and entries added this way are recorded as started by an agent, so idle detection leaves them
+- Timers and entries added from the command line are recorded as started by an agent, so idle detection leaves them
   alone.
 
 ## JSON and exit status
@@ -105,7 +105,7 @@ Error kinds: `invalid_request`, `unknown_operation`, `invalid_label`, `unknown_l
 `invalid_duration` and `malformed_file`. Over MCP there is also `no_session_timer` (see
 [Connecting agents](connecting-agents.md#which-timer-stop-the-timer-means)).
 
-## Options
+## Global options
 
 | Option | Effect |
 |---|---|

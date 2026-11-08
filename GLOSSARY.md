@@ -6,7 +6,7 @@ stop and correct as readily as the user does by hand.
 ## Time
 
 **Label**:
-The free-text name a timer and its Entries are filed under, such as "Northwind, Ticket 665". Flat: no
+The free-text name a Timer and its Entries are filed under, such as "Northwind, Ticket 665". Flat: no
 clients, projects or tasks; names match regardless of case and surrounding spaces.
 _Avoid_: Project (v1's name, still used by the code and the Day files' `project` key), task, client
 
@@ -32,7 +32,7 @@ _Avoid_: Date (for the concept), log
 
 **Total**:
 The sum of Labels' time over a Day, a week or a longer period. With Timers side by side it can exceed
-the Clock time; that is correct, since each Label is billed its full time.
+the Clock time.
 _Avoid_: Day total (fine for a Day's Total specifically), hours, billed time
 
 **Clock time**:
@@ -65,8 +65,8 @@ Chronobar's menu bar item: the count of running Timers and today's Total.
 _Avoid_: Status item, menu bar icon
 
 **Panel**:
-The window that opens under the Pill, listing each Label's Total for the viewed Day with its own start
-and pause button.
+The window that opens under the Pill, listing each Label's Total for the viewed Day; today's rows each
+have a start and pause button.
 _Avoid_: Popover, popup, menu
 
 **Week strip**:
@@ -89,6 +89,6 @@ The app's last-alive time, recorded every minute while it runs, which bounds the
 _Avoid_: Last seen, ping
 
 **Long-running warning**:
-The one notification per run when a Timer passes a threshold (4 hours by default), with a Stop action.
+The one notification per Timer start when a Timer passes a threshold (4 hours by default), with a Stop action.
 It never cuts time on its own.
 _Avoid_: Timeout, auto-stop

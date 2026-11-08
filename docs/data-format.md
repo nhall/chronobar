@@ -3,8 +3,7 @@
 Where Chronobar keeps your time, the format of each file, and how totals are counted.
 [Back to the README](../README.md)
 
-Chronobar has no accounts, no sync and no network access. The app is the only writer of your data, and
-it re-reads a file before every change, so a hand edit is never overwritten.
+Chronobar has no accounts, no sync and no network access. The app is the only writer of your data.
 
 Everything lives in `~/Library/Application Support/Chronobar`. The ⚙ menu in the Panel (the window
 under the Pill, Chronobar's menu bar item) has **Open data folder**. Time is filed under Labels, the
@@ -62,7 +61,7 @@ Each Day is one JSON file with one entry per line:
 - A Day's figure is the same everywhere: `chronobar week` shows each Day's own total, as the Panel and
   `chronobar day` do, and the week total is the sum of those Day lines, as is the week's clock time
   (in JSON too, `elapsed_seconds` is the sum of the Days'). The week total can be a few minutes less
-  than the Labels' time rounded down, so the Labels' week lines are fitted to it: minutes too many
+  than each Label's week time rounded down and added up, so the Labels' week lines are fitted to it: minutes too many
   come off the Labels with the fewest seconds left over (the first Label on a tie), never below
   `0:00`.
 
