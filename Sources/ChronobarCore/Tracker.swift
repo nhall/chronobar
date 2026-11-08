@@ -514,8 +514,10 @@ public final class Tracker {
     /// Archives the Project matching `name`: takes it off `projects.txt` and adds it to `archived.txt`, so
     /// it isn't suggested until typed again. Its Entries stay in the Day files and a running timer keeps
     /// running. Reads both lists before writing either and writes them together, so if one won't parse or
-    /// can't be saved nothing changes.
-    public func archiveProject(_ name: String) throws {
+    /// can't be saved nothing changes. Returns the stored spelling archived: the Archived one if it already
+    /// was, else as start spells it.
+    @discardableResult
+    public func archiveProject(_ name: String) throws -> String {
         try labels.archive(name)
     }
 
