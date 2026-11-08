@@ -61,22 +61,13 @@ final class IdleMonitor {
 
     private func ask() {
         guard let question = tracker.takeIdleQuestion() else { return }
-        let (since, until, labels) = (question.since, question.until, question.labels)
 
         // One alert for every app timer; each choice applies to all of them.
-        let running = labels.formatted(.list(type: .and))
-        let verb = labels.count == 1 ? "is" : "are"
         let alert = NSAlert()
-        if let until {
-            alert.messageText = "You were idle from \(Self.time(since)) to \(Self.time(until))."
-                + (labels.isEmpty ? "" : " \(running) \(verb) running.")
-        } else {
-            alert.messageText = "You've been idle since \(Self.time(since))."
-                + (labels.isEmpty ? "" : " \(running) \(verb) still running.")
-        }
-        alert.addButton(withTitle: "Remove idle time")
-        alert.addButton(withTitle: "Remove & stop")
-        alert.addButton(withTitle: "Keep").keyEquivalent = "\u{1b}"
+        alert.messageText = question.message
+        alert.addButton(withTitle: IdleChoice.remove.title)
+        alert.addButton(withTitle: IdleChoice.removeAndStop.title)
+        alert.addButton(withTitle: IdleChoice.keep.title).keyEquivalent = "\u{1b}"
         NSApp.comeToFront()
 
         let choice: IdleChoice = switch alert.runModal() {
@@ -85,11 +76,11 @@ final class IdleMonitor {
         default: .keep
         }
         do {
-            try tracker.resolveIdle(since: since, until: until, choice: choice)
+            try tracker.resolveIdle(since: question.since, until: question.until, choice: choice)
         } catch let error as MalformedDayFile {
             // Core holds the Idle time and offers the question again once the file parses.
             resolved()
-            refused(error.day)
+            refused(tracker.idleRefusal(error))
             return
         } catch {
             reportFailure(error, category: "idle")
@@ -98,21 +89,11 @@ final class IdleMonitor {
     }
 
     /// Says which Day file stopped the removal.
-    private func refused(_ day: Day) {
-        let date = day.noon(in: tracker.calendar)
-            .formatted(Date.FormatStyle(date: .complete, time: .omitted, calendar: tracker.calendar))
+    private func refused(_ refusal: IdleRefusal) {
         let alert = NSAlert()
-        alert.messageText = "The idle time wasn't removed"
-        alert.informativeText = "The file for \(date) (days/\(day).json) can't be read, so it can't be "
-            + "changed. Fix it by hand in the data folder and you'll be asked again. Until then the idle "
-            + "time still counts."
+        alert.messageText = refusal.title
+        alert.informativeText = refusal.text
         NSApp.comeToFront()
         alert.runModal()
-    }
-
-    /// "2:10 PM" today, with the date on other Days.
-    private static func time(_ date: Date) -> String {
-        let style: Date.FormatStyle.DateStyle = Calendar.current.isDateInToday(date) ? .omitted : .abbreviated
-        return date.formatted(date: style, time: .shortened)
     }
 }

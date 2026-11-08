@@ -281,7 +281,15 @@ public final class Tracker {
             return nil
         }
         idleQuestionOut = true
-        return IdleQuestion(since: idle.since, until: idle.until, labels: labels)
+        let message = IdleWording(calendar: calendar, today: today)
+            .message(since: idle.since, until: idle.until, labels: labels)
+        return IdleQuestion(since: idle.since, until: idle.until, labels: labels, message: message)
+    }
+
+    /// The alert to show when `resolveIdle` throws `error`: which Day and file refused the removal, with the
+    /// date on this Tracker's calendar.
+    public func idleRefusal(_ error: MalformedDayFile) -> IdleRefusal {
+        IdleWording(calendar: calendar, today: today).refusal(error)
     }
 
     /// Folds a report's Idle time into `pendingIdle`, unless a question is out: reports that arrive while
