@@ -43,7 +43,7 @@ public final class Tracker {
     /// When the Mac went to sleep or locked with a timer started in the app running, until it came back.
     @ObservationIgnored private var awaySince: Date?
     /// Whether `takeIdleQuestion()` handed out a question `resolveIdle` hasn't answered yet.
-    @ObservationIgnored private var idleQuestionOut = false
+    @ObservationIgnored private var idleQuestionAwaitingAnswer = false
 
     private static let heartbeatKey = "heartbeat"
     private static let warnedKey = "longRunningWarned"
@@ -276,13 +276,14 @@ public final class Tracker {
     /// `pendingIdle` once no Day blocks it and no question is out, while a timer started in the app runs or
     /// for Idle time Core holds. Idle time only reported, with no such timer left to cut, is dropped.
     public func takeIdleQuestion() -> IdleQuestion? {
-        guard !idleQuestionOut, case let (idle, held)? = pending, idle.blockedBy == nil else { return nil }
+        guard !idleQuestionAwaitingAnswer, case let (idle, held)? = pending, idle.blockedBy == nil
+        else { return nil }
         let labels = appTimers.map(\.project)
         guard !labels.isEmpty || held else {
             clearPendingIdle()
             return nil
         }
-        idleQuestionOut = true
+        idleQuestionAwaitingAnswer = true
         let message = IdleWording(calendar: calendar, today: today)
             .message(since: idle.since, until: idle.until, labels: labels)
         return IdleQuestion(since: idle.since, until: idle.until, labels: labels, message: message)
@@ -297,7 +298,7 @@ public final class Tracker {
     /// Folds a report's Idle time into `pendingIdle`, unless a question is out: reports that arrive while
     /// the alert is open are left out, so alerts never stack.
     private func noteReported(_ idle: PendingIdle) {
-        guard !idleQuestionOut else { return }
+        guard !idleQuestionAwaitingAnswer else { return }
         noteIdle(idle, held: false)
     }
 
@@ -393,7 +394,7 @@ public final class Tracker {
     /// time is cleared, except that one refused by a malformed Day is held until the file parses.
     public func resolveIdle(since idleStart: Date, until idleEnd: Date? = nil, choice: IdleChoice) throws {
         // Whatever the answer, and whether the removal goes through or not, the question is answered.
-        defer { idleQuestionOut = false }
+        defer { idleQuestionAwaitingAnswer = false }
         catchUp()
         guard choice != .keep else { return clearPendingIdle() }
         let idleEnd = idleEnd.map { min($0, now) }
