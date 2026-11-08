@@ -54,7 +54,7 @@ extension Operations {
     }
 
     func pin(_ label: String) throws(OperationError) -> PinResult {
-        let wasPinned = isPinned(label)
+        let wasPinned = tracker.isPinned(label)
         let project = try core { try tracker.pinProject(label) }
         return PinResult(label: project, alreadyPinned: wasPinned, pinned: tracker.projects)
     }
@@ -70,15 +70,10 @@ extension Operations {
                                  + "The labels command lists them.")
         }
         let wasArchived = tracker.archived.contains { ProjectName.matches($0, name) }
-        let wasPinned = isPinned(name)
-        try core { try tracker.archiveProject(name) }
-        let stored = tracker.archived.first { ProjectName.matches($0, name) } ?? name
+        let wasPinned = tracker.isPinned(name)
+        let stored = try core { try tracker.archiveProject(name) }
         return ArchiveResult(label: stored, alreadyArchived: wasArchived, unpinned: wasPinned,
                              running: tracker.isRunning(stored))
-    }
-
-    private func isPinned(_ label: String) -> Bool {
-        tracker.projects.contains { ProjectName.matches($0, label) }
     }
 
     /// The Day `date` names as `YYYY-MM-DD`; refused unless it is on the calendar (no 31 November).

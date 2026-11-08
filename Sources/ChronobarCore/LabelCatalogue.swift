@@ -55,6 +55,11 @@ final class LabelCatalogue {
             ?? historicalName(matching: name) ?? name
     }
 
+    /// Whether `name` is on the Pinned Labels, ignoring case and surrounding spaces.
+    func isPinned(_ name: String) -> Bool {
+        pinned.contains { ProjectName.matches($0, name) }
+    }
+
     /// The Pinned spelling of `name`, else `name` trimmed: what a Row is shown under.
     func shownName(_ name: String) -> String {
         pinned.first { ProjectName.matches($0, name) } ?? ProjectName.trimmed(name)

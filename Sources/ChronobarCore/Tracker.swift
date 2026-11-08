@@ -491,6 +491,11 @@ public final class Tracker {
         try labels.pin(name)
     }
 
+    /// Whether `name` is a Pinned Project, ignoring case and surrounding spaces.
+    public func isPinned(_ name: String) -> Bool {
+        labels.isPinned(name)
+    }
+
     /// Suggested Projects containing `text` anywhere, ignoring case and surrounding spaces. A name matching
     /// `text` exactly comes first, then names starting with it, then the rest; within each, the most
     /// recently used first.
@@ -509,8 +514,10 @@ public final class Tracker {
     /// Archives the Project matching `name`: takes it off `projects.txt` and adds it to `archived.txt`, so
     /// it isn't suggested until typed again. Its Entries stay in the Day files and a running timer keeps
     /// running. Reads both lists before writing either and writes them together, so if one won't parse or
-    /// can't be saved nothing changes.
-    public func archiveProject(_ name: String) throws {
+    /// can't be saved nothing changes. Returns the stored spelling archived: the Archived one if it already
+    /// was, else as start spells it.
+    @discardableResult
+    public func archiveProject(_ name: String) throws -> String {
         try labels.archive(name)
     }
 
