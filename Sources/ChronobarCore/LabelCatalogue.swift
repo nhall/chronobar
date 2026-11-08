@@ -5,7 +5,7 @@ import Observation
 /// files, the spelling a name is stored under, what a typed name matches, the ＋ form's suggestions, and
 /// pinning, archiving and bringing a Label back. It reads the Day history through `DayFiles` and never
 /// writes a Day file; a Label-list write that must land with a Day change is handed to the caller to save
-/// with it (`writing`).
+/// with it (`resolvingForWrite`).
 @MainActor @Observable
 final class LabelCatalogue {
     /// The Pinned Labels, always suggested, in `projects.txt` order.
@@ -79,7 +79,7 @@ final class LabelCatalogue {
     /// Label-list writes that must land with that change, all or none: taking it off `archived.txt` if it
     /// is archived. `save` writes them with its change, or not at all. Afterwards the lists are re-read, so
     /// they show the Label back only if that save landed, whether `save` returned, threw or skipped it.
-    func writing<T>(_ name: String, _ save: (_ label: String, _ alongWith: [FileWrite]) throws -> T) throws -> T {
+    func resolvingForWrite<T>(_ name: String, _ save: (_ label: String, _ alongWith: [FileWrite]) throws -> T) throws -> T {
         let label = try resolve(name)
         defer { reload() }
         return try save(label, bringingBack(label))
@@ -94,7 +94,7 @@ final class LabelCatalogue {
     /// Pins `name`, bringing it back if archived, both lists in one write. Returns its stored spelling.
     /// Pinning a Pinned Label changes nothing.
     func pin(_ name: String) throws -> String {
-        try writing(name) { label, writes in
+        try resolvingForWrite(name) { label, writes in
             try FileWrite.replace(writes + (isPinned(label) ? [] : [pinnedStore.write(pinned + [label])]))
             return label
         }

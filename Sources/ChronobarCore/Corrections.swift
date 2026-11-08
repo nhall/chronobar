@@ -94,7 +94,7 @@ extension Tracker {
         guard end <= now else { throw FutureTime(time: end) }
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
-        return try labels.writing(name) { project, bringingBack in
+        return try labels.resolvingForWrite(name) { project, bringingBack in
             let stored = split(project, from: start, to: end, source: source)
             try replace(project, [], with: stored, alongWith: bringingBack)
             return stored

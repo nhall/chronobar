@@ -116,7 +116,7 @@ public final class Tracker {
     public func start(_ name: String, source: EntrySource = .app) throws -> String {
         catchUp()
         try files.checkReadable(today)
-        return try labels.writing(name) { project, bringingBack in
+        return try labels.resolvingForWrite(name) { project, bringingBack in
             guard !timers.contains(project) else { return project }
             let timer = Running(project: project, start: now, source: source)
             let pausesOthers = startPausesOthers
@@ -531,7 +531,7 @@ public final class Tracker {
             throw InvalidDuration(text: duration)
         }
         catchUp()
-        return try labels.writing(name) { project, bringingBack in
+        return try labels.resolvingForWrite(name) { project, bringingBack in
             try files.change([day], alongWith: bringingBack) { _, entries in
                 entries.append(.manual(project: project, seconds: seconds, note: .manual))
             }
