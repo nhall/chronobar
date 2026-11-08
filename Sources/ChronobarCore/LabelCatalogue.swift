@@ -143,9 +143,9 @@ final class LabelCatalogue {
         return ranked.sorted { ($0.rank, $0.recency) < ($1.rank, $1.recency) }.map(\.name)
     }
 
-    /// What a typed name would start or log: a suggested Label, one the suggestions leave out (archived,
-    /// or with time in the Day files but not lately), each spelled as start would write it, or a new one.
-    /// Nil for a blank name.
+    /// What a typed name would start or log: a suggested Label, an archived one, an unused one (time in
+    /// the Day files but not lately), each spelled as start would write it, or a new one. Nil for a blank
+    /// name.
     func match(_ name: String, today: Day, calendar: Calendar) -> ProjectMatch? {
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { return nil }
@@ -155,7 +155,7 @@ final class LabelCatalogue {
         if let archived = archived.first(where: { ProjectName.matches($0, name) }) { return .archived(archived) }
         for day in files.days() {
             if let entry = files.entries(on: day).last(where: { ProjectName.matches($0.project, name) }) {
-                return .archived(shownName(entry.project))
+                return .unused(shownName(entry.project))
             }
         }
         return .new

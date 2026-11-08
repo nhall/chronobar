@@ -498,9 +498,9 @@ public final class Tracker {
         labels.suggestions(for: text, today: today, calendar: calendar)
     }
 
-    /// What a typed name would start or log: a suggested Project, one the suggestions leave out (archived,
-    /// or with time in the Day files but not lately), each spelled as start would write it, or a new one.
-    /// Nil for a blank name. Reads other Days' files once until the next `reload`, so it can be asked on
+    /// What a typed name would start or log: a suggested Project, an archived one, an unused one (time in
+    /// the Day files but not lately), each spelled as start would write it, or a new one. Nil for a blank
+    /// name. Reads other Days' files once until the next `reload`, so it can be asked on
     /// every keystroke.
     public func match(_ name: String) -> ProjectMatch? {
         labels.match(name, today: today, calendar: calendar)

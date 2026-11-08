@@ -47,15 +47,17 @@ public enum ProjectMatch: Equatable, Sendable {
     case new
     /// A Project the suggestions list (pinned, or used in the last 30 days and not archived), as they spell it.
     case active(String)
-    /// A Project the suggestions leave out, archived or not used for 30 days, as `archived.txt` or its most
-    /// recent Entry spells it. Starting or logging it brings it back.
+    /// A Project on the Archived Labels, as they spell it. Starting or logging it brings it back.
     case archived(String)
+    /// A Project with time in the Day files but none in the last 30 days, and not archived, spelled as
+    /// start would write it.
+    case unused(String)
 
     /// The existing Project's name; nil for a new one.
     public var project: String? {
         switch self {
         case .new: nil
-        case .active(let project), .archived(let project): project
+        case .active(let project), .archived(let project), .unused(let project): project
         }
     }
 }
