@@ -1,7 +1,7 @@
 import Foundation
 
-/// Who has been given the long-running warning: the runs already warned about, saved in the settings store
-/// so a relaunch doesn't warn about them again. Tracker asks it on each tick which runs are now due.
+/// The runs already given a Long-running warning, saved in the settings store so a relaunch doesn't warn
+/// about them again. Tracker asks it on each tick which runs are now due one.
 struct LongRunningWarnings {
     /// The runs warned about that were still running when last asked.
     private var warned: [TimerRun]
