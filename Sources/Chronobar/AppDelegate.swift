@@ -48,13 +48,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = StatusItemController(
             tracker: tracker, variant: variant, storageRoot: storageRoot, preferences: preferences,
             loginItem: loginItem)
-        idleMonitor = IdleMonitor(tracker: tracker, preferences: preferences) { [weak self] in
+        idleMonitor = IdleMonitor(tracker: tracker) { [weak self] in
             self?.statusItem.refresh()
         }
         longRunningNotifier = LongRunningNotifier(tracker: tracker) { [weak self] in
             self?.statusItem.refresh()
         }
         observeLongRunningThreshold()
+        observeIdleThreshold()
         serveOperations(in: storageRoot)
 
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
@@ -83,7 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // An Entry left open by a crash or forced shutdown: ask about the time since the app was last alive.
-        // Core keeps it in `pendingIdle`, which the idle monitor asks about.
+        // Core holds it as Idle time and offers the idle monitor a question about it.
         tracker.recoverAfterLaunch()
         statusItem.refresh()
         idleMonitor.poll()
@@ -184,6 +185,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             preferences.longRunningThreshold.seconds
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeLongRunningThreshold() }
+        }
+    }
+
+    /// Keeps Core's idle threshold in step with the Settings pop-up.
+    private func observeIdleThreshold() {
+        tracker.idleThreshold = withObservationTracking {
+            preferences.idleThreshold.seconds
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeIdleThreshold() }
         }
     }
 

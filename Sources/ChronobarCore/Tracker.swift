@@ -241,6 +241,10 @@ public final class Tracker {
     /// while the user is away.
     private var appTimers: [Running] { timers.filter { $0.source == .app } }
 
+    /// Whether a timer started in the app runs, so input inactivity is worth sampling for
+    /// `reportInput(idleFor:)`.
+    public var appTimerRuns: Bool { !appTimers.isEmpty }
+
     /// The Mac went to sleep or locked its screen. Recorded on Chronobar's clock while a timer started in
     /// the app runs; a second report before `reportBack()` keeps the earlier time.
     public func reportAway() {
