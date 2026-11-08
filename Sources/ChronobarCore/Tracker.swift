@@ -73,9 +73,15 @@ public final class Tracker {
     /// that won't parse is flagged in `malformedDays` and its last good read is kept (for a Day not read
     /// before, just its deferred writes), so running timers keep running.
     public func reload() {
+        bringUpToNow()
+        reread()
+    }
+
+    /// What `reload()` and `tick()` start with: catches up, then unblocks `pendingIdle` once its Day can be
+    /// read.
+    private func bringUpToNow() {
         catchUp()
         unblockPendingIdle()
-        reread()
     }
 
     /// `reload()` without catching up: retries deferred writes and re-reads today's file and the Label
@@ -195,8 +201,7 @@ public final class Tracker {
     /// result.
     @discardableResult
     public func tick() -> [LongRunningWarning] {
-        catchUp()
-        unblockPendingIdle()
+        bringUpToNow()
         guard let threshold = longRunningThreshold else { return [] }
         return warnings.due(among: timers.map(run(of:)), at: now, threshold: threshold)
             .map { warning(for: $0, threshold: threshold) }
