@@ -267,8 +267,10 @@ public final class Tracker {
     /// the app runs. Once it reaches `idleThreshold`, the time since the last input is Idle time running up
     /// to now.
     public func reportInput(idleFor seconds: TimeInterval) {
+        // Sampled every second, just after `tick()`: catch up only when there's Idle time to note.
+        guard let idleThreshold, seconds >= idleThreshold else { return }
         catchUp()
-        guard !appTimers.isEmpty, let idleThreshold, seconds >= idleThreshold else { return }
+        guard !appTimers.isEmpty else { return }
         noteReported(PendingIdle(since: now - seconds))
     }
 
