@@ -17,7 +17,7 @@ public final class Operations {
 
     /// Carries out `request`. Never throws: anything Core refuses comes back as an `OperationError`.
     public func perform(_ request: Request) -> Response {
-        // As when the Panel opens: the re-read rolls over past midnight first, then picks up hand edits to
+        // As when the Panel opens: `reload()` rolls over past midnight first, then picks up hand edits to
         // today's file and the Label lists. Only the app ticks.
         tracker.reload()
         do throws(OperationError) {
