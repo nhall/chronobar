@@ -43,38 +43,32 @@ public struct PendingIdle: Equatable, Sendable {
     }
 }
 
-/// What the idle alert asks about, from `Tracker.takeIdleQuestion()`. Answer it with `Tracker.resolveIdle`
-/// for `since` and `until`.
-///
-/// Two questions are equal when they ask about the same Idle time for the same Timers; `message` is how
-/// Tracker words that on its calendar, so it isn't compared.
-public struct IdleQuestion: Equatable, Sendable {
+/// What an idle question asks about: the Idle time and the Timers an answer applies to.
+public struct IdleSubject: Equatable, Sendable {
     public let since: Date
     /// Where the Idle time ends; nil runs up to now.
     public let until: Date?
     /// The Labels of the running Timers started in the app, in the order they started: the Timers the
     /// answer applies to.
     public let labels: [String]
-    /// The alert's text: "You've been idle since 2:10 PM. Website Redesign is still running." or "You were
-    /// idle from 2:10 PM to 2:30 PM. …", with the date on times that aren't on Chronobar's today. Empty on
-    /// a question made with `init(since:until:labels:)` rather than by Tracker.
-    public let message: String
 
-    /// A question to compare with one Tracker offered.
     public init(since: Date, until: Date?, labels: [String]) {
-        self.init(since: since, until: until, labels: labels, message: "")
-    }
-
-    init(since: Date, until: Date?, labels: [String], message: String) {
         self.since = since
         self.until = until
         self.labels = labels
-        self.message = message
     }
+}
 
-    public static func == (lhs: IdleQuestion, rhs: IdleQuestion) -> Bool {
-        lhs.since == rhs.since && lhs.until == rhs.until && lhs.labels == rhs.labels
-    }
+/// The idle alert's question, from `Tracker.takeIdleQuestion()`. Answer it with `Tracker.resolveIdle` for
+/// `since` and `until`.
+public struct IdleQuestion: Equatable, Sendable {
+    public let subject: IdleSubject
+    /// The alert's text: "You've been idle since 2:10 PM. Website Redesign is still running." or "You were
+    /// idle from 2:10 PM to 2:30 PM. …", with the date on times that aren't on Chronobar's today.
+    public let message: String
+
+    public var since: Date { subject.since }
+    public var until: Date? { subject.until }
 }
 
 /// The idle alert's wording, on Tracker's calendar (its time zone and locale) and Chronobar's today.
@@ -82,7 +76,8 @@ struct IdleWording {
     let calendar: Calendar
     let today: Day
 
-    func message(since: Date, until: Date?, labels: [String]) -> String {
+    func message(for subject: IdleSubject) -> String {
+        let (since, until, labels) = (subject.since, subject.until, subject.labels)
         let running = labels.formatted(.list(type: .and).locale(locale))
         let verb = labels.count == 1 ? "is" : "are"
         if let until {
