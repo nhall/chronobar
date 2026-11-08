@@ -61,7 +61,7 @@ extension Tracker {
     public func stop(_ name: String, at end: Date) throws -> TimedEntry {
         catchUp()
         guard let timer = timers[name] else { throw NotRunning(project: ProjectName.trimmed(name)) }
-        let pieces = try readablePieces(of: timer)
+        let pieces = try files.readRun(of: timer)
         guard end <= now else { throw FutureTime(time: end) }
         guard end > pieces[0].start else { throw EndBeforeStart(start: pieces[0].start, end: end) }
         let stored = split(timer.project, from: pieces[0].start, to: end, source: timer.source)
@@ -80,7 +80,7 @@ extension Tracker {
         guard let timer = timers[name] else { throw NotRunning(project: ProjectName.trimmed(name)) }
         guard start <= now else { throw FutureTime(time: start) }
         let stored = split(timer.project, from: start, to: nil, source: timer.source)
-        try replace(timer.project, try readablePieces(of: timer), with: stored)
+        try replace(timer.project, try files.readRun(of: timer), with: stored)
         return stored
     }
 
@@ -106,65 +106,25 @@ extension Tracker {
     public func addEntry(_ name: String, duration: String, on day: Day) throws -> String {
         catchUp()
         guard day <= today else { throw FutureDay(day: day) }
-        do { return try log(name, duration, on: day) } catch is DayFile.Malformed { throw MalformedDayFile(day: day) }
-    }
-
-    /// `timer`'s run as `runPieces` finds it. Throws if a Day the run may reach back into won't parse, as
-    /// the run's start can't be known then.
-    private func readablePieces(of timer: Running) throws -> [(day: Day, start: Date)] {
-        let pieces = runPieces(of: timer)
-        let first = pieces[0]
-        if first.start == calendar.startOfDay(for: first.day.noon(in: calendar)) {
-            let before = first.day.adding(days: -1, in: calendar)
-            if files.hasPending(before) || (try? files.read(before)) == nil {
-                throw MalformedDayFile(day: before)
-            }
-        }
-        return pieces
+        return try log(name, duration, on: day)
     }
 
     /// `start` to `end` (nil: still running, today) as one timed Entry per Day, cut at each midnight.
     private func split(_ project: String, from start: Date, to end: Date?, source: EntrySource) -> [TimedEntry] {
-        var pieces: [TimedEntry] = []
-        var from = start
-        while true {
-            let day = Day(containing: from, in: calendar)
-            let midnight = calendar.dateInterval(of: .day, for: day.noon(in: calendar))!.end
-            if let end, end <= midnight {
-                pieces.append(TimedEntry(project: project, start: from, end: end, source: source))
-                return pieces
-            }
-            if end == nil, day >= today {
-                pieces.append(TimedEntry(project: project, start: from, end: nil, source: source))
-                return pieces
-            }
-            pieces.append(TimedEntry(project: project, start: from, end: midnight, source: source))
-            from = midnight
+        files.cut(from: start, to: end, through: today).map { piece in
+            TimedEntry(project: project, start: piece.start, end: piece.end, source: source)
         }
     }
 
     /// Replaces the Project's Entries starting at `old` (a run's pieces, or none) with `new`, each in
-    /// place on its Day, or appended where that Day had none, writing `others` too; every file or none.
-    /// Then reloads, so the timers match the file. Refused if a Day won't parse, or if `new` overlaps the
-    /// Project's other timed Entries.
+    /// place on its Day, or appended where that Day had none, writing `others` too: one All-or-nothing
+    /// change. Then reloads, so the timers match the file. Refused if a Day won't parse, or if `new`
+    /// overlaps the Project's other timed Entries.
     private func replace(
-        _ project: String, _ old: [(day: Day, start: Date)], with new: [TimedEntry], alongWith others: [FileWrite] = []
+        _ project: String, _ old: [DayPiece], with new: [TimedEntry], alongWith others: [FileWrite] = []
     ) throws {
-        try files.save(try replacing(project, old, with: new), alongWith: others)
-        reload()
-    }
-
-    /// Each Day's Entries as `replace` would write them.
-    private func replacing(
-        _ project: String, _ old: [(day: Day, start: Date)], with new: [TimedEntry]
-    ) throws -> [(Day, [Entry])] {
-        let days = Set(old.map(\.day) + new.map { $0.day(in: calendar) }).sorted()
-        files.retryPending()
-        var changed: [(Day, [Entry])] = []
-        for day in days {
-            guard !files.hasPending(day) else { throw MalformedDayFile(day: day) }
-            var entries: [Entry]
-            do { entries = try files.read(day) } catch is DayFile.Malformed { throw MalformedDayFile(day: day) }
+        let days = old.map(\.day) + new.map { $0.day(in: calendar) }
+        try files.change(days, alongWith: others) { day, entries in
             let replaced = old.first { $0.day == day }.flatMap { piece in
                 entries.firstIndex { entry in
                     guard case .timed(let name, piece.start, _, _) = entry else { return false }
@@ -176,9 +136,8 @@ extension Tracker {
             if let overlap = overlap(of: added, with: entries) { throw overlap }
             let timed = added.map { Entry.timed(project: $0.project, start: $0.start, end: $0.end, source: $0.source) }
             entries.insert(contentsOf: timed, at: replaced ?? entries.endIndex)
-            changed.append((day, entries))
         }
-        return changed
+        reload()
     }
 
     /// The first of the Project's timed `entries` sharing time with one of `added`, as an `Overlap`.
