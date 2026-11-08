@@ -19,7 +19,8 @@ public final class Tracker {
     public private(set) var projects: [String] = []
     /// The archived Projects, never suggested until typed again, in `archived.txt` order.
     public private(set) var archived: [String] = []
-    /// The clock's time at the last command or `tick()`. Totals of a running timer count up to here.
+    /// The clock's time at the last command, `reload()` or `tick()`. Totals of a running timer count up to
+    /// here.
     public private(set) var now: Date
     /// Idle time to ask about with the idle alert; cleared by `resolveIdle`.
     public var pendingIdle: PendingIdle? { pending?.idle }
@@ -62,17 +63,27 @@ public final class Tracker {
         self.lastAlive = defaults?.object(forKey: Self.heartbeatKey) as? Date
         self.warned = Self.savedWarnings(in: defaults)
         defaults?.removeObject(forKey: Self.retiredSelectedProjectKey)
-        reload()
+        reread()
     }
 
     /// Days whose file failed to parse when last read. Writes to them are refused until it parses again.
     public var malformedDays: Set<Day> { files.malformed }
 
-    /// Retries deferred writes, then re-reads today's file and the pinned and archived lists, and other
-    /// Days' files when next asked for. A Day file that won't parse is flagged in `malformedDays` and its
-    /// last good read is kept (for a Day not read before, just its deferred writes), so running timers keep
-    /// running.
+    /// Brings Core up to now, then re-reads today's file and the pinned and archived lists, and other Days'
+    /// files when next asked for. Catching up rolls over past midnight, retries deferred writes, recovers
+    /// Entries open in Day files that parsed again and unblocks `pendingIdle` once its Day can be read, so
+    /// no caller has to tick first. It doesn't look for long-running timers; only `tick()` does. A Day file
+    /// that won't parse is flagged in `malformedDays` and its last good read is kept (for a Day not read
+    /// before, just its deferred writes), so running timers keep running.
     public func reload() {
+        catchUp()
+        unblockPendingIdle()
+        reread()
+    }
+
+    /// `reload()` without catching up: retries deferred writes and re-reads today's file and the Label
+    /// lists. Rollover and the corrections call it after they write, so catching up never recurses.
+    func reread() {
         now = clock.now
         refresh(known: Array(timers), reparsed: files.load(today))
     }
@@ -180,10 +191,9 @@ public final class Tracker {
         }
     }
 
-    /// Called every second by the UI so running totals advance, on wake, and before each Panel opening or
-    /// agent request. Rolls over to a new Day and retries deferred writes, then recovers any Entry left open
-    /// in a Day file that parsed again. Timers that have now run for `longRunningThreshold` wait in
-    /// `takeLongRunning()`, so whichever caller ticked, the app still hears of each.
+    /// Called by the app only, every second so running totals advance, and on wake. Catches up as
+    /// `reload()` does (without re-reading), then queues the timers that have now run for
+    /// `longRunningThreshold` in `takeLongRunning()`.
     public func tick() {
         catchUp()
         unblockPendingIdle()
@@ -422,7 +432,7 @@ public final class Tracker {
             throw error
         }
         clearPendingIdle()
-        reload()
+        reread()
     }
 
     /// Today's `entries` after an idle removal, with the app timers it stopped started again at `now`
