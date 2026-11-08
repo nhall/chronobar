@@ -58,8 +58,10 @@ func run(_ invocation: Invocation) async throws(OperationError) {
         do {
             response = try Reply.read(reply, from: copy)
         } catch {
-            // `--json` prints the reply as it came, so an older app's answer still serves a script.
-            guard json, let status = Reply.exitStatus(of: reply) else { throw error }
+            // `--json` prints the reply as it came, so an older app's answer still serves a script, and
+            // says on standard error what to do.
+            guard json, error.kind == .versionMismatch, let status = Reply.exitStatus(of: reply) else { throw error }
+            FileHandle.standardError.write(Data("chronobar: \(error.message)\n".utf8))
             FileHandle.standardOutput.write(reply + Data("\n".utf8))
             exit(status)
         }

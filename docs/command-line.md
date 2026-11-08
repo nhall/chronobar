@@ -110,10 +110,10 @@ Error kinds: `invalid_request`, `unknown_operation`, `invalid_label`, `unknown_l
 `invalid_duration` and `malformed_file`. Over MCP there is also `no_session_timer` (see
 [Connecting agents](connecting-agents.md#which-timer-stop-the-timer-means)).
 
-`version_mismatch` (exit status 1) means the running app is older than `chronobar`, as when it kept
-running through `brew upgrade`, so its answer lacks something the command needs. Quit Chronobar and run
-the command again. With `--json` the command prints the app's answer as it came, and exits as that
-answer says, so a script still gets it.
+`version_mismatch` (exit status 1) means the running app is a different version from `chronobar`,
+usually older because it kept running through `brew upgrade`, so the command can't read its answer.
+Quit Chronobar and run the command again. With `--json` the command prints the app's answer as it came
+and exits as that answer says, so a script still gets it, and gives the error on standard error.
 
 ## Global options
 

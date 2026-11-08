@@ -26,6 +26,24 @@ import ChronobarOperations
         }
     }
 
+    /// A reply this command can't read for another reason, such as an error kind it doesn't know, comes
+    /// from an app of another version, likely newer, so it isn't called older.
+    @Test func aReplyOfAnotherShapeSaysTheVersionsDiffer() {
+        let newer = Data(#"{"ok":false,"error":{"kind":"newer_kind","message":"…"}}"#.utf8)
+
+        #expect(throws: OperationError(.versionMismatch, "The running Chronobar is a different version from this "
+                                       + "command. Quit Chronobar and run the command again.")) {
+            try Reply.read(newer, from: .everyday)
+        }
+    }
+
+    /// A line that isn't JSON says nothing about versions.
+    @Test func aLineThatIsntJSONFails() {
+        #expect(throws: OperationError(.failed, "Chronobar sent an answer this command can't read.")) {
+            try Reply.read(Data("not json".utf8), from: .everyday)
+        }
+    }
+
     /// `--json` prints such a reply as it came, so it needs only `ok`, and a failure's `kind`, for the
     /// exit status.
     @Test func jsonTakesTheExitStatusFromAReplyThatWontDecode() {

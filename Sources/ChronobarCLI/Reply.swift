@@ -5,12 +5,18 @@ import ChronobarOperations
 /// The app's answer to a request, as the command and `chronobar mcp` read it. An app that kept running
 /// through an upgrade can be older than the command, and its replies can lack a field the command needs.
 enum Reply {
-    /// The response in `line`; `versionMismatch` if it won't decode, naming what to do about it.
+    /// The response in `line`. A reply that won't decode is `versionMismatch`, naming what to do about it:
+    /// one missing a field comes from an older app, any other from another version. A line that isn't JSON
+    /// at all says nothing about versions, and is `failed`.
     static func read(_ line: Data, from copy: BuildVariant.Copy) throws(OperationError) -> Response {
         do {
             return try Wire.response(from: line)
         } catch {
-            throw OperationError(.versionMismatch, "The running \(copy.name) is older than this command. "
+            guard (try? JSONSerialization.jsonObject(with: line)) is [String: Any] else {
+                throw OperationError(.failed, "\(copy.name) sent an answer this command can't read.")
+            }
+            let version = if case DecodingError.keyNotFound = error { "older than" } else { "a different version from" }
+            throw OperationError(.versionMismatch, "The running \(copy.name) is \(version) this command. "
                                  + "Quit \(copy.name) and run the command again.")
         }
     }
