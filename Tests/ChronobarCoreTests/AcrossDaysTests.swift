@@ -12,6 +12,7 @@ import ChronobarCore
         try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: url.path)
     }
 
+    /// Lets `url` be replaced again.
     private func mutable(_ url: URL) {
         try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: url.path)
     }

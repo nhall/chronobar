@@ -272,7 +272,7 @@ public final class Tracker {
             for timer in found where timer.source == .app {
                 noteIdle(PendingIdle(since: max(timer.start, lastAlive ?? timer.start)))
             }
-            caughtUp(files.catchUp(to: today, carrying: found, from: day))
+            apply(files.catchUp(to: today, carrying: found, from: day))
             return
         }
         for timer in found {
@@ -579,12 +579,12 @@ public final class Tracker {
     /// starts with this.
     func catchUp() {
         now = clock.now
-        caughtUp(files.catchUp(to: today, carrying: Array(timers)))
+        apply(files.catchUp(to: today, carrying: Array(timers)))
     }
 
     /// Takes the running timers from what `DayFiles.catchUp` carried into today, if it moved to today, and
     /// recovers the Days that parsed again.
-    private func caughtUp(_ caught: DayFiles.CatchUp) {
+    private func apply(_ caught: DayFiles.CatchUp) {
         guard let carried = caught.carried else { return recover(reparsed: caught.reparsed) }
         refresh(known: carried, reparsed: caught.reparsed)
     }

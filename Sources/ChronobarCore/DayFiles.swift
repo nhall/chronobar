@@ -32,6 +32,7 @@ final class DayFiles {
     /// Days that were malformed and have since parsed, until handed out once their deferred writes landed.
     @ObservationIgnored private var reparsed: Set<Day> = []
 
+    /// The calendar Days and their midnights are counted in.
     private var calendar: Calendar { clock.calendar }
 
     init(root: URL, clock: TimeSource) {
