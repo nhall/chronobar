@@ -16,9 +16,9 @@ public final class Tracker {
     /// for Off. The Settings pop-up; sleep and lock count either way.
     public var idleThreshold: TimeInterval?
     /// The Pinned Projects, always suggested, in `projects.txt` order.
-    public private(set) var projects: [String] = []
+    public var projects: [String] { labels.pinned }
     /// The archived Projects, never suggested until typed again, in `archived.txt` order.
-    public private(set) var archived: [String] = []
+    public var archived: [String] { labels.archived }
     /// The clock's time at the last command, `reload()` or `tick()`. Totals of a running timer count up to
     /// here.
     public private(set) var now: Date
@@ -34,8 +34,8 @@ public final class Tracker {
     @ObservationIgnored private let launched: Date
     @ObservationIgnored private let lastAlive: Date?
     @ObservationIgnored let files: DayFiles
-    @ObservationIgnored private let projectStore: ProjectStore
-    @ObservationIgnored private let archivedStore: ProjectStore
+    /// The Pinned and Archived Labels, and every rule about Labels apart from their time.
+    @ObservationIgnored let labels: LabelCatalogue
     @ObservationIgnored private let defaults: UserDefaults?
     /// The runs `tick()` has reported as long-running, so each is reported once, across relaunches too.
     @ObservationIgnored private var warnings: LongRunningWarnings
@@ -52,8 +52,7 @@ public final class Tracker {
     public init(clock: TimeSource, storageRoot: URL, defaults: UserDefaults? = nil) {
         self.clock = clock
         self.files = DayFiles(root: storageRoot, clock: clock)
-        self.projectStore = ProjectStore(root: storageRoot)
-        self.archivedStore = ProjectStore(root: storageRoot, fileName: "archived.txt")
+        self.labels = LabelCatalogue(root: storageRoot, files: files)
         self.defaults = defaults
         self.now = clock.now
         self.launched = clock.now
@@ -96,8 +95,7 @@ public final class Tracker {
     /// Entry in today's file that just parsed again is left for `recover(reparsed:)`, unless it is one of
     /// `known`, Core's own timers.
     private func refresh(known: [Running], reparsed: Set<Day>) {
-        projects = (try? projectStore.load()) ?? []
-        archived = (try? archivedStore.load()) ?? []
+        labels.reload()
         let open = files.loadedEntries.compactMap(\.openTimer)
         timers = RunningTimers(reparsed.contains(today) ? open.filter(known.contains) : open)
         recover(reparsed: reparsed)
@@ -118,20 +116,20 @@ public final class Tracker {
     public func start(_ name: String, source: EntrySource = .app) throws -> String {
         catchUp()
         try files.checkReadable(today)
-        let project = try resolve(name)
-        guard !timers.contains(project) else { return project }
-        let timer = Running(project: project, start: now, source: source)
-        let pausesOthers = startPausesOthers
-        // One write closes the others, opens the new Entry and brings the Project back, so a failed save
-        // leaves every timer and file as it was.
-        try files.change([today], alongWith: bringingBack(project)) { _, entries in
-            if pausesOthers { Self.close(&entries, at: timer.start) }
-            entries.append(.timed(project: project, start: timer.start, end: nil, source: source))
+        return try labels.writing(name) { project, bringingBack in
+            guard !timers.contains(project) else { return project }
+            let timer = Running(project: project, start: now, source: source)
+            let pausesOthers = startPausesOthers
+            // One write closes the others, opens the new Entry and brings the Project back, so a failed save
+            // leaves every timer and file as it was.
+            try files.change([today], alongWith: bringingBack) { _, entries in
+                if pausesOthers { Self.close(&entries, at: timer.start) }
+                entries.append(.timed(project: project, start: timer.start, end: nil, source: source))
+            }
+            if pausesOthers { timers = RunningTimers() }
+            timers.insert(timer)
+            return project
         }
-        if pausesOthers { timers = RunningTimers() }
-        timers.insert(timer)
-        broughtBack(project)
-        return project
     }
 
     /// Pauses every running timer, closing their Entries. If today's file is malformed the timers still
@@ -465,14 +463,9 @@ public final class Tracker {
     public func rows(_ day: Day) -> [Row] {
         var names: [String] = []
         for entry in files.entries(on: day) where !names.contains(where: { ProjectName.matches($0, entry.project) }) {
-            names.append(storedName(entry.project))
+            names.append(labels.shownName(entry.project))
         }
         return names.map { Row(project: $0, total: total($0, on: day).rounded(.down)) }
-    }
-
-    /// The Project list's spelling of `name`, else `name` trimmed.
-    private func storedName(_ name: String) -> String {
-        projects.first { ProjectName.matches($0, name) } ?? ProjectName.trimmed(name)
     }
 
     /// The Day's grand total: the sum of its Rows, each already clamped at zero and in whole seconds.
@@ -489,66 +482,20 @@ public final class Tracker {
     /// The calendar Days and weeks are counted in.
     public var calendar: Calendar { clock.calendar }
 
-    /// How many Days, today included, a Project stays suggested after its last Entry.
-    private static let suggestedDays = 30
-
-    /// The Project `name` refers to, for start and log to write under: the spelling of the Pinned Project,
-    /// else of the archived one, else of its latest Entry, else `name` trimmed. Throws if either list won't
-    /// parse, so a write never replaces it. Writes nothing: a caller brings an archived Project back in
-    /// its own write (`bringingBack`), so a refused or failed write changes nothing.
-    func resolve(_ name: String) throws -> String {
-        let name = ProjectName.trimmed(name)
-        guard !name.isEmpty else { throw EmptyProjectName() }
-        let pinned = try projectStore.load()
-        let archived = try archivedStore.load()
-        projects = pinned
-        self.archived = archived
-        return pinned.first { ProjectName.matches($0, name) }
-            ?? archived.first { ProjectName.matches($0, name) }
-            ?? historicalName(matching: name) ?? name
-    }
-
-    /// The `archived.txt` write taking `project` off it, as `resolve` last read it, to land with the write
-    /// putting time under `project` or pinning it, all or none; none if it isn't archived. Call
-    /// `broughtBack` once that write has landed.
-    func bringingBack(_ project: String) -> [FileWrite] {
-        guard archived.contains(where: { ProjectName.matches($0, project) }) else { return [] }
-        return [archivedStore.write(archived.filter { !ProjectName.matches($0, project) })]
-    }
-
-    /// Takes `project` off `archived` after `bringingBack`'s write landed.
-    func broughtBack(_ project: String) {
-        archived.removeAll { ProjectName.matches($0, project) }
-    }
+    // MARK: Labels
 
     /// Pins `name`: adds it to `projects.txt`, so it is always suggested, and takes it off `archived.txt`.
     /// Returns the Project's name, spelled as for start. Pinning a Pinned Project changes nothing.
     @discardableResult
     public func pinProject(_ name: String) throws -> String {
-        let project = try resolve(name)
-        let pinned = projects.contains(where: { ProjectName.matches($0, project) }) ? projects : projects + [project]
-        // Both lists in one write, so a failed save leaves both as they were.
-        let writes = bringingBack(project) + (pinned == projects ? [] : [projectStore.write(pinned)])
-        try FileWrite.replace(writes)
-        broughtBack(project)
-        projects = pinned
-        return project
+        try labels.pin(name)
     }
 
     /// Suggested Projects containing `text` anywhere, ignoring case and surrounding spaces. A name matching
     /// `text` exactly comes first, then names starting with it, then the rest; within each, the most
     /// recently used first.
     public func suggestions(for text: String) -> [String] {
-        let text = ProjectName.trimmed(text)
-        let recent = suggestedProjects()
-        guard !text.isEmpty else { return recent }
-        // Rank 0 is an exact match, 1 starts with `text`, 2 contains it; `recency` keeps recent use within each.
-        let ranked = recent.enumerated().compactMap { recency, name -> (rank: Int, recency: Int, name: String)? in
-            guard let found = name.range(of: text, options: .caseInsensitive) else { return nil }
-            let rank = ProjectName.matches(name, text) ? 0 : found.lowerBound == name.startIndex ? 1 : 2
-            return (rank, recency, name)
-        }
-        return ranked.sorted { ($0.rank, $0.recency) < ($1.rank, $1.recency) }.map(\.name)
+        labels.suggestions(for: text, today: today, calendar: calendar)
     }
 
     /// What a typed name would start or log: a suggested Project, one the suggestions leave out (archived,
@@ -556,41 +503,7 @@ public final class Tracker {
     /// Nil for a blank name. Reads other Days' files once until the next `reload`, so it can be asked on
     /// every keystroke.
     public func match(_ name: String) -> ProjectMatch? {
-        let name = ProjectName.trimmed(name)
-        guard !name.isEmpty else { return nil }
-        if let active = suggestedProjects().first(where: { ProjectName.matches($0, name) }) { return .active(active) }
-        if let archived = archived.first(where: { ProjectName.matches($0, name) }) { return .archived(archived) }
-        for day in files.days() {
-            if let entry = files.entries(on: day).last(where: { ProjectName.matches($0.project, name) }) {
-                return .archived(storedName(entry.project))
-            }
-        }
-        return .new
-    }
-
-    /// The Projects the ＋ form suggests: those with an Entry on today or the Days just before it
-    /// (`suggestedDays` in all), the latest used first, then Pinned Projects not used in that time, in
-    /// `projects.txt` order. Archived Projects are left out. Time logged ahead isn't a use.
-    private func suggestedProjects() -> [String] {
-        let first = today.adding(days: 1 - Self.suggestedDays, in: calendar)
-        var used: [String] = []
-        for day in [today] + files.days().filter({ $0 < today && $0 >= first }) {
-            for entry in files.entries(on: day).reversed()
-            where !used.contains(where: { ProjectName.matches($0, entry.project) }) {
-                used.append(storedName(entry.project))
-            }
-        }
-        let pinned = projects.filter { project in !used.contains { ProjectName.matches($0, project) } }
-        return (used + pinned).filter { project in !archived.contains { ProjectName.matches($0, project) } }
-    }
-
-    /// The name a past Entry used for this Project, newest Day first. Malformed Days are skipped.
-    private func historicalName(matching name: String) -> String? {
-        for day in files.days() {
-            let entries = files.reread(day) ?? []
-            if let entry = entries.last(where: { ProjectName.matches($0.project, name) }) { return entry.project }
-        }
-        return nil
+        labels.match(name, today: today, calendar: calendar)
     }
 
     /// Archives the Project matching `name`: takes it off `projects.txt` and adds it to `archived.txt`, so
@@ -598,23 +511,7 @@ public final class Tracker {
     /// running. Reads both lists before writing either and writes them together, so if one won't parse or
     /// can't be saved nothing changes.
     public func archiveProject(_ name: String) throws {
-        let name = ProjectName.trimmed(name)
-        guard !name.isEmpty else { throw EmptyProjectName() }
-        var pinned = try projectStore.load()
-        var archived = try archivedStore.load()
-        var writes: [FileWrite] = []
-        if !archived.contains(where: { ProjectName.matches($0, name) }) {
-            let project = pinned.first { ProjectName.matches($0, name) } ?? historicalName(matching: name) ?? name
-            archived.append(project)
-            writes.append(archivedStore.write(archived))
-        }
-        if pinned.contains(where: { ProjectName.matches($0, name) }) {
-            pinned.removeAll { ProjectName.matches($0, name) }
-            writes.append(projectStore.write(pinned))
-        }
-        try FileWrite.replace(writes)
-        projects = pinned
-        self.archived = archived
+        try labels.archive(name)
     }
 
     /// Adds a typed duration (`1:30`, `45`) to the Project on `day`, past, today or future, as a manual
@@ -627,12 +524,12 @@ public final class Tracker {
             throw InvalidDuration(text: duration)
         }
         catchUp()
-        let project = try resolve(name)
-        try files.change([day], alongWith: bringingBack(project)) { _, entries in
-            entries.append(.manual(project: project, seconds: seconds, note: .manual))
+        return try labels.writing(name) { project, bringingBack in
+            try files.change([day], alongWith: bringingBack) { _, entries in
+                entries.append(.manual(project: project, seconds: seconds, note: .manual))
+            }
+            return project
         }
-        broughtBack(project)
-        return project
     }
 
     /// Sets the Project's total on `day`, past, today or future, to a typed total (`1:15`) or changes it
@@ -646,7 +543,7 @@ public final class Tracker {
         case .relative(let seconds): max(0, total(project, on: day) + TimeInterval(seconds))
         }
         let now = now
-        let project = rows(day).first { ProjectName.matches($0.project, project) }?.project ?? storedName(project)
+        let project = rows(day).first { ProjectName.matches($0.project, project) }?.project ?? labels.shownName(project)
         func difference(_ entries: [Entry]) -> Int {
             Int((target - Self.sum(of: project, in: entries, asOf: now)).rounded())
         }

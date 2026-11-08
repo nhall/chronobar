@@ -94,10 +94,11 @@ extension Tracker {
         guard end <= now else { throw FutureTime(time: end) }
         let name = ProjectName.trimmed(name)
         guard !name.isEmpty else { throw EmptyProjectName() }
-        let project = try resolve(name)
-        let stored = split(project, from: start, to: end, source: source)
-        try replace(project, [], with: stored, alongWith: bringingBack(project))
-        return stored
+        return try labels.writing(name) { project, bringingBack in
+            let stored = split(project, from: start, to: end, source: source)
+            try replace(project, [], with: stored, alongWith: bringingBack)
+            return stored
+        }
     }
 
     /// Adds a typed duration (`1:30`, `45`) to `name` on `day` as a manual Entry, as `log` does, but only
