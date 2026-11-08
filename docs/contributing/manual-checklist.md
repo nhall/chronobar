@@ -41,9 +41,23 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       was.
 - [ ] With a Timer running and the Panel closed, click the square on its edge, its middle, the time
       segment and the gap between them: each click opens the Panel and the Timer keeps running. With
-      the Panel open, a click anywhere on the Pill closes it and the Timer keeps running.
+      the Panel open, a click anywhere on the Pill closes it, it stays closed, and the Timer keeps
+      running. Repeat that close with the press held for a second or two before release.
 - [ ] Repeat both with a trackpad (tap to click and a full press) as well as a mouse.
 - [ ] ⌘-drag the Pill along the menu bar: it moves, and the Panel doesn't open.
+- [ ] Press and hold the Pill: the menu bar's brief highlight shows behind it and goes on release, in
+      light and dark menu bars (ADR 0007).
+- [ ] With the Panel open, there is no highlight behind the Pill.
+- [ ] With a second display, the same on its copy of the Pill: the highlight on press, a click opens
+      the Panel, and no highlight while it's open.
+- [ ] With the Pill in the « overflow (⌘-drag it there, or fill the menu bar until it moves there), the
+      chevron and the neighbouring items click normally.
+- [ ] In another app's full screen, clicks near the menu bar, including the band beside the camera
+      housing, reach that app.
+- [ ] With "Automatically hide and show the menu bar" on, the first click on the Pill once the menu bar
+      has slid in opens the Panel.
+- [ ] Rest the pointer on the Pill without moving it (for example after the Pill appears under it), then
+      click: the Panel opens.
 - [ ] Start a second Label from ＋: the first keeps running, the Day file has two Entries with
       `"end": null`, both rows are highlighted with ⏸, the square shows `2`, and the Pill's time is the
       sum of both, going up by two minutes each minute. Start a third: the square shows `3`.
