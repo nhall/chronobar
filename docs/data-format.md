@@ -21,7 +21,7 @@ Chronobar/
 
 ## Day files
 
-Each Day is one JSON file with one entry per line:
+Each Day is one JSON file with one Entry per line:
 
 ```json
 {
@@ -36,41 +36,41 @@ Each Day is one JSON file with one entry per line:
 }
 ```
 
-- `date` must match the file name. `project` holds the entry's Label (the key keeps its older name so
+- `date` must match the file name. `project` holds the Entry's Label (the key keeps its older name so
   older files load unchanged).
-- A **timed** entry has `start` and `end` as ISO 8601 times with a UTC offset, to the second. `end` is
-  `null` only for a running timer, at most one per Label. `source` says who started it: `"app"` or
-  `"agent"`. Chronobar always writes it; an entry without it, as in older files, is the app's.
-- A **manual** entry has a whole number of `seconds`, negative for subtractions. `note` is `manual`
+- A **timed** Entry has `start` and `end` as ISO 8601 times with a UTC offset, to the second. `end` is
+  `null` only for a running Timer, at most one per Label. `source` says who started it: `"app"` or
+  `"agent"`. Chronobar always writes it; an Entry without it, as in older files, is the app's.
+- A **manual** Entry has a whole number of `seconds`, negative for subtractions. `note` is `manual`
   for time logged with ＋ and `adjustment` for a corrected total; it is a marker, not free text.
 - Any Day can have a file, past or future: time logged ahead, such as a vacation, goes in that Day's
-  file in the same format. Timers run only today, so a Day ahead holds only manual entries until it
+  file in the same format. Timers run only today, so a Day ahead holds only manual Entries until it
   arrives.
-- Every timer running past midnight is split: the old Day's entry ends at the start of the new Day and
-  a new entry starts in the new Day's file.
+- Every Timer running past midnight is split: the old Day's Entry ends at the start of the new Day and
+  a new Entry starts in the new Day's file.
 
 ### Totals
 
 - A Label's total for the Day is the sum of its timed durations and manual seconds, rounded down to
-  the whole second and never below zero (`0:00`). The Day's total is the sum of its Labels' totals,
+  the whole second and never below zero (`0:00`). The Day's Total is the sum of its Labels' totals,
   and a week's the sum of its Days', so in JSON the rows always add up to the total exactly.
 - Hours and minutes always add up too. A total is rounded down to the minute; the rows under it are
   rounded down as well, and the minutes that loses go one each to the rows with the most seconds left
   over (the first row on a tie). So 2:08:45 and 1:08:49 show as 2:08 and 1:09 under Total 3:17. This
   applies to the Panel's rows and to `chronobar day`.
-- A Day's figure is the same everywhere: `chronobar week` shows each Day's own total, as the Panel and
-  `chronobar day` do, and the week total is the sum of those Day lines, as is the week's clock time
-  (in JSON too, `elapsed_seconds` is the sum of the Days'). The week total can be a few minutes less
+- A Day's figure is the same everywhere: `chronobar week` shows each Day's own Total, as the Panel and
+  `chronobar day` do, and the week's Total is the sum of those Day lines, as is the week's Clock time
+  (in JSON too, `elapsed_seconds` is the sum of the Days'). The week's Total can be a few minutes less
   than each Label's week time rounded down and added up, so the Labels' week lines are fitted to it: minutes too many
   come off the Labels with the fewest seconds left over (the first Label on a tie), never below
   `0:00`.
 
 ### Clock time
 
-A Day's clock time (`elapsed_seconds` in JSON) is the time when any timer was running, a running one
-counted up to now. Time two timers share counts once, so with timers running side by side it is less
-than the Day's total. Time logged by hand (manual entries) counts toward the total only. A Day's clock
-time is rounded down to the minute on its own. The (i) Time Summary's clock times are the sums of
+A Day's Clock time (`elapsed_seconds` in JSON) is the time when any Timer was running, a running one
+counted up to now. Time two Timers share counts once, so with Timers running side by side it is less
+than the Day's Total. Time logged by hand (manual Entries) counts toward the Total only. A Day's Clock
+time is rounded down to the minute on its own. The (i) Time Summary's Clock times are the sums of
 their Days'.
 
 ### Editing by hand
@@ -102,5 +102,5 @@ again until you archive it once more.
 
 ## Settings
 
-Settings, the app's last-alive time and the long-running timers it has warned about are kept in the
+Settings, the app's last-alive time and the long-running Timers it has warned about are kept in the
 app's preferences (`io.github.nhall.chronobar`), not in the data folder.

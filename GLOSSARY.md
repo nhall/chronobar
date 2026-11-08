@@ -1,6 +1,6 @@
 # Chronobar
 
-A macOS menu bar time tracker whose timers run side by side, one per Label, and which AI agents start,
+A macOS menu bar time tracker whose Timers run side by side, one per Label, and which AI agents start,
 stop and correct as readily as the user does by hand.
 
 ## Time
