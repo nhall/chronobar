@@ -84,6 +84,13 @@ The stretch while the Mac slept, locked or had no input with a Timer running. Ch
 remove it, and only from Timers whose Source is `app`.
 _Avoid_: Away time, inactivity
 
+**All-or-nothing change**:
+A change Chronobar makes across one or more Days, with any Label-list writes that go with it. Every Day
+is read first, and if one won't parse or still has writes waiting for it, nothing changes and the
+refusal names that Day; otherwise every changed file is saved, or none is. Pausing, quitting and
+rollover aren't All-or-nothing changes: their writes wait until a malformed file parses.
+_Avoid_: Transaction, batch, multi-Day save
+
 **Heartbeat**:
 The app's last-alive time, recorded every minute while it runs, which bounds the Idle time offered after a crash.
 _Avoid_: Last seen, ping
