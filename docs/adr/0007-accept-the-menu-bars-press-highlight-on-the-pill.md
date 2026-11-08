@@ -2,7 +2,7 @@
 
 On macOS 27 each status item is hosted by the system's menu bar process, which draws a rounded
 highlight behind the item on mouse-down, before the app sees the press. While the Pill had a ▶/⏸ square
-that started and paused the Selected Project, that highlight behind the whole Pill looked like a
+that started and paused the selected Label, that highlight behind the whole Pill looked like a
 glitch (#28). #28 first tried to stop it from inside the app: dropping the mouse-down, a custom view
 instead of the button, a disabled button, and the expanded-interface delegate. None worked, because
 the highlight is drawn in another process. So #28 added a cover: an invisible window of the app's own,
@@ -14,7 +14,7 @@ Since #50 the Pill has no ▶/⏸; a click anywhere on it opens the Panel. A bri
 what every menu bar item that opens something shows, so the cover was hiding ordinary system feedback
 at a high cost: about 650 lines of window placement, system-wide pointer and modifier-key monitors,
 reading the window list while the pointer was over the Pill, checks to keep it off the « overflow
-chevron, neighbouring items and the band beside the camera housing, and a press rule that decided on
+chevron, neighboring items and the band beside the camera housing, and a press rule that decided on
 mouse-up whether to open the Panel and handled ⌘ itself. It still missed a second display's copy of
 the Pill, could come up late, and could eat a click meant for something else. So the cover is removed,
 and the status item handles a press as any menu bar item does: its button action opens the Panel.
@@ -42,7 +42,9 @@ So no press rule is kept: the press rule, its suite and the app's mouse-down mon
   click meant for another item or app.
 - A click with the Panel open stays closed only because its action arrives while the Panel is still
   closing. If a later macOS sends the action after the Panel has closed, the Pill would reopen it; the
-  manual checklist covers this.
-- There is no automated test for the Pill's press: the behaviour is the status item's own. The manual
+  manual checklist covers this. With Reduce Motion on, the Panel may close without animating, so the
+  action could find it already closed; that is unverified. If it reopens, the spec's fallback applies:
+  a small Core guard against reopening on the same press.
+- There is no automated test for the Pill's press: the behavior is the status item's own. The manual
   checklist is the check.
 - Don't bring the cover back to hide the highlight without reopening this decision.

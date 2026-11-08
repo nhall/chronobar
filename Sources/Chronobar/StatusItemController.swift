@@ -244,12 +244,20 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 }
 
-extension NSStatusItem {
+private extension NSStatusItem {
     /// The status item's frame on screen, and the screen it is on.
     @MainActor
     var frameOnScreen: (frame: CGRect, screen: NSScreen)? {
-        guard let button, let window = button.window, let screen = window.screen else { return nil }
-        return (window.convertToScreen(button.convert(button.bounds, to: nil)), screen)
+        guard let button, let frame = button.frameOnScreen, let screen = button.window?.screen else { return nil }
+        return (frame, screen)
+    }
+}
+
+private extension NSStatusBarButton {
+    /// The button's frame on screen, or nil while it isn't in a window.
+    var frameOnScreen: CGRect? {
+        guard let window else { return nil }
+        return window.convertToScreen(convert(bounds, to: nil))
     }
 }
 
@@ -284,9 +292,7 @@ private final class PanelAnchor: NSPanel {
     /// Covers `button` on screen, and shows. Called every second while the Panel is open, so it does
     /// nothing unless the status item moved or resized, or the anchor was hidden.
     func place(over button: NSStatusBarButton) {
-        guard let window = button.window else { return }
-        let frame = window.convertToScreen(button.convert(button.bounds, to: nil))
-        guard frame != self.frame || !isVisible else { return }
+        guard let frame = button.frameOnScreen, frame != self.frame || !isVisible else { return }
         setFrame(frame, display: false)
         orderFrontRegardless()
     }
