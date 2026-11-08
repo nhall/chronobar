@@ -46,14 +46,9 @@ public final class Operations {
     }
 
     private func start(_ label: String) throws(OperationError) -> StartResult {
-        let before = tracker.timers
-        let project = try core { try tracker.start(label, source: .agent) }
-        let paused = before.filter { !tracker.isRunning($0.project) }.map { closed($0, at: tracker.now) }
-        guard let timer = runningTimers().first(where: { ProjectName.matches($0.label, project) }) else {
-            throw OperationError(.failed, "\(project) didn't start.")
-        }
-        return StartResult(timer: timer, alreadyRunning: before.contains(project), paused: paused,
-                           today: todayResult())
+        let outcome = try core { try tracker.start(label, source: .agent) }
+        return StartResult(timer: timerResult(outcome.timer), alreadyRunning: outcome.alreadyRunning,
+                           paused: outcome.paused.map { closed($0.timer, at: $0.end) }, today: todayResult())
     }
 
     private func stop(_ label: String?) throws(OperationError) -> StopResult {
@@ -122,10 +117,13 @@ public final class Operations {
     }
 
     func runningTimers() -> [TimerResult] {
-        tracker.timers.map { timer in
-            TimerResult(label: timer.project, start: timer.start, source: timer.source,
-                        totalSeconds: totalSeconds(timer.project, on: tracker.today))
-        }
+        tracker.timers.map(timerResult)
+    }
+
+    /// `timer` with its total today.
+    func timerResult(_ timer: Running) -> TimerResult {
+        TimerResult(label: timer.project, start: timer.start, source: timer.source,
+                    totalSeconds: totalSeconds(timer.project, on: tracker.today))
     }
 
     func todayResult() -> DayResult { dayResult(tracker.today) }
