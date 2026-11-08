@@ -204,6 +204,10 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       a second alert names the broken file and the Timer keeps counting. Fix the file: within a second
       the idle alert comes back, from the idle time to when you first answered; Remove idle time keeps
       the time since that first answer.
+- [ ] Repeat, but after the second alert lock the screen and unlock it before fixing the file: no
+      alert. Fix the file: one alert, from the first idle time up to now.
+- [ ] The alert's times read as the Panel's do, with no date for a time today. Sleep with a Timer
+      running before midnight and wake after it: the start shows its date (`Nov 3, 2026 at 11:50 PM`).
 
 **Quit and crash recovery**
 
