@@ -147,17 +147,18 @@ final class DayFiles {
             return CatchUp(carried: nil, reparsed: takeReparsed())
         }
         var carried = running
-        while !carried.isEmpty, loadedDay < today {
-            let midnight = end(of: loadedDay)
-            let next = Day(containing: midnight, in: calendar)
+        // The running timers' time since the loaded Day began, one piece per Day up to today.
+        let pieces = running.isEmpty ? [] : cut(from: start(of: loadedDay), to: nil, through: today)
+        for (piece, next) in zip(pieces, pieces.dropFirst()) {
+            let midnight = next.start
             carried = carried.map { Running(project: $0.project, start: midnight, source: $0.source) }
             let opened = carried
-            try? changeOrDefer(loadedDay) { $0 = $0.map { $0.closed(at: midnight) } }
-            try? changeOrDefer(next) { entries in
+            try? changeOrDefer(piece.day) { $0 = $0.map { $0.closed(at: midnight) } }
+            try? changeOrDefer(next.day) { entries in
                 entries += opened.map { .timed(project: $0.project, start: midnight, end: nil, source: $0.source) }
             }
             // Load the new Day as written, or as its deferred writes leave it if its file won't parse.
-            move(to: next)
+            move(to: next.day)
         }
         return CatchUp(carried: carried, reparsed: load(today))
     }
