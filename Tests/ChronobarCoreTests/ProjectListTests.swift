@@ -243,7 +243,7 @@ import ChronobarCore
         try tracker.archiveProject("Garden Shed")
         let yesterday = Day("2026-11-02")!
 
-        let project = try tracker.log("GARDEN shed", "0:30", on: yesterday)
+        let project = try tracker.log("GARDEN shed", "0:30", on: yesterday).project
 
         #expect(project == "Garden Shed")
         #expect(tracker.rows(yesterday).map(\.project) == ["Garden Shed"])

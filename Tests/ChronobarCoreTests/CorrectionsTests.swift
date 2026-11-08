@@ -312,12 +312,23 @@ import ChronobarCore
         let tracker = Tracker(clock: clock, storageRoot: root)
         let yesterday = Day(year: 2026, month: 11, day: 2)
 
-        let project = try tracker.addEntry("Website Redesign", duration: "1:30", on: yesterday)
+        let project = try tracker.addEntry("Website Redesign", duration: "1:30", on: yesterday).project
 
         #expect(project == "Website Redesign")
         #expect(tracker.total("Website Redesign", on: yesterday) == 90 * 60)
         #expect(contents(dayFile(root, "2026-11-02"))?.contains(
             #"{ "project": "Website Redesign", "seconds": 5400, "note": "manual" }"#) == true)
+    }
+
+    @Test func addingADurationOnAPastDayReturnsThatDayAndTheSecondsStored() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        let past = Day(year: 2026, month: 10, day: 28)
+
+        let logged = try tracker.addEntry("Website Redesign", duration: "45", on: past)
+
+        #expect(logged.day == past)
+        #expect(logged.seconds == 45 * 60)
+        #expect(tracker.total("Website Redesign", on: past) == 45 * 60)
     }
 
     @Test func addingADurationOnAFutureDayIsRefused() throws {

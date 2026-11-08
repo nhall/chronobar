@@ -28,13 +28,11 @@ extension Operations {
                                   days: days.map(dayResult))
         case .duration(let duration, let date):
             let day = try date.map(parsedDay) ?? tracker.today
-            let project = try core { try tracker.addEntry(label, duration: duration, on: day) }
-            guard case .absolute(let seconds)? = try? DurationInput(parsing: duration) else {
-                throw OperationError(.failed, "Chronobar added \(duration) but couldn't read it back.")
-            }
-            let manual = ManualEntryResult(date: day.description, seconds: seconds,
-                                           totalSeconds: totalSeconds(project, on: day))
-            return AddEntryResult(label: project, entries: [], manual: manual, days: [dayResult(day)])
+            let logged = try core { try tracker.addEntry(label, duration: duration, on: day) }
+            let manual = ManualEntryResult(date: logged.day.description, seconds: logged.seconds,
+                                           totalSeconds: totalSeconds(logged.project, on: logged.day))
+            return AddEntryResult(label: logged.project, entries: [], manual: manual,
+                                  days: [dayResult(logged.day)])
         }
     }
 

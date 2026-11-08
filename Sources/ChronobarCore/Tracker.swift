@@ -522,10 +522,10 @@ public final class Tracker {
 
     /// Adds a typed duration (`1:30`, `45`) to the Project on `day`, past, today or future, as a manual
     /// Entry, without starting a timer. An archived Project comes back. Throws `InvalidDuration` for
-    /// anything but a positive total. Returns the Project's name with its stored spelling, the name its
-    /// row is shown under.
+    /// anything but a positive total. Returns what it stored: the Project's name with its stored spelling,
+    /// the name its row is shown under, the Day and the seconds.
     @discardableResult
-    public func log(_ name: String, _ duration: String, on day: Day) throws -> String {
+    public func log(_ name: String, _ duration: String, on day: Day) throws -> Logged {
         guard case .absolute(let seconds) = try DurationInput(parsing: duration), seconds > 0 else {
             throw InvalidDuration(text: duration)
         }
@@ -534,7 +534,7 @@ public final class Tracker {
             try files.change([day], alongWith: bringingBack) { _, entries in
                 entries.append(.manual(project: project, seconds: seconds, note: .manual))
             }
-            return project
+            return Logged(project: project, day: day, seconds: seconds)
         }
     }
 
