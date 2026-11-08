@@ -98,17 +98,14 @@ struct IdleWording {
                 + "hand in the data folder and you'll be asked again. Until then the idle time still counts.")
     }
 
-    /// "2:10 PM" on Chronobar's today, with the date on other Days.
-    private func time(_ date: Date) -> String {
-        format(date, date: Day(containing: date, in: calendar) == today ? .omitted : .abbreviated, time: .shortened)
-    }
+    private var times: TimeWording { TimeWording(calendar: calendar, today: today) }
 
-    /// `date` in the given styles, on Tracker's calendar, time zone and locale.
+    private func time(_ date: Date) -> String { times.time(date) }
+
     private func format(_ date: Date, date dateStyle: Date.FormatStyle.DateStyle,
                         time timeStyle: Date.FormatStyle.TimeStyle) -> String {
-        date.formatted(Date.FormatStyle(date: dateStyle, time: timeStyle, locale: locale, calendar: calendar,
-                                        timeZone: calendar.timeZone))
+        times.format(date, date: dateStyle, time: timeStyle)
     }
 
-    private var locale: Locale { calendar.locale ?? .autoupdatingCurrent }
+    private var locale: Locale { times.locale }
 }
