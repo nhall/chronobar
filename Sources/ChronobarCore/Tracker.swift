@@ -22,7 +22,10 @@ public final class Tracker {
     /// The clock's time at the last command or `tick()`. Totals of a running timer count up to here.
     public private(set) var now: Date
     /// Idle time to ask about with the idle alert; cleared by `resolveIdle`.
-    public private(set) var pendingIdle: PendingIdle?
+    public var pendingIdle: PendingIdle? { pending?.idle }
+    /// The pending Idle time, and whether Core holds it (after crash recovery or a refused removal) rather
+    /// than only having had it reported, so it's asked about even with no timer started in the app running.
+    private var pending: (idle: PendingIdle, held: Bool)?
 
     @ObservationIgnored private let clock: TimeSource
     /// When this Tracker was made, and the Heartbeat the last run left: an Entry still open from before
@@ -41,8 +44,6 @@ public final class Tracker {
     @ObservationIgnored private var awaySince: Date?
     /// Whether `takeIdleQuestion()` handed out a question `resolveIdle` hasn't answered yet.
     @ObservationIgnored private var idleQuestionOut = false
-    /// Whether `pendingIdle` holds Idle time from crash recovery or a refused removal, not only reports.
-    @ObservationIgnored private var idleHeld = false
 
     private static let heartbeatKey = "heartbeat"
     private static let warnedKey = "longRunningWarned"
@@ -231,8 +232,9 @@ public final class Tracker {
 
     /// Clears `pendingIdle.blockedBy` once that Day's file parses and its deferred writes have landed.
     private func unblockPendingIdle() {
-        guard let idle = pendingIdle, let day = idle.blockedBy, (try? files.checkReadable(day)) != nil else { return }
-        pendingIdle = PendingIdle(since: idle.since, until: idle.until)
+        guard case let (idle, held)? = pending, let day = idle.blockedBy, (try? files.checkReadable(day)) != nil
+        else { return }
+        pending = (PendingIdle(since: idle.since, until: idle.until), held)
     }
 
     // MARK: Idle time
@@ -274,9 +276,9 @@ public final class Tracker {
     /// `pendingIdle` once no Day blocks it and no question is out, while a timer started in the app runs or
     /// for Idle time Core holds. Idle time only reported, with no such timer left to cut, is dropped.
     public func takeIdleQuestion() -> IdleQuestion? {
-        guard !idleQuestionOut, let idle = pendingIdle, idle.blockedBy == nil else { return nil }
+        guard !idleQuestionOut, case let (idle, held)? = pending, idle.blockedBy == nil else { return nil }
         let labels = appTimers.map(\.project)
-        guard !labels.isEmpty || idleHeld else {
+        guard !labels.isEmpty || held else {
             clearPendingIdle()
             return nil
         }
@@ -362,16 +364,15 @@ public final class Tracker {
     /// up to now and otherwise to the later end, still blocked if it was. `held` is for Idle time Core holds
     /// (after a crash, or a refused removal), asked about even with no timer started in the app running.
     private func noteIdle(_ idle: PendingIdle, held: Bool) {
-        idleHeld = idleHeld || held
-        guard let pendingIdle else { return self.pendingIdle = idle }
-        let until = pendingIdle.until.flatMap { a in idle.until.map { max(a, $0) } }
-        self.pendingIdle = PendingIdle(since: min(pendingIdle.since, idle.since), until: until,
-                                       blockedBy: pendingIdle.blockedBy ?? idle.blockedBy)
+        guard let pending else { return self.pending = (idle, held) }
+        let until = pending.idle.until.flatMap { a in idle.until.map { max(a, $0) } }
+        self.pending = (PendingIdle(since: min(pending.idle.since, idle.since), until: until,
+                                    blockedBy: pending.idle.blockedBy ?? idle.blockedBy),
+                        pending.held || held)
     }
 
     private func clearPendingIdle() {
-        pendingIdle = nil
-        idleHeld = false
+        pending = nil
     }
 
     /// The newest past Day whose file has a timed Entry, with its Entries. Malformed Days are skipped.
@@ -410,8 +411,7 @@ public final class Tracker {
             }
         } catch let error as MalformedDayFile {
             let since = min(idleStart, pendingIdle?.since ?? idleStart)
-            pendingIdle = PendingIdle(since: since, until: idleEnd ?? now, blockedBy: error.day)
-            idleHeld = true
+            pending = (PendingIdle(since: since, until: idleEnd ?? now, blockedBy: error.day), held: true)
             throw error
         } catch {
             // A Day that couldn't be saved: asked once, as for any answer, rather than every second.
