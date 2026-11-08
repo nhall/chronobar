@@ -89,7 +89,12 @@ Chronobar has never seen (`unknown_label`), and leaves a running timer running.
 ```
 
 Times are ISO 8601 with a UTC offset, as stored in the Day files. Totals are whole seconds:
-`total_seconds`, and `elapsed_seconds` for Clock time.
+`total_seconds`, and `elapsed_seconds` for Clock time. Beside them are the hours and minutes the Panel
+and the text output show: every Day's totals, and a week's totals, have `total_minutes` and
+`elapsed_minutes`, and `day`'s rows and `week`'s Labels have `total_minutes`. These add up: a Day's
+rows to its Total, a week's Days and its Labels to the week's. So a row's minutes can be one more than
+its seconds rounded down, and a week's `total_minutes` can be a few minutes less than its
+`total_seconds` rounded down.
 
 The exit status is:
 
@@ -104,6 +109,11 @@ Error kinds: `invalid_request`, `unknown_operation`, `invalid_label`, `unknown_l
 `not_running`, `nothing_running`, `ambiguous`, `future_time`, `end_before_start`, `overlap`,
 `invalid_duration` and `malformed_file`. Over MCP there is also `no_session_timer` (see
 [Connecting agents](connecting-agents.md#which-timer-stop-the-timer-means)).
+
+`version_mismatch` (exit status 1) means the running app is a different version from `chronobar`,
+usually older because it kept running through `brew upgrade`, so the command can't read its answer.
+Quit Chronobar and run the command again. With `--json` the command prints the app's answer as it came
+and exits as that answer says, so a script still gets it, and gives the error on standard error.
 
 ## Global options
 

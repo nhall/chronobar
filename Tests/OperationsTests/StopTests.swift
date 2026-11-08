@@ -21,7 +21,7 @@ import ChronobarOperations
                                              end: clock.date("2026-11-03T10:15:00"), source: .agent,
                                              totalSeconds: 75 * 60))
         #expect(stopped.running.map(\.label) == ["Internal"])
-        #expect(stopped.today == DayResult(date: "2026-11-03", totalSeconds: 150 * 60, elapsedSeconds: 75 * 60))
+        #expect(stopped.today == DayResult(date: "2026-11-03", totalSeconds: 150 * 60, totalMinutes: 150, elapsedSeconds: 75 * 60, elapsedMinutes: 75))
         #expect(contents(dayFile(root, "2026-11-03")).contains(
             #""start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:15:00-05:00", "source": "agent" }"#))
         #expect(tracker.timers.map(\.project) == ["Internal"])

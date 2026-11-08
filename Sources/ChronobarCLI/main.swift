@@ -11,8 +11,10 @@ enum ExitCode {
     static let usage: Int32 = 2
     static let unreachable: Int32 = 3
 
-    static func of(_ error: OperationError) -> Int32 {
-        switch error.kind {
+    static func of(_ error: OperationError) -> Int32 { of(error.kind) }
+
+    static func of(_ kind: OperationError.Kind) -> Int32 {
+        switch kind {
         case .usage: usage
         case .appUnreachable: unreachable
         default: refused
@@ -54,9 +56,14 @@ func run(_ invocation: Invocation) async throws(OperationError) {
         }
         let response: Response
         do {
-            response = try Wire.response(from: reply)
+            response = try Reply.read(reply, from: copy)
         } catch {
-            throw OperationError(.failed, "\(copy.name) sent an answer this command can't read: \(error)")
+            // `--json` prints the reply as it came, so an older app's answer still serves a script, and
+            // says on standard error what to do.
+            guard json, error.kind == .versionMismatch, let status = Reply.exitStatus(of: reply) else { throw error }
+            FileHandle.standardError.write(Data("chronobar: \(error.message)\n".utf8))
+            FileHandle.standardOutput.write(reply + Data("\n".utf8))
+            exit(status)
         }
         switch response {
         case .success(let result):

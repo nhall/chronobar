@@ -5,53 +5,37 @@ import ChronobarCore
 /// `labels`, `pin` and `archive`.
 extension Operations {
     func day(_ date: String?) throws(OperationError) -> DayRowsResult {
-        let day = try date.map(parsedDay) ?? tracker.today
+        let sheet = tracker.daySheet(try date.map(parsedDay) ?? tracker.today)
         return DayRowsResult(
-            day: dayResult(day),
-            rows: tracker.rows(day).map { row in
-                RowResult(label: row.project, totalSeconds: seconds(row.total),
-                          running: day == tracker.today && tracker.isRunning(row.project))
+            day: dayResult(sheet),
+            rows: sheet.rows.map { row in
+                RowResult(label: row.project, totalSeconds: row.time.seconds, totalMinutes: row.time.minutes,
+                          running: row.isRunning)
             },
-            malformed: tracker.isMalformed(day))
+            malformed: sheet.isMalformed)
     }
 
     func week(_ date: String?) throws(OperationError) -> WeekResult {
-        let days = tracker.weekTotals(containing: try date.map(parsedDay) ?? tracker.today).map(\.day)
-        var labels: [LabelTotalResult] = []
-        for row in days.flatMap(tracker.rows) {
-            if let index = labels.firstIndex(where: { ProjectName.matches($0.label, row.project) }) {
-                labels[index] = LabelTotalResult(label: labels[index].label,
-                                                 totalSeconds: labels[index].totalSeconds + seconds(row.total))
-            } else {
-                labels.append(LabelTotalResult(label: row.project, totalSeconds: seconds(row.total)))
-            }
-        }
-        let results = days.map(dayResult)
-        return WeekResult(first: days[0].description, last: days[6].description,
-                          totalSeconds: results.map(\.totalSeconds).reduce(0, +),
-                          elapsedSeconds: results.map(\.elapsedSeconds).reduce(0, +),
-                          days: results, labels: labels,
-                          malformed: days.filter(tracker.isMalformed).map(\.description))
+        let sheet = tracker.weekSheet(containing: try date.map(parsedDay) ?? tracker.today)
+        return WeekResult(first: sheet.first.description, last: sheet.last.description,
+                          totalSeconds: sheet.total.seconds, totalMinutes: sheet.total.minutes,
+                          elapsedSeconds: sheet.clockTime.seconds, elapsedMinutes: sheet.clockTime.minutes,
+                          days: sheet.days.map(dayResult),
+                          labels: sheet.lines.map { line in
+                              LabelTotalResult(label: line.project, totalSeconds: line.time.seconds,
+                                               totalMinutes: line.time.minutes)
+                          },
+                          malformed: sheet.malformed.map(\.description))
     }
 
     func summary() -> SummaryResult {
-        let summary = tracker.summary()
-        let calendar = tracker.calendar
-        let today = tracker.today
-        let yesterday = today.adding(days: -1, in: calendar)
-        let week = today.startOfWeek(in: calendar)
-        let days = calendar.range(of: .day, in: .month, for: today.noon(in: calendar))!
-        func period(_ first: Day, _ last: Day, _ total: TimeInterval, _ elapsed: TimeInterval) -> PeriodResult {
-            PeriodResult(first: first.description, last: last.description, totalSeconds: seconds(total),
-                         elapsedSeconds: seconds(elapsed))
+        let periods = tracker.summaryPeriods()
+        func period(_ period: SummaryPeriod) -> PeriodResult {
+            PeriodResult(first: period.first.description, last: period.last.description,
+                         totalSeconds: seconds(period.total), elapsedSeconds: seconds(period.elapsed))
         }
-        return SummaryResult(
-            today: period(today, today, summary.today, summary.elapsed.today),
-            yesterday: period(yesterday, yesterday, summary.yesterday, summary.elapsed.yesterday),
-            week: period(week, week.adding(days: 6, in: calendar), summary.week, summary.elapsed.week),
-            month: period(Day(year: today.year, month: today.month, day: days.lowerBound),
-                          Day(year: today.year, month: today.month, day: days.upperBound - 1),
-                          summary.month, summary.elapsed.month))
+        return SummaryResult(today: period(periods.today), yesterday: period(periods.yesterday),
+                             week: period(periods.week), month: period(periods.month))
     }
 
     func labels(_ query: String?) -> LabelsResult {
@@ -106,9 +90,13 @@ extension Operations {
         return day
     }
 
-    /// `day`'s date, Day total and Elapsed time.
+    /// `day`'s date, Day total and Clock time, as its Day sheet has them.
     func dayResult(_ day: Day) -> DayResult {
-        DayResult(date: day.description, totalSeconds: seconds(tracker.dayTotal(day)),
-                  elapsedSeconds: seconds(tracker.elapsed(day)))
+        dayResult(tracker.daySheet(day))
+    }
+
+    private func dayResult(_ sheet: DaySheet) -> DayResult {
+        DayResult(date: sheet.day.description, totalSeconds: sheet.total.seconds, totalMinutes: sheet.total.minutes,
+                  elapsedSeconds: sheet.clockTime.seconds, elapsedMinutes: sheet.clockTime.minutes)
     }
 }

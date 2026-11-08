@@ -21,7 +21,8 @@ import ChronobarOperations
         #expect(started["timer"] == ["label": "Website Redesign", "start": "2026-11-03T09:00:00-05:00",
                                      "source": "agent", "total_seconds": 0])
         #expect(started["already_running"] == false)
-        #expect(started["today"] == ["date": "2026-11-03", "total_seconds": 0, "elapsed_seconds": 0])
+        #expect(started["today"] == ["date": "2026-11-03", "total_seconds": 0, "total_minutes": 0,
+                                     "elapsed_seconds": 0, "elapsed_minutes": 0])
         #expect(tracker.timers.map(\.project) == ["Website Redesign"])
     }
 
@@ -33,7 +34,8 @@ import ChronobarOperations
 
         let week = try mcp.result("week", ["date": "2026-11-03"])
 
-        #expect(week["labels"] == [["label": "Website Redesign", "total_seconds": 9000]])
+        #expect(week["labels"] == [["label": "Website Redesign", "total_seconds": 9000, "total_minutes": 150]])
+        #expect(week["total_minutes"] == 150)
         #expect(week["first"] == "2026-11-01")
     }
 
@@ -73,6 +75,18 @@ import ChronobarOperations
         #expect(error.kind == "end_before_start")
         #expect(!error.text.isEmpty)
         #expect(error.text == error.structuredContent?.objectValue?["message"]?.stringValue)
+    }
+
+    /// An app older than `chronobar mcp`, kept running through an upgrade, answers without a field the
+    /// server needs: the agent is told to have the user quit it, not how decoding failed.
+    @Test func anOlderAppsReplyIsAToolErrorSayingSo() throws {
+        let older = Data(#"{"ok":true,"op":"status","result":{"timers":[],"today":{"date":"2026-11-03"}}}"#.utf8)
+        let mcp = MCPSession { _ in try Reply.read(older, from: .everyday) }
+
+        let error = try #require(mcp.error("status"))
+
+        #expect(error.kind == "version_mismatch")
+        #expect(error.text == "The running Chronobar is older than this command. Quit Chronobar and run the command again.")
     }
 
     @Test func aRefusalAboutTimersListsTheRunningOnes() throws {

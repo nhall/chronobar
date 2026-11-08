@@ -253,11 +253,6 @@ public final class ChannelClient {
 
     deinit { close(fd) }
 
-    /// Sends `request` and waits for the app's answer.
-    public func send(_ request: Request) throws -> Response {
-        try Wire.response(from: send(line: Wire.encode(request)))
-    }
-
     /// Sends one request line, newline included, and returns the response line without its newline.
     public func send(line: Data) throws -> Data {
         try Channel.write(line, to: fd)

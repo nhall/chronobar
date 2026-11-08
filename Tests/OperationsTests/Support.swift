@@ -43,6 +43,13 @@ func dayFile(_ root: URL, _ date: String) -> URL {
     root.appendingPathComponent("days/\(date).json")
 }
 
+/// Writes a Day file with the given Entry lines, as a hand edit would.
+func write(_ root: URL, _ date: String, _ entries: String) throws {
+    let url = dayFile(root, date)
+    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try "{\n  \"date\": \"\(date)\",\n  \"entries\": [\n\(entries)\n  ]\n}\n".write(to: url, atomically: true, encoding: .utf8)
+}
+
 func contents(_ url: URL) -> String {
     (try? String(contentsOf: url, encoding: .utf8)) ?? ""
 }

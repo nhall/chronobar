@@ -109,7 +109,7 @@ struct PanelView: View {
         let today = tracker.today
         let day = panel.viewedDay ?? today
         let isToday = day == today
-        let rows = tracker.rows(day)
+        let sheet = tracker.daySheet(day)
         PanelStack(available: panel.availableHeight - 2 * Self.padding) {
             HStack {
                 Button(action: showToday) {
@@ -170,7 +170,7 @@ struct PanelView: View {
                 .help("Settings, data folder and Quit")
                 .accessibilityHint("Settings, data folder and Quit")
             }
-            if tracker.isMalformed(day) {
+            if sheet.isMalformed {
                 Label("This Day's file can't be read, so changes to it are refused. Fix it by hand in the data folder.",
                       systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
@@ -199,20 +199,18 @@ struct PanelView: View {
                         .help(PanelCommand.today.help(Self.backToToday))
                 }
             }
-            if rows.isEmpty {
+            if sheet.rows.isEmpty {
                 Text("No time tracked").foregroundStyle(.secondary)
             } else {
                 // Above the rows, out of the title row, which a long past Day's title and two-digit hours
-                // would crowd. An empty Day has none: "No time tracked" says it.
-                DayTotalLineView(line: DayTotalLine(total: tracker.dayTotal(day), elapsed: tracker.elapsed(day)))
-                // The rows' minutes add up to the Total line's, which is the Day total rounded down.
-                let minutes = RowMinutes(seconds: rows.map(\.total)).rows
+                // would crowd. An empty Day has none: "No time tracked" says it. The rows' minutes add up
+                // to the Total line's (`DaySheet`).
+                DayTotalLineView(line: DayTotalLine(total: TimeInterval(sheet.total.seconds),
+                                                    elapsed: TimeInterval(sheet.clockTime.seconds)))
                 RowList(panel: panel) {
-                    ForEach(Array(zip(rows, minutes)), id: \.0.project) { row, minutes in
+                    ForEach(sheet.rows, id: \.project) { row in
                         // Only today's rows run or have ▶/⏸; any other Day's rows are just totals.
-                        RowView(row: row, minutes: minutes, isRunning: isToday && tracker.isRunning(row.project),
-                                source: tracker.timers[row.project]?.source ?? .app,
-                                canStart: isToday, panel: panel,
+                        RowView(row: row, canStart: isToday, panel: panel,
                                 toggle: { actions.toggle(row.project) },
                                 adjust: {
                                     if actions.adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
@@ -463,12 +461,9 @@ private struct RowList<Rows: View>: View {
 /// it while it runs; rows on any other Day have neither. Clicking the time types over it: a new total
 /// (`1:15`) or a change (`+15`, `-10`). Return applies it, Escape cancels.
 private struct RowView: View {
-    let row: Row
-    /// The row's share of the Total line's minutes (`RowMinutes`).
-    let minutes: Int
-    let isRunning: Bool
-    /// Who started the running timer: an agent's gets a terminal icon after the name.
-    let source: EntrySource
+    /// With its share of the Total line's minutes, and who started its running timer: an agent's gets a
+    /// terminal icon after the name.
+    let row: DaySheet.Row
     let canStart: Bool
     @Bindable var panel: PanelModel
     let toggle: () -> Void
@@ -486,7 +481,7 @@ private struct RowView: View {
     static let horizontalPadding: CGFloat = 6
 
     var body: some View {
-        let presentation = RowPresentation(row: row, minutes: minutes, isRunning: isRunning, source: source)
+        let presentation = RowPresentation(row)
         HStack {
             Text(row.project).lineLimit(1)
                 .accessibilityLabel(presentation.nameLabel)

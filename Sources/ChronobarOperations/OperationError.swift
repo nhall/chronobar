@@ -35,6 +35,9 @@ public struct OperationError: Error, Codable, Equatable, Sendable {
         case noSessionTimer = "no_session_timer"
         /// The app couldn't be reached or launched. Only the `chronobar` command reports this.
         case appUnreachable = "app_unreachable"
+        /// The app answered with a reply the command can't read: it is another version, usually older, as
+        /// when it kept running through an upgrade. Only the `chronobar` command and `chronobar mcp` report this.
+        case versionMismatch = "version_mismatch"
         /// The `chronobar` command was called with arguments it doesn't take. Only it reports this.
         case usage
         /// Anything else, such as a write the disk refused.

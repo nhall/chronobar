@@ -7,12 +7,16 @@ public struct RowResult: Codable, Equatable, Sendable {
     public let label: String
     /// The Label's total on the Day, never below zero; a running timer counted up to now.
     public let totalSeconds: Int
+    /// The minutes the row shows: its share of the Day total's minutes, so the rows add up to it. Can be a
+    /// minute more than `totalSeconds` rounded down.
+    public let totalMinutes: Int
     /// Whether the Label's timer is running.
     public let running: Bool
 
-    public init(label: String, totalSeconds: Int, running: Bool) {
+    public init(label: String, totalSeconds: Int, totalMinutes: Int, running: Bool) {
         self.label = label
         self.totalSeconds = totalSeconds
+        self.totalMinutes = totalMinutes
         self.running = running
     }
 }
@@ -138,10 +142,14 @@ public struct LabelTotalResult: Codable, Equatable, Sendable {
     public let label: String
     /// The sum of the Label's total on each Day, each rounded down to the second.
     public let totalSeconds: Int
+    /// The minutes the Label's week line shows: its share of the week's `totalMinutes`, so the Labels'
+    /// lines add up to it.
+    public let totalMinutes: Int
 
-    public init(label: String, totalSeconds: Int) {
+    public init(label: String, totalSeconds: Int, totalMinutes: Int) {
         self.label = label
         self.totalSeconds = totalSeconds
+        self.totalMinutes = totalMinutes
     }
 }
 
@@ -152,7 +160,12 @@ public struct WeekResult: Codable, Equatable, Sendable {
     public let last: String
     /// The sum of the Days' totals, and of their Elapsed time.
     public let totalSeconds: Int
+    /// The sum of the Days' `totalMinutes`, so the Day lines add up to the week's: a few minutes less than
+    /// `totalSeconds` rounded down at most.
+    public let totalMinutes: Int
     public let elapsedSeconds: Int
+    /// The sum of the Days' `elapsedMinutes`.
+    public let elapsedMinutes: Int
     /// Each of the seven Days with its Day total and Elapsed time, first to last.
     public let days: [DayResult]
     /// One per Label with Entries in the week, in the order each first appears, with its week total.
@@ -160,12 +173,14 @@ public struct WeekResult: Codable, Equatable, Sendable {
     /// The Days whose file won't parse, so they read as empty; `YYYY-MM-DD`.
     public let malformed: [String]
 
-    public init(first: String, last: String, totalSeconds: Int, elapsedSeconds: Int, days: [DayResult],
-                labels: [LabelTotalResult], malformed: [String]) {
+    public init(first: String, last: String, totalSeconds: Int, totalMinutes: Int, elapsedSeconds: Int,
+                elapsedMinutes: Int, days: [DayResult], labels: [LabelTotalResult], malformed: [String]) {
         self.first = first
         self.last = last
         self.totalSeconds = totalSeconds
+        self.totalMinutes = totalMinutes
         self.elapsedSeconds = elapsedSeconds
+        self.elapsedMinutes = elapsedMinutes
         self.days = days
         self.labels = labels
         self.malformed = malformed

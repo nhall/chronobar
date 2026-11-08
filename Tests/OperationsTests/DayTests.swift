@@ -21,12 +21,27 @@ import ChronobarOperations
         let day = try Operations(tracker: tracker).day("2026-11-03")
 
         #expect(day.rows == [
-            RowResult(label: "Website Redesign", totalSeconds: 90 * 60, running: false),
-            RowResult(label: "Internal", totalSeconds: 60 * 60, running: true),
-            RowResult(label: "Client Call", totalSeconds: 15 * 60, running: false),
+            RowResult(label: "Website Redesign", totalSeconds: 90 * 60, totalMinutes: 90, running: false),
+            RowResult(label: "Internal", totalSeconds: 60 * 60, totalMinutes: 60, running: true),
+            RowResult(label: "Client Call", totalSeconds: 15 * 60, totalMinutes: 15, running: false),
         ])
-        #expect(day.day == DayResult(date: "2026-11-03", totalSeconds: 165 * 60, elapsedSeconds: 120 * 60))
+        #expect(day.day == DayResult(date: "2026-11-03", totalSeconds: 165 * 60, totalMinutes: 165, elapsedSeconds: 120 * 60, elapsedMinutes: 120))
         #expect(day.malformed == false)
+    }
+
+    /// The minutes the Panel shows, so an agent can quote them: 2:08:45 and 1:08:49 as 2:08 and 1:09
+    /// under Total 3:17.
+    @Test func dayGivesEachRowTheMinutesThePanelShows() throws {
+        try write(root, "2026-11-03", """
+            { "project": "Garden Shed", "seconds": 7725, "note": "manual" },
+            { "project": "Two", "seconds": 4129, "note": "manual" }
+        """)
+
+        let day = try Operations(tracker: Tracker(clock: clock, storageRoot: root)).day()
+
+        #expect(day.rows.map(\.totalMinutes) == [128, 69])
+        #expect(day.day.totalMinutes == 197)
+        #expect(day.day.elapsedMinutes == 0)
     }
 
     @Test func dayReadsThePastDayItNames() throws {
@@ -37,8 +52,8 @@ import ChronobarOperations
 
         let day = try Operations(tracker: tracker).day("2026-11-02")
 
-        #expect(day.rows == [RowResult(label: "Website Redesign", totalSeconds: 2 * 3600, running: false)])
-        #expect(day.day == DayResult(date: "2026-11-02", totalSeconds: 2 * 3600, elapsedSeconds: 0))
+        #expect(day.rows == [RowResult(label: "Website Redesign", totalSeconds: 2 * 3600, totalMinutes: 120, running: false)])
+        #expect(day.day == DayResult(date: "2026-11-02", totalSeconds: 2 * 3600, totalMinutes: 120, elapsedSeconds: 0, elapsedMinutes: 0))
     }
 
     /// A timer runs today only, so yesterday's row for the same Label isn't running.
@@ -67,7 +82,7 @@ import ChronobarOperations
         let day = try Operations(tracker: Tracker(clock: clock, storageRoot: root)).day("2026-10-01")
 
         #expect(day.rows.isEmpty)
-        #expect(day.day == DayResult(date: "2026-10-01", totalSeconds: 0, elapsedSeconds: 0))
+        #expect(day.day == DayResult(date: "2026-10-01", totalSeconds: 0, totalMinutes: 0, elapsedSeconds: 0, elapsedMinutes: 0))
     }
 
     @Test(arguments: ["yesterday", "2026-11-31", "2026-13-01", "3 Nov", ""])

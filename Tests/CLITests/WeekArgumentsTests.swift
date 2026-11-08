@@ -18,11 +18,14 @@ import ChronobarOperations
 
     @Test func weekTextListsTheDaysThenEachLabelsTotal() {
         let week = WeekResult(
-            first: "2026-11-01", last: "2026-11-07", totalSeconds: 210 * 60, elapsedSeconds: 3600,
-            days: [DayResult(date: "2026-11-01", totalSeconds: 2 * 3600, elapsedSeconds: 3600),
-                   DayResult(date: "2026-11-02", totalSeconds: 90 * 60, elapsedSeconds: 0)],
-            labels: [LabelTotalResult(label: "Website Redesign", totalSeconds: 150 * 60),
-                     LabelTotalResult(label: "Internal", totalSeconds: 3600)],
+            first: "2026-11-01", last: "2026-11-07", totalSeconds: 210 * 60, totalMinutes: 210,
+            elapsedSeconds: 3600, elapsedMinutes: 60,
+            days: [DayResult(date: "2026-11-01", totalSeconds: 2 * 3600, totalMinutes: 120, elapsedSeconds: 3600,
+                             elapsedMinutes: 60),
+                   DayResult(date: "2026-11-02", totalSeconds: 90 * 60, totalMinutes: 90, elapsedSeconds: 0,
+                             elapsedMinutes: 0)],
+            labels: [LabelTotalResult(label: "Website Redesign", totalSeconds: 150 * 60, totalMinutes: 150),
+                     LabelTotalResult(label: "Internal", totalSeconds: 3600, totalMinutes: 60)],
             malformed: ["2026-11-02"])
 
         #expect(Output.text(.week(week)) == """

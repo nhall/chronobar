@@ -2,9 +2,22 @@ import Foundation
 import ChronobarCore
 import ChronobarOperations
 
+/// Where tests point the command instead of the app's socket. With it set the command never launches the
+/// app, so a test with nothing listening there can't start the real one.
+let socketOverrideKey = "CHRONOBAR_SOCKET"
+
 /// Reaches `copy` of the app over its socket, launching it by bundle ID if nothing answers there, then
-/// waiting up to `wait` for it to start listening.
-func connect(to copy: BuildVariant.Copy, wait: TimeInterval = 10) throws(OperationError) -> ChannelClient {
+/// waiting up to `wait` for it to start listening. With `CHRONOBAR_SOCKET` set, reaches that socket only.
+func connect(to copy: BuildVariant.Copy, wait: TimeInterval = 10,
+             environment: [String: String] = ProcessInfo.processInfo.environment) throws(OperationError)
+    -> ChannelClient {
+    if let path = environment[socketOverrideKey] {
+        do {
+            return try ChannelClient(url: URL(fileURLWithPath: path))
+        } catch {
+            throw OperationError(.appUnreachable, "Nothing answered on \(path) (\(socketOverrideKey)): \(error)")
+        }
+    }
     let url = Channel.socketURL(of: copy)
     do {
         return try ChannelClient(url: url)
