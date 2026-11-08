@@ -66,21 +66,21 @@ app. The full path works in the other clients too, if one can't find `chronobar`
 - "Add a line item for the hour that took us."
 - "How much time went to Northwind this week?"
 
-Each Timer belongs to a Label, the name you file time under, and an agent addresses Timers by Label.
+Each timer belongs to a Label, the name you file time under, and an agent addresses timers by Label.
 Timers an agent starts are marked in the Panel (the window under Chronobar's menu bar item, the Pill)
 with a small terminal icon ("Started by an agent; not
 paused for idle time"), and the Day file records them with `"source": "agent"`.
 
 ## Tools
 
-The server offers a tool for each [command](command-line.md), with the same rules, except which Timer a bare `stop` or `set_start` means (see below):
+The server offers a tool for each [command](command-line.md), with the same rules, except which timer a bare `stop` or `set_start` means (see below):
 
 | Tool | Does |
 |---|---|
-| `status` | Lists the running Timers and today's totals. |
-| `start` | Starts a Timer for a Label, or keeps the one it has. |
-| `stop` | Stops a Timer, now or back at a given time. |
-| `set_start` | Moves a running Timer's start. |
+| `status` | Lists the running timers and today's totals. |
+| `start` | Starts a timer for a Label, or keeps the one it has. |
+| `stop` | Stops a timer, now or back at a given time. |
+| `set_start` | Moves a running timer's start. |
 | `add_entry` | Adds a finished line item, by start and end or by duration on a Day. |
 | `adjust` | Sets or changes a Label's total on a Day. |
 | `day` | Reads a Day's rows, Total and Clock time. |
@@ -91,21 +91,21 @@ The server offers a tool for each [command](command-line.md), with the same rule
 | `pin` | Keeps a Label in the suggestions. |
 
 Each tool returns the stored times and totals as structured JSON, so the agent can tell you exactly what
-was recorded. A refusal is a tool error with its message and, where it helps, the running Timers.
-Times are ISO 8601 with an offset; `elapsed_seconds` is the Clock time: how long any Timer was
+was recorded. A refusal is a tool error with its message and, where it helps, the running timers.
+Times are ISO 8601 with an offset; `elapsed_seconds` is the Clock time: how long any timer was
 running, counting overlaps once.
 
-## Which Timer "stop the timer" means
+## Which timer "stop the timer" means
 
 Each session runs its own server, which remembers the Labels that session started (a `start` that found
 the Label already running doesn't count). `stop` and `set_start` with no Label act on that session's
-Timer, whatever else is running. If it started several that are still running, or none, they change
-nothing and list the running Timers (`ambiguous` or `no_session_timer`), so the agent asks which.
+timer, whatever else is running. If it started several that are still running, or none, they change
+nothing and list the running timers (`ambiguous` or `no_session_timer`), so the agent asks which.
 
-Any session can stop any Timer by name. Closing a session leaves its Timers running; the long-running
+Any session can stop any timer by name. Closing a session leaves its timers running; the long-running
 warning catches one that's forgotten.
 
 ## Away from the keyboard
 
-Idle detection applies only to Timers started in the app, and quitting Chronobar leaves agents' Timers
+Idle detection applies only to timers started in the app, and quitting Chronobar leaves agents' timers
 running. See [Using the app](app.md#idle-quitting-and-long-running-timers).

@@ -39,14 +39,14 @@ Each Day is one JSON file with one Entry per line:
 - `date` must match the file name. `project` holds the Entry's Label (the key keeps its older name so
   older files load unchanged).
 - A **timed** Entry has `start` and `end` as ISO 8601 times with a UTC offset, to the second. `end` is
-  `null` only for a running Timer, at most one per Label. `source` says who started it: `"app"` or
+  `null` only for a running timer, at most one per Label. `source` says who started it: `"app"` or
   `"agent"`. Chronobar always writes it; an Entry without it, as in older files, is the app's.
 - A **manual** Entry has a whole number of `seconds`, negative for subtractions. `note` is `manual`
   for time logged with ＋ and `adjustment` for a corrected total; it is a marker, not free text.
 - Any Day can have a file, past or future: time logged ahead, such as a vacation, goes in that Day's
   file in the same format. Timers run only today, so a Day ahead holds only manual Entries until it
   arrives.
-- Every Timer running past midnight is split: the old Day's Entry ends at the start of the new Day and
+- Every timer running past midnight is split: the old Day's Entry ends at the start of the new Day and
   a new Entry starts in the new Day's file.
 
 ### Totals
@@ -67,8 +67,8 @@ Each Day is one JSON file with one Entry per line:
 
 ### Clock time
 
-A Day's Clock time (`elapsed_seconds` in JSON) is the time when any Timer was running, a running one
-counted up to now. Time two Timers share counts once, so with Timers running side by side it is less
+A Day's Clock time (`elapsed_seconds` in JSON) is the time when any timer was running, a running one
+counted up to now. Time two timers share counts once, so with timers running side by side it is less
 than the Day's Total. Time logged by hand (manual Entries) counts toward the Total only. A Day's Clock
 time is rounded down to the minute on its own. The (i) Time Summary's Clock times are the sums of
 their Days'.
@@ -102,5 +102,5 @@ again until you archive it once more.
 
 ## Settings
 
-Settings, the app's last-alive time and the long-running Timers it has warned about are kept in the
+Settings, the app's last-alive time and the long-running timers it has warned about are kept in the
 app's preferences (`io.github.nhall.chronobar`), not in the data folder.

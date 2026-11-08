@@ -37,9 +37,9 @@ without a Gatekeeper warning. You don't need an Apple Developer account.
 
 ## First run
 
-Click the Pill, the `0 0:00` in the menu bar: it shows how many Timers are running and today's Total.
+Click the Pill, the `0 0:00` in the menu bar: it shows how many timers are running and today's Total.
 The Panel opens under it. Click ＋, type a Label (the name you file the time under, such as
-"Northwind, Ticket 665") and press Return: its Timer starts and the Pill counts it. Each row's ⏸ pauses that Timer, and ▶ starts it again. Turn on
+"Northwind, Ticket 665") and press Return: its timer starts and the Pill counts it. Each row's ⏸ pauses that timer, and ▶ starts it again. Turn on
 Start at login in Settings (⚙) if you want Chronobar in the menu bar every day.
 
 To let your agents drive it, see [Connecting agents](connecting-agents.md).
