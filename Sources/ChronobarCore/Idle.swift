@@ -83,7 +83,6 @@ struct IdleWording {
     let today: Day
 
     func message(since: Date, until: Date?, labels: [String]) -> String {
-        // One alert for every app timer; each choice applies to all of them.
         let running = labels.formatted(.list(type: .and).locale(locale))
         let verb = labels.count == 1 ? "is" : "are"
         if let until {
@@ -97,9 +96,7 @@ struct IdleWording {
     /// Says which Day file stopped the removal.
     func refusal(_ error: MalformedDayFile) -> IdleRefusal {
         let day = error.day
-        let date = day.noon(in: calendar).formatted(
-            Date.FormatStyle(date: .complete, time: .omitted, locale: locale, calendar: calendar,
-                             timeZone: calendar.timeZone))
+        let date = format(day.noon(in: calendar), date: .complete, time: .omitted)
         return IdleRefusal(
             title: "The idle time wasn't removed",
             text: "The file for \(date) (days/\(day).json) can't be read, so it can't be changed. Fix it by "
@@ -108,9 +105,14 @@ struct IdleWording {
 
     /// "2:10 PM" on Chronobar's today, with the date on other Days.
     private func time(_ date: Date) -> String {
-        let style: Date.FormatStyle.DateStyle = Day(containing: date, in: calendar) == today ? .omitted : .abbreviated
-        return date.formatted(Date.FormatStyle(date: style, time: .shortened, locale: locale, calendar: calendar,
-                                               timeZone: calendar.timeZone))
+        format(date, date: Day(containing: date, in: calendar) == today ? .omitted : .abbreviated, time: .shortened)
+    }
+
+    /// `date` in the given styles, on Tracker's calendar, time zone and locale.
+    private func format(_ date: Date, date dateStyle: Date.FormatStyle.DateStyle,
+                        time timeStyle: Date.FormatStyle.TimeStyle) -> String {
+        date.formatted(Date.FormatStyle(date: dateStyle, time: timeStyle, locale: locale, calendar: calendar,
+                                        timeZone: calendar.timeZone))
     }
 
     private var locale: Locale { calendar.locale ?? .autoupdatingCurrent }
