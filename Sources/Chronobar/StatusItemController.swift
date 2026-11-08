@@ -11,9 +11,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
     private let anchor = PanelAnchor()
-    private let coverPlacer: PillCoverPlacer
     private let pill: NSHostingView<PillView>
-    private var press = PillPress()
     private var focusObserver: NSObjectProtocol?
     /// Hosts the Panel in the popover, at its content's height.
     private var sizer: PanelSizer?
@@ -23,7 +21,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         self.tracker = tracker
         pill = ClickThroughHostingView(
             rootView: PillView(tracker: tracker, preferences: preferences, badge: variant.badge))
-        coverPlacer = PillCoverPlacer(statusItem: statusItem)
         super.init()
 
         popover.behavior = .transient
@@ -59,37 +56,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         ])
         button.target = self
         button.action = #selector(clicked(_:))
-        // Every left mouse-down in the app passes through here, before the status item's button or the
-        // Panel's own handling, and goes on to them. With the Panel open, one on the Pill closes it. One with
-        // ⌘ held is the start of a ⌘-drag, and opens nothing.
-        NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-            let window = event.window
-            let commandKey = event.modifierFlags.contains(.command)
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                // With another app frontmost the app never sees ⌘ go down, so the cover can still be over
-                // the Pill; it goes now, so the next press reaches the menu bar for its ⌘-drag.
-                self.coverPlacer.place(pressCommandKey: commandKey)
-                self.press.mouseDown(onPill: self.isOnPill(window), commandKey: commandKey,
-                                     panelOpen: self.popover.isShown)
-            }
-            return event
-        }
-        // The cover goes over the Pill while the pointer is on it, so a press reaches the app without the
-        // menu bar drawing its highlight. Its mouse-up stands in for the button's action.
-        coverPlacer.cover.onMouseUp = { [weak self] overPill in
-            guard let self, self.press.mouseUp(overPill: overPill) else { return }
-            self.showPanel(by: .pointer)
-        }
-        // Pointer moves and ⌘ over other apps, then over this one.
-        let followPointer: (NSEvent) -> Void = { [weak self] _ in
-            MainActor.assumeIsolated { self?.coverPlacer.place() }
-        }
-        NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .flagsChanged], handler: followPointer)
-        NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .flagsChanged]) { event in
-            followPointer(event)
-            return event
-        }
         // The Panel's key equivalents, ahead of the focused control so they work wherever focus is, with
         // Keyboard navigation on or off. A key that would edit text in a focused field passes through.
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -111,7 +77,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 
     /// Resizes the status item to fit the Pill, whose time segment widens past `9:59`, and keeps an open
-    /// Panel's anchor and the cover over it.
+    /// Panel's anchor over it.
     func refresh() {
         let width = ceil(pill.fittingSize.width)
         if statusItem.length != width { statusItem.length = width }
@@ -119,7 +85,6 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             anchor.place(over: button)
             capPanel()
         }
-        coverPlacer.place()
         describe()
     }
 
@@ -144,21 +109,15 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         if button.accessibilityLabel() != label { button.setAccessibilityLabel(label) }
     }
 
-    /// The status item's button action: a click on the Pill with the Panel closed, or a press from VoiceOver
-    /// or the keyboard.
+    /// The status item's button action: a click on the Pill, or a press from VoiceOver or the keyboard. It
+    /// opens the Panel. With the Panel open, the click's mouse-down closes it, and its action arrives while
+    /// the Panel is still closing, so `showPanel` leaves it closed. A ⌘-drag, which the menu bar handles,
+    /// sends no action (ADR 0007).
     @objc private func clicked(_ button: NSStatusBarButton) {
-        let event = NSApp.currentEvent
-        let byMouse = event.map { [.leftMouseDown, .leftMouseUp].contains($0.type) && $0.window === button.window }
-        if press.buttonAction(byMouse: byMouse ?? false) {
-            showPanel(by: byMouse == true ? .pointer : .keyboard)
-        }
-    }
-
-    /// Whether a mouse-down in `window` is on the Pill: in the status item's own window, or in the cover
-    /// over it, which has the same frame.
-    private func isOnPill(_ window: NSWindow?) -> Bool {
-        guard let window else { return false }
-        return window === statusItem.button?.window || coverPlacer.isCover(window)
+        let byMouse = NSApp.currentEvent.map {
+            [.leftMouseDown, .leftMouseUp].contains($0.type) && $0.window === button.window
+        } ?? false
+        showPanel(by: byMouse ? .pointer : .keyboard)
     }
 
     /// Runs the Panel command for a key pressed in the Panel or the (i) Time Summary it shows, and returns
@@ -282,6 +241,15 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             reportFailure(error, category: "tracker")
             return nil
         }
+    }
+}
+
+extension NSStatusItem {
+    /// The status item's frame on screen, and the screen it is on.
+    @MainActor
+    var frameOnScreen: (frame: CGRect, screen: NSScreen)? {
+        guard let button, let window = button.window, let screen = window.screen else { return nil }
+        return (window.convertToScreen(button.convert(button.bounds, to: nil)), screen)
     }
 }
 
