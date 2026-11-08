@@ -77,6 +77,18 @@ import ChronobarOperations
         #expect(error.text == error.structuredContent?.objectValue?["message"]?.stringValue)
     }
 
+    /// An app older than `chronobar mcp`, kept running through an upgrade, answers without a field the
+    /// server needs: the agent is told to have the user quit it, not how decoding failed.
+    @Test func anOlderAppsReplyIsAToolErrorSayingSo() throws {
+        let older = Data(#"{"ok":true,"op":"status","result":{"timers":[],"today":{"date":"2026-11-03"}}}"#.utf8)
+        let mcp = MCPSession { _ in try Reply.read(older, from: .everyday) }
+
+        let error = try #require(mcp.error("status"))
+
+        #expect(error.kind == "version_mismatch")
+        #expect(error.text == "The running Chronobar is older than this command. Quit Chronobar and run the command again.")
+    }
+
     @Test func aRefusalAboutTimersListsTheRunningOnes() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Internal")

@@ -25,7 +25,9 @@ enum MCPServer {
 
     @MainActor
     static func run(_ copy: BuildVariant.Copy) async throws {
-        let session = MCPSession { request in try connect(to: copy).send(request) }
+        let session = MCPSession { request in
+            try Reply.read(try connect(to: copy).send(line: Wire.encode(request)), from: copy)
+        }
         let server = Server(name: "chronobar", version: version, title: copy.name, instructions: instructions,
                             capabilities: .init(tools: .init(listChanged: false)))
         await server.withMethodHandler(ListTools.self) { _ in ListTools.Result(tools: MCPTools.all) }

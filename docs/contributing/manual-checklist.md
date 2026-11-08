@@ -242,6 +242,10 @@ Try these against the [development copy](development.md#a-development-copy) (`ch
       form again) and to `projects.txt`; `chronobar archive X` takes it off both and adds it to
       `archived.txt`, its row and time stay. `chronobar archive Nonsense` exits 1 and changes nothing.
 - [ ] `ls -l` on the data folder shows `chronobar.sock` as `srw-------`.
+- [ ] With the previous release's app running, the new `chronobar status` exits 1 with "The running
+      Chronobar is older than this command. Quit Chronobar and run the command again."; `chronobar
+      --json status` prints the app's answer and exits 0; over MCP, `status` is a tool error with the
+      same message. After quitting the app, `chronobar status` launches the new one and works.
 - [ ] Quit the app, then run `chronobar status`: the app launches in the background without coming to
       the front, and the status prints. The same with the app never opened since a restart.
 - [ ] While the idle alert is open, `chronobar status` still answers.
