@@ -5,9 +5,7 @@
 class Chronobar < Formula
   desc "Menu bar time tracker with labelled timers that agents can drive"
   homepage "https://github.com/nhall/chronobar"
-  url "https://github.com/nhall/chronobar.git",
-      tag:      "v2.0.0",
-      revision: "d2abd543d98484f19e899d6a814f70f9eb5d1d8c"
+  url "https://github.com/nhall/chronobar.git", tag: "v2.0.1"
   license "MIT"
   head "https://github.com/nhall/chronobar.git", branch: "main"
 

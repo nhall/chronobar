@@ -10,7 +10,7 @@ import ChronobarOperations
 /// it by hand.
 enum MCPServer {
     /// The version the server reports to clients.
-    static let version = "2.0.0"
+    static let version = "2.0.1"
 
     static let instructions = """
         Chronobar times work by Label: free text such as "Client A, Ticket 665". Several timers can run at \
