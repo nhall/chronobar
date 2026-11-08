@@ -12,9 +12,9 @@ import ChronobarCore
         try tracker.start("Client A, Ticket 665", source: .agent)
 
         clock.set("2026-11-03T12:59:59")
-        #expect(tracker.ticked().isEmpty)
+        #expect(tracker.tick().isEmpty)
         clock.set("2026-11-03T13:00:00")
-        #expect(tracker.ticked() == [LongRunning(project: "Client A, Ticket 665", since: FakeClock("2026-11-03T09:00:00").now)])
+        #expect(tracker.tick().map(\.run) == [TimerRun(project: "Client A, Ticket 665", since: FakeClock("2026-11-03T09:00:00").now)])
     }
 
     /// Reported once, however long it then runs, while a timer started later is reported on its own.
@@ -27,13 +27,13 @@ import ChronobarCore
         try tracker.start("Website Redesign")
 
         clock.set("2026-11-03T11:00:00")
-        #expect(tracker.ticked().map(\.project) == ["Client A, Ticket 665"])
+        #expect(tracker.tick().map(\.run.project) == ["Client A, Ticket 665"])
         clock.set("2026-11-03T11:00:01")
-        #expect(tracker.ticked().isEmpty)
+        #expect(tracker.tick().isEmpty)
         clock.set("2026-11-03T12:00:00")
-        #expect(tracker.ticked().map(\.project) == ["Website Redesign"])
+        #expect(tracker.tick().map(\.run.project) == ["Website Redesign"])
         clock.set("2026-11-03T18:00:00")
-        #expect(tracker.ticked().isEmpty)
+        #expect(tracker.tick().isEmpty)
         #expect(tracker.timers.count == 2)
         #expect(tracker.total("Client A, Ticket 665", on: tracker.today) == 9 * 3600)
     }
@@ -45,15 +45,15 @@ import ChronobarCore
         tracker.longRunningThreshold = 2 * 3600
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T11:00:00")
-        #expect(tracker.ticked().count == 1)
+        #expect(tracker.tick().count == 1)
         try tracker.pause("Website Redesign")
 
         clock.set("2026-11-03T12:00:00")
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T13:59:59")
-        #expect(tracker.ticked().isEmpty)
+        #expect(tracker.tick().isEmpty)
         clock.set("2026-11-03T14:00:00")
-        #expect(tracker.ticked() == [LongRunning(project: "Website Redesign", since: FakeClock("2026-11-03T12:00:00").now)])
+        #expect(tracker.tick().map(\.run) == [TimerRun(project: "Website Redesign", since: FakeClock("2026-11-03T12:00:00").now)])
     }
 
     @Test func offReportsNothing() throws {
@@ -62,7 +62,7 @@ import ChronobarCore
         tracker.longRunningThreshold = nil
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T21:00:00")
-        #expect(tracker.ticked().isEmpty)
+        #expect(tracker.tick().isEmpty)
         #expect(tracker.isRunning("Website Redesign"))
     }
 
@@ -72,9 +72,9 @@ import ChronobarCore
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T14:00:00")
-        #expect(tracker.ticked().isEmpty)
+        #expect(tracker.tick().isEmpty)
         tracker.longRunningThreshold = 4 * 3600
-        #expect(tracker.ticked().map(\.project) == ["Website Redesign"])
+        #expect(tracker.tick().map(\.run.project) == ["Website Redesign"])
     }
 
     /// The midnight split doesn't start a new run: 22:00 to 02:00 is four hours.
@@ -84,11 +84,11 @@ import ChronobarCore
         tracker.longRunningThreshold = 4 * 3600
         try tracker.start("Client A, Ticket 665", source: .agent)
         clock.set("2026-11-04T00:30:00")
-        #expect(tracker.ticked().isEmpty)
+        #expect(tracker.tick().isEmpty)
         clock.set("2026-11-04T02:00:00")
-        #expect(tracker.ticked() == [LongRunning(project: "Client A, Ticket 665", since: FakeClock("2026-11-03T22:00:00").now)])
+        #expect(tracker.tick().map(\.run) == [TimerRun(project: "Client A, Ticket 665", since: FakeClock("2026-11-03T22:00:00").now)])
         clock.set("2026-11-05T02:00:00")
-        #expect(tracker.ticked().isEmpty)
+        #expect(tracker.tick().isEmpty)
     }
 
     /// The warning's Stop ends the timer when it is clicked, not when the threshold passed.
@@ -99,10 +99,10 @@ import ChronobarCore
         try tracker.start("Client A, Ticket 665", source: .agent)
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T11:00:00")
-        let reported = tracker.ticked()
+        let reported = tracker.tick()
 
         clock.set("2026-11-03T11:20:00")
-        try tracker.pause(reported[0])
+        try tracker.pause(reported[0].run)
         #expect(!tracker.isRunning("Client A, Ticket 665"))
         #expect(tracker.isRunning("Website Redesign"))
         #expect(tracker.total("Client A, Ticket 665", on: tracker.today) == 2 * 3600 + 20 * 60)
@@ -115,13 +115,13 @@ import ChronobarCore
         tracker.longRunningThreshold = 2 * 3600
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T11:00:00")
-        let reported = tracker.ticked()
+        let reported = tracker.tick()
         try tracker.pause("Website Redesign")
         clock.set("2026-11-03T11:10:00")
         try tracker.start("Website Redesign")
 
         clock.set("2026-11-03T11:20:00")
-        try tracker.pause(reported[0])
+        try tracker.pause(reported[0].run)
         #expect(tracker.isRunning("Website Redesign"))
     }
 
@@ -138,47 +138,50 @@ import ChronobarCore
         try tracker.pause("Website Redesign")
         try tracker.start("Website Redesign", source: .agent)
         clock.set("2026-11-03T11:00:00")
-        #expect(tracker.ticked().map(\.project) == ["Client A, Ticket 665"])
+        #expect(tracker.tick().map(\.run.project) == ["Client A, Ticket 665"])
 
         clock.set("2026-11-03T12:30:00")
         let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
         relaunched.longRunningThreshold = 2 * 3600
-        #expect(relaunched.ticked().map(\.project) == ["Website Redesign"])
+        #expect(relaunched.tick().map(\.run.project) == ["Website Redesign"])
     }
 
-    /// Any caller may tick (the Panel opening, an agent's request); the run waits until it is taken.
-    @Test func aRunFoundByAnEarlierTickWaitsUntilTaken() throws {
+
+    /// A second tick in the same second, or a re-read between ticks, never hands the same warning out again.
+    @Test func eachWarningIsReturnedByExactlyOneTick() throws {
         let clock = FakeClock("2026-11-03T09:00:00")
         let tracker = Tracker(clock: clock, storageRoot: root)
         tracker.longRunningThreshold = 2 * 3600
         try tracker.start("Website Redesign")
+        try tracker.start("Client A, Ticket 665", source: .agent)
+
         clock.set("2026-11-03T11:00:00")
-        tracker.tick()
+        tracker.reload()
+        #expect(tracker.tick().map(\.run.project).sorted() == ["Client A, Ticket 665", "Website Redesign"])
+        #expect(tracker.tick().isEmpty)
+        tracker.reload()
         clock.set("2026-11-03T11:00:01")
-        tracker.tick()
-
-        #expect(tracker.takeLongRunning().map(\.project) == ["Website Redesign"])
-        #expect(tracker.ticked().isEmpty)
+        #expect(tracker.tick().isEmpty)
     }
 
-    /// A run stopped before the app took it isn't reported: there is nothing left to warn about.
-    @Test func aRunStoppedBeforeItIsTakenIsLeftOut() throws {
+    /// A run that passed the threshold between ticks but was stopped before the next one is never warned
+    /// about, and a run started again is timed from its new start, not from the one that ended.
+    @Test func aRunThatEndedBeforeItsWarningFellDueIsNotReturned() throws {
         let clock = FakeClock("2026-11-03T09:00:00")
         let tracker = Tracker(clock: clock, storageRoot: root)
         tracker.longRunningThreshold = 2 * 3600
         try tracker.start("Website Redesign")
+        clock.set("2026-11-03T10:59:59")
+        #expect(tracker.tick().isEmpty)
         clock.set("2026-11-03T11:00:00")
-        tracker.tick()
         try tracker.pause("Website Redesign")
+        try tracker.start("Website Redesign")
 
-        #expect(tracker.takeLongRunning().isEmpty)
-    }
-}
-
-extension Tracker {
-    /// Ticks as the app does each second, returning the runs newly past the threshold.
-    func ticked() -> [LongRunning] {
-        tick()
-        return takeLongRunning()
+        clock.set("2026-11-03T11:00:01")
+        #expect(tracker.tick().isEmpty)
+        clock.set("2026-11-03T12:59:59")
+        #expect(tracker.tick().isEmpty)
+        clock.set("2026-11-03T13:00:00")
+        #expect(tracker.tick().map(\.run) == [TimerRun(project: "Website Redesign", since: FakeClock("2026-11-03T11:00:00").now)])
     }
 }

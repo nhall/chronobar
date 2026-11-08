@@ -109,8 +109,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func tick() {
-        tracker.tick()
-        longRunningNotifier.warn(tracker.takeLongRunning(), threshold: preferences.longRunningThreshold)
+        longRunningNotifier.warn(tracker.tick())
         idleMonitor.poll()
         statusItem.refresh()
     }

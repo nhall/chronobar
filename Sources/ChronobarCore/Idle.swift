@@ -78,37 +78,25 @@ struct IdleWording {
 
     func message(for subject: IdleSubject) -> String {
         let (since, until, labels) = (subject.since, subject.until, subject.labels)
-        let running = labels.formatted(.list(type: .and).locale(locale))
+        let running = labels.formatted(.list(type: .and).locale(times.locale))
         let verb = labels.count == 1 ? "is" : "are"
         if let until {
-            return "You were idle from \(time(since)) to \(time(until))."
+            return "You were idle from \(times.time(since)) to \(times.time(until))."
                 + (labels.isEmpty ? "" : " \(running) \(verb) running.")
         }
-        return "You've been idle since \(time(since))."
+        return "You've been idle since \(times.time(since))."
             + (labels.isEmpty ? "" : " \(running) \(verb) still running.")
     }
 
     /// Says which Day file stopped the removal.
     func refusal(_ error: MalformedDayFile) -> IdleRefusal {
         let day = error.day
-        let date = format(day.noon(in: calendar), date: .complete, time: .omitted)
+        let date = times.format(day.noon(in: calendar), date: .complete, time: .omitted)
         return IdleRefusal(
             title: "The idle time wasn't removed",
             text: "The file for \(date) (days/\(day).json) can't be read, so it can't be changed. Fix it by "
                 + "hand in the data folder and you'll be asked again. Until then the idle time still counts.")
     }
 
-    /// "2:10 PM" on Chronobar's today, with the date on other Days.
-    private func time(_ date: Date) -> String {
-        format(date, date: Day(containing: date, in: calendar) == today ? .omitted : .abbreviated, time: .shortened)
-    }
-
-    /// `date` in the given styles, on Tracker's calendar, time zone and locale.
-    private func format(_ date: Date, date dateStyle: Date.FormatStyle.DateStyle,
-                        time timeStyle: Date.FormatStyle.TimeStyle) -> String {
-        date.formatted(Date.FormatStyle(date: dateStyle, time: timeStyle, locale: locale, calendar: calendar,
-                                        timeZone: calendar.timeZone))
-    }
-
-    private var locale: Locale { calendar.locale ?? .autoupdatingCurrent }
+    private var times: TimeWording { TimeWording(calendar: calendar, today: today) }
 }

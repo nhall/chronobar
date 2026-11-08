@@ -118,7 +118,7 @@ extension Tracker {
 
     /// Replaces the Project's Entries starting at `old` (a run's pieces, or none) with `new`, each in
     /// place on its Day, or appended where that Day had none, writing `others` too: one All-or-nothing
-    /// change. Then reloads, so the timers match the file. Refused if a Day won't parse, or if `new`
+    /// change. Then re-reads, so the timers match the file. Refused if a Day won't parse, or if `new`
     /// overlaps the Project's other timed Entries.
     private func replace(
         _ project: String, _ old: [DayPiece], with new: [TimedEntry], alongWith others: [FileWrite] = []
@@ -137,7 +137,7 @@ extension Tracker {
             let timed = added.map { Entry.timed(project: $0.project, start: $0.start, end: $0.end, source: $0.source) }
             entries.insert(contentsOf: timed, at: replaced ?? entries.endIndex)
         }
-        reload()
+        reread()
     }
 
     /// The first of the Project's timed `entries` sharing time with one of `added`, as an `Overlap`.

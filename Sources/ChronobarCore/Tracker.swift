@@ -19,7 +19,8 @@ public final class Tracker {
     public private(set) var projects: [String] = []
     /// The archived Projects, never suggested until typed again, in `archived.txt` order.
     public private(set) var archived: [String] = []
-    /// The clock's time at the last command or `tick()`. Totals of a running timer count up to here.
+    /// The clock's time at the last command, `reload()` or `tick()`. Totals of a running timer count up to
+    /// here.
     public private(set) var now: Date
     /// Idle time to ask about with the idle alert; cleared by `resolveIdle`.
     public var pendingIdle: PendingIdle? { pending?.idle }
@@ -37,16 +38,13 @@ public final class Tracker {
     @ObservationIgnored private let archivedStore: ProjectStore
     @ObservationIgnored private let defaults: UserDefaults?
     /// The runs `tick()` has reported as long-running, so each is reported once, across relaunches too.
-    @ObservationIgnored private var warned: [LongRunning]
-    /// The warned runs `takeLongRunning()` hasn't handed out yet.
-    @ObservationIgnored private var unreported: [LongRunning] = []
+    @ObservationIgnored private var warnings: LongRunningWarnings
     /// When the Mac went to sleep or locked with a timer started in the app running, until it came back.
     @ObservationIgnored private var awaySince: Date?
     /// Whether `takeIdleQuestion()` handed out a question `resolveIdle` hasn't answered yet.
     @ObservationIgnored private var idleQuestionAwaitingAnswer = false
 
     private static let heartbeatKey = "heartbeat"
-    private static let warnedKey = "longRunningWarned"
     /// Where v1 kept the Project ▶ started. Nothing reads it now; it is removed at launch.
     private static let retiredSelectedProjectKey = "selectedProject"
 
@@ -60,19 +58,35 @@ public final class Tracker {
         self.now = clock.now
         self.launched = clock.now
         self.lastAlive = defaults?.object(forKey: Self.heartbeatKey) as? Date
-        self.warned = Self.savedWarnings(in: defaults)
+        self.warnings = LongRunningWarnings(defaults: defaults)
         defaults?.removeObject(forKey: Self.retiredSelectedProjectKey)
-        reload()
+        reread()
     }
 
     /// Days whose file failed to parse when last read. Writes to them are refused until it parses again.
     public var malformedDays: Set<Day> { files.malformed }
 
-    /// Retries deferred writes, then re-reads today's file and the pinned and archived lists, and other
-    /// Days' files when next asked for. A Day file that won't parse is flagged in `malformedDays` and its
-    /// last good read is kept (for a Day not read before, just its deferred writes), so running timers keep
-    /// running.
+    /// Brings Core up to now, then re-reads today's file and the pinned and archived lists, and other Days'
+    /// files when next asked for. Catching up rolls over past midnight, retries deferred writes, recovers
+    /// Entries open in Day files that parsed again and unblocks `pendingIdle` once its Day can be read, so
+    /// no caller has to tick first. It doesn't look for long-running timers; only `tick()` does. A Day file
+    /// that won't parse is flagged in `malformedDays` and its last good read is kept (for a Day not read
+    /// before, just its deferred writes), so running timers keep running.
     public func reload() {
+        bringUpToNow()
+        reread()
+    }
+
+    /// What `reload()` and `tick()` start with: catches up, then unblocks `pendingIdle` once its Day can be
+    /// read.
+    private func bringUpToNow() {
+        catchUp()
+        unblockPendingIdle()
+    }
+
+    /// `reload()` without catching up: retries deferred writes and re-reads today's file and the Label
+    /// lists. Rollover and the corrections call it after they write, so catching up never recurses.
+    func reread() {
         now = clock.now
         refresh(known: Array(timers), reparsed: files.load(today))
     }
@@ -144,9 +158,9 @@ public final class Tracker {
 
     /// The long-running warning's Stop: pauses `run`'s timer now, unless that run has already ended, so a
     /// late click never stops a timer started again since.
-    public func pause(_ run: LongRunning) throws {
+    public func pause(_ run: TimerRun) throws {
         catchUp()
-        guard let timer = timers[run.project], runStart(of: timer) == run.since else { return }
+        guard let timer = timers[run.project], self.run(of: timer) == run else { return }
         try pause(timer.project)
     }
 
@@ -180,54 +194,32 @@ public final class Tracker {
         }
     }
 
-    /// Called every second by the UI so running totals advance, on wake, and before each Panel opening or
-    /// agent request. Rolls over to a new Day and retries deferred writes, then recovers any Entry left open
-    /// in a Day file that parsed again. Timers that have now run for `longRunningThreshold` wait in
-    /// `takeLongRunning()`, so whichever caller ticked, the app still hears of each.
-    public func tick() {
-        catchUp()
-        unblockPendingIdle()
-        noteLongRunning()
+    /// Called by the app only, every second so running totals advance, and on wake. Catches up as
+    /// `reload()` does (without re-reading), then returns a Long-running warning for each timer that has run
+    /// for `longRunningThreshold` since the last tick, once per run and worded on this Tracker's calendar.
+    /// Nothing else ticks, so the app sees every warning; callers that tick only to catch up can ignore the
+    /// result.
+    @discardableResult
+    public func tick() -> [LongRunningWarning] {
+        bringUpToNow()
+        guard let threshold = longRunningThreshold else { return [] }
+        return warnings.due(among: timers.map(run(of:)), at: now, threshold: threshold)
+            .map { warning(for: $0, threshold: threshold) }
     }
 
-    /// The timers `tick()` found past `longRunningThreshold` since last asked, each once per run, leaving
-    /// none to take until another passes it. A run that ended before it was taken is left out.
-    public func takeLongRunning() -> [LongRunning] {
-        let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
-        defer { unreported = [] }
-        return unreported.filter(running.contains)
+    /// The Long-running warning for `run`, past a threshold of `threshold` seconds, on this Tracker's
+    /// calendar.
+    private func warning(for run: TimerRun, threshold: TimeInterval) -> LongRunningWarning {
+        let since = TimeWording(calendar: calendar, today: today).time(run.since)
+        return LongRunningWarning(
+            run: run, title: "\(run.project) is still running",
+            body: "Running for over \(Int(threshold / 3600)) hours, since \(since). Stop it if it's done.")
     }
 
-    /// Marks the timers that ran past `longRunningThreshold` as warned and queues them for
-    /// `takeLongRunning()`.
-    private func noteLongRunning() {
-        guard let threshold = longRunningThreshold else { return }
-        let passed = timers.compactMap { timer -> LongRunning? in
-            let run = LongRunning(project: timer.project, since: runStart(of: timer))
-            guard now.timeIntervalSince(run.since) >= threshold, !warned.contains(run) else { return nil }
-            return run
-        }
-        guard !passed.isEmpty else { return }
-        // Runs that ended are dropped, so the list holds only timers still running.
-        let running = timers.map { LongRunning(project: $0.project, since: runStart(of: $0)) }
-        warned = warned.filter(running.contains) + passed
-        unreported += passed
-        defaults?.set(warned.map { ["project": $0.project, "since": $0.since] }, forKey: Self.warnedKey)
-    }
-
-    /// The runs reported before the last quit, as `newlyLongRunning` saved them.
-    private static func savedWarnings(in defaults: UserDefaults?) -> [LongRunning] {
-        let saved = defaults?.array(forKey: warnedKey) as? [[String: Any]] ?? []
-        return saved.compactMap { run in
-            guard let project = run["project"] as? String, let since = run["since"] as? Date else { return nil }
-            return LongRunning(project: project, since: since)
-        }
-    }
-
-    /// When `timer`'s run began: its start, or for a timer carried over at midnight, the start of the Entry
-    /// it was split from on the Day before, followed back as far as the splits go.
-    private func runStart(of timer: Running) -> Date {
-        files.run(of: timer)[0].start
+    /// `timer`'s current run, which began at its start, or for a timer carried over at midnight, at the
+    /// start of the Entry it was split from on the Day before, followed back as far as the splits go.
+    private func run(of timer: Running) -> TimerRun {
+        TimerRun(project: timer.project, since: files.run(of: timer)[0].start)
     }
 
     /// Clears `pendingIdle.blockedBy` once that Day's file parses and its deferred writes have landed.
@@ -422,7 +414,7 @@ public final class Tracker {
             throw error
         }
         clearPendingIdle()
-        reload()
+        reread()
     }
 
     /// Today's `entries` after an idle removal, with the app timers it stopped started again at `now`
