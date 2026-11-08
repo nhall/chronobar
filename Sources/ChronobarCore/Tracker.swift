@@ -491,6 +491,11 @@ public final class Tracker {
         try labels.pin(name)
     }
 
+    /// Whether `name` is a Pinned Project, ignoring case and surrounding spaces.
+    public func isPinned(_ name: String) -> Bool {
+        labels.isPinned(name)
+    }
+
     /// Suggested Projects containing `text` anywhere, ignoring case and surrounding spaces. A name matching
     /// `text` exactly comes first, then names starting with it, then the rest; within each, the most
     /// recently used first.
