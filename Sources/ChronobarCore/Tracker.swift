@@ -388,7 +388,8 @@ public final class Tracker {
     /// from `idleStart` to `idleEnd` (nil: now) from every Day it covers: an app-started timed Entry
     /// straddling either end is cut there, those inside are deleted and manual Entries stay. `remove` then
     /// restarts from now each app timer the cut stopped; `removeAndStop` leaves every app timer stopped. If
-    /// any of those Day files won't parse, or one can't be saved, nothing is changed.
+    /// any of those Day files won't parse, or one can't be saved, nothing is changed. Either way the Idle
+    /// time is cleared, except that one refused by a malformed Day is held until the file parses.
     public func resolveIdle(since idleStart: Date, until idleEnd: Date? = nil, choice: IdleChoice) throws {
         // Whatever the answer, and whether the removal goes through or not, the question is answered.
         defer { idleQuestionOut = false }
@@ -411,6 +412,10 @@ public final class Tracker {
             let since = min(idleStart, pendingIdle?.since ?? idleStart)
             pendingIdle = PendingIdle(since: since, until: idleEnd ?? now, blockedBy: error.day)
             idleHeld = true
+            throw error
+        } catch {
+            // A Day that couldn't be saved: asked once, as for any answer, rather than every second.
+            clearPendingIdle()
             throw error
         }
         clearPendingIdle()
