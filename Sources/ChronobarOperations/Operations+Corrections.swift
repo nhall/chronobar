@@ -28,25 +28,21 @@ extension Operations {
                                   days: days.map(dayResult))
         case .duration(let duration, let date):
             let day = try date.map(parsedDay) ?? tracker.today
-            let project = try core { try tracker.addEntry(label, duration: duration, on: day) }
-            guard case .absolute(let seconds)? = try? DurationInput(parsing: duration) else {
-                throw OperationError(.failed, "Chronobar added \(duration) but couldn't read it back.")
-            }
-            let manual = ManualEntryResult(date: day.description, seconds: seconds,
-                                           totalSeconds: totalSeconds(project, on: day))
-            return AddEntryResult(label: project, entries: [], manual: manual, days: [dayResult(day)])
+            let logged = try core { try tracker.addEntry(label, duration: duration, on: day) }
+            let manual = ManualEntryResult(date: logged.day.description, seconds: logged.seconds,
+                                           totalSeconds: totalSeconds(logged.project, on: logged.day))
+            return AddEntryResult(label: logged.project, entries: [], manual: manual,
+                                  days: [dayResult(logged.day)])
         }
     }
 
     func adjust(_ label: String, _ input: String, on date: String?) throws(OperationError) -> AdjustResult {
         let label = try named(label)
         let day = try date.map(parsedDay) ?? tracker.today
-        let before = tracker.total(label, on: day)
-        try core { try tracker.adjust(label, input, on: day) }
-        let total = tracker.total(label, on: day)
-        let project = tracker.rows(day).first { ProjectName.matches($0.project, label) }?.project ?? label
-        return AdjustResult(label: project, date: day.description, changeSeconds: seconds(total) - seconds(before),
-                            totalSeconds: seconds(total), day: dayResult(day))
+        let adjustment = try core { try tracker.adjust(label, input, on: day) }
+        return AdjustResult(label: adjustment.project, date: adjustment.day.description,
+                            changeSeconds: adjustment.change, totalSeconds: adjustment.after,
+                            day: dayResult(adjustment.day))
     }
 
     /// The `OperationError` for a correction Core refused, or nil for any other error.

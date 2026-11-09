@@ -98,4 +98,15 @@ import ChronobarOperations
         #expect(error?.message.contains("days/2026-11-03.json") == true)
         #expect(contents(dayFile(root, "2026-11-03")) == "not json")
     }
+
+    @Test func aMalformedArchivedLabelsFileRefusesTheStartNamingOnlyThatFile() throws {
+        try Data([0x57, 0xFF, 0xFE, 0x0A]).write(to: root.appendingPathComponent("archived.txt"))
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        let error = Operations(tracker: tracker).perform(.start(label: "Website Redesign")).error
+
+        #expect(error == OperationError(.malformedFile,
+            "archived.txt isn't UTF-8 text, so Chronobar won't change it. Fix it by hand, then try again."))
+        #expect(tracker.timers.isEmpty)
+    }
 }

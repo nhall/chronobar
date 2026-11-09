@@ -22,7 +22,7 @@ final class LabelCatalogue {
 
     init(root: URL, files: DayFiles) {
         self.pinnedStore = ProjectStore(root: root)
-        self.archivedStore = ProjectStore(root: root, fileName: "archived.txt")
+        self.archivedStore = ProjectStore(root: root, list: .archived)
         self.files = files
     }
 
@@ -33,7 +33,8 @@ final class LabelCatalogue {
         archived = (try? archivedStore.load()) ?? []
     }
 
-    /// Re-reads both lists, throwing if either won't parse so a write never replaces it.
+    /// Re-reads both lists, throwing `MalformedLabelList` naming the first that won't parse, so a write
+    /// never replaces it.
     private func load() throws {
         let pinned = try pinnedStore.load()
         let archived = try archivedStore.load()

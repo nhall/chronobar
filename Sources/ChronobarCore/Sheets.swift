@@ -112,7 +112,7 @@ extension Tracker {
                              runningSource: timers[row.project]?.source)
             },
             total: Figure(seconds: Int(rows.reduce(0) { $0 + $1.total }), minutes: minutes.total),
-            clockTime: Figure(seconds: Int(elapsed(day).rounded(.down))),
+            clockTime: Figure(seconds: elapsed(day).wholeSeconds),
             isMalformed: isMalformed(day))
     }
 }

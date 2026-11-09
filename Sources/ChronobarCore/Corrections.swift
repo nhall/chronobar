@@ -102,9 +102,9 @@ extension Tracker {
     }
 
     /// Adds a typed duration (`1:30`, `45`) to `name` on `day` as a manual Entry, as `log` does, but only
-    /// up to today: time on a future Day hasn't happened.
+    /// up to today: time on a future Day hasn't happened. Returns what it stored, as `log` does.
     @discardableResult
-    public func addEntry(_ name: String, duration: String, on day: Day) throws -> String {
+    public func addEntry(_ name: String, duration: String, on day: Day) throws -> Logged {
         catchUp()
         guard day <= today else { throw FutureDay(day: day) }
         return try log(name, duration, on: day)

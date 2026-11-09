@@ -32,7 +32,7 @@ extension Operations {
         let periods = tracker.summaryPeriods()
         func period(_ period: SummaryPeriod) -> PeriodResult {
             PeriodResult(first: period.first.description, last: period.last.description,
-                         totalSeconds: seconds(period.total), elapsedSeconds: seconds(period.elapsed))
+                         totalSeconds: period.total.wholeSeconds, elapsedSeconds: period.elapsed.wholeSeconds)
         }
         return SummaryResult(today: period(periods.today), yesterday: period(periods.yesterday),
                              week: period(periods.week), month: period(periods.month))

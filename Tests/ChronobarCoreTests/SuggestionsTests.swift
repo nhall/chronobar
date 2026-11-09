@@ -100,7 +100,7 @@ import ChronobarCore
         try tracker.log("Garden Shed", "15", on: tracker.today)
         try tracker.archiveProject("garden shed")
 
-        #expect(try tracker.start(" GARDEN shed") == "Garden Shed")
+        #expect(try tracker.start(" GARDEN shed").project == "Garden Shed")
 
         #expect(tracker.archived == [])
         #expect(contents(archivedFile(root)) == "")
@@ -115,7 +115,7 @@ import ChronobarCore
         let tracker = Tracker(clock: clock, storageRoot: root)
         #expect(tracker.match("mobile app") == .archived("Mobile App"))
 
-        #expect(try tracker.log("MOBILE APP", "0:30", on: Day("2026-11-02")!) == "Mobile App")
+        #expect(try tracker.log("MOBILE APP", "0:30", on: Day("2026-11-02")!).project == "Mobile App")
 
         #expect(tracker.archived == [])
         #expect(tracker.match("mobile app") == .active("Mobile App"))

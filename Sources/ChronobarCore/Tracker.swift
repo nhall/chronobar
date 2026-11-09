@@ -111,13 +111,16 @@ public final class Tracker {
     /// setting, so this is a no-op for it. A new name
     /// creates a Project. Refused, leaving the running timers alone, while today's file is malformed.
     /// Timers run only today: unlike `log` and `adjust` this takes no Day, so no Day other than today ever
-    /// gets a timer. Returns the Project's name with its stored spelling, the name its row is shown under.
+    /// gets a timer. Returns what it did: the Project's stored spelling, whether it was already running,
+    /// its running Timer and the Timers it paused.
     @discardableResult
-    public func start(_ name: String, source: EntrySource = .app) throws -> String {
+    public func start(_ name: String, source: EntrySource = .app) throws -> StartOutcome {
         catchUp()
         try files.checkReadable(today)
         return try labels.resolvingForWrite(name) { project, bringingBack in
-            guard !timers.contains(project) else { return project }
+            if let running = timers[project] {
+                return StartOutcome(project: project, alreadyRunning: true, timer: running, paused: [])
+            }
             let timer = Running(project: project, start: now, source: source)
             let pausesOthers = startPausesOthers
             // One write closes the others, opens the new Entry and brings the Project back, so a failed save
@@ -126,9 +129,10 @@ public final class Tracker {
                 if pausesOthers { Self.close(&entries, at: timer.start) }
                 entries.append(.timed(project: project, start: timer.start, end: nil, source: source))
             }
+            let paused = pausesOthers ? timers.map { PausedTimer(timer: $0, end: timer.start) } : []
             if pausesOthers { timers = RunningTimers() }
             timers.insert(timer)
-            return project
+            return StartOutcome(project: project, alreadyRunning: false, timer: timer, paused: paused)
         }
     }
 
@@ -522,10 +526,10 @@ public final class Tracker {
 
     /// Adds a typed duration (`1:30`, `45`) to the Project on `day`, past, today or future, as a manual
     /// Entry, without starting a timer. An archived Project comes back. Throws `InvalidDuration` for
-    /// anything but a positive total. Returns the Project's name with its stored spelling, the name its
-    /// row is shown under.
+    /// anything but a positive total. Returns what it stored: the Project's name with its stored spelling,
+    /// the name its row is shown under, the Day and the seconds.
     @discardableResult
-    public func log(_ name: String, _ duration: String, on day: Day) throws -> String {
+    public func log(_ name: String, _ duration: String, on day: Day) throws -> Logged {
         guard case .absolute(let seconds) = try DurationInput(parsing: duration), seconds > 0 else {
             throw InvalidDuration(text: duration)
         }
@@ -534,31 +538,40 @@ public final class Tracker {
             try files.change([day], alongWith: bringingBack) { _, entries in
                 entries.append(.manual(project: project, seconds: seconds, note: .manual))
             }
-            return project
+            return Logged(project: project, day: day, seconds: seconds)
         }
     }
 
     /// Sets the Project's total on `day`, past, today or future, to a typed total (`1:15`) or changes it
-    /// (`+15`, `-10`), starting from the total shown and never going below zero. Writes one adjustment Entry of the new total minus
-    /// the stored sum; a running timer keeps running. Throws `InvalidDuration` for a typo.
-    public func adjust(_ project: String, _ input: String, on day: Day) throws {
+    /// (`+15`, `-10`), starting from the total shown and never going below zero. Writes one adjustment
+    /// Entry of the new total minus the stored sum; a running timer keeps running. Throws `InvalidDuration`
+    /// for a typo. Returns the Project as stored, the Day, and its Total before and after; equal Totals
+    /// when nothing was written.
+    @discardableResult
+    public func adjust(_ project: String, _ input: String, on day: Day) throws -> Adjustment {
         let input = try DurationInput(parsing: input)
         catchUp()
+        let before = total(project, on: day)
         let target: TimeInterval = switch input {
         case .absolute(let seconds): TimeInterval(seconds)
-        case .relative(let seconds): max(0, total(project, on: day) + TimeInterval(seconds))
+        case .relative(let seconds): max(0, before + TimeInterval(seconds))
         }
         let now = now
         let project = rows(day).first { ProjectName.matches($0.project, project) }?.project ?? labels.shownName(project)
         func difference(_ entries: [Entry]) -> Int {
             Int((target - Self.sum(of: project, in: entries, asOf: now)).rounded())
         }
-        guard difference(files.entries(on: day)) != 0 else { return }
+        func outcome() -> Adjustment {
+            Adjustment(project: project, day: day, before: before.wholeSeconds,
+                       after: total(project, on: day).wholeSeconds)
+        }
+        guard difference(files.entries(on: day)) != 0 else { return outcome() }
         // The difference is taken again from the Entries as re-read, so a hand edit can't skew it.
         try files.change([day]) { _, entries in
             let seconds = difference(entries)
             if seconds != 0 { entries.append(.manual(project: project, seconds: seconds, note: .adjustment)) }
         }
+        return outcome()
     }
 
     /// Brings `now` up to the clock and the Day files up to today: after midnight every running timer is

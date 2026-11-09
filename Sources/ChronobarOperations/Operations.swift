@@ -46,14 +46,9 @@ public final class Operations {
     }
 
     private func start(_ label: String) throws(OperationError) -> StartResult {
-        let before = tracker.timers
-        let project = try core { try tracker.start(label, source: .agent) }
-        let paused = before.filter { !tracker.isRunning($0.project) }.map { closed($0, at: tracker.now) }
-        guard let timer = runningTimers().first(where: { ProjectName.matches($0.label, project) }) else {
-            throw OperationError(.failed, "\(project) didn't start.")
-        }
-        return StartResult(timer: timer, alreadyRunning: before.contains(project), paused: paused,
-                           today: todayResult())
+        let outcome = try core { try tracker.start(label, source: .agent) }
+        return StartResult(timer: timerResult(outcome.timer), alreadyRunning: outcome.alreadyRunning,
+                           paused: outcome.paused.map { closed($0.timer, at: $0.end) }, today: todayResult())
     }
 
     private func stop(_ label: String?) throws(OperationError) -> StopResult {
@@ -99,40 +94,34 @@ public final class Operations {
         } catch is EmptyProjectName {
             throw emptyLabel
         } catch let error as MalformedDayFile {
-            throw malformed(error.day)
-        } catch is MalformedFileError {
-            throw malformed()
+            throw malformed(error.day == tracker.today
+                ? "Today's Day file (days/\(error.day).json) isn't valid JSON"
+                : "The Day file days/\(error.day).json isn't valid JSON")
+        } catch let error as MalformedLabelList {
+            throw malformed("\(error.fileName) isn't UTF-8 text")
         } catch {
             throw correctionError(error)
                 ?? OperationError(.failed, "Chronobar couldn't save the change: \(error.localizedDescription)")
         }
     }
 
-    /// Which file is malformed: `day`'s Day file, else today's, else one of the Label lists.
-    private func malformed(_ day: Day? = nil) -> OperationError {
-        let day = day ?? (tracker.isMalformed(tracker.today) ? tracker.today : nil)
-        let file = if let day {
-            day == tracker.today
-                ? "Today's Day file (days/\(day).json) isn't valid JSON"
-                : "The Day file days/\(day).json isn't valid JSON"
-        } else {
-            "projects.txt or archived.txt isn't UTF-8 text"
-        }
-        return OperationError(.malformedFile, "\(file), so Chronobar won't change it. Fix it by hand, then try again.")
+    /// The refusal for the malformed file Core named; `problem` says which file and what's wrong with it.
+    private func malformed(_ problem: String) -> OperationError {
+        OperationError(.malformedFile, "\(problem), so Chronobar won't change it. Fix it by hand, then try again.")
     }
 
     func runningTimers() -> [TimerResult] {
-        tracker.timers.map { timer in
-            TimerResult(label: timer.project, start: timer.start, source: timer.source,
-                        totalSeconds: totalSeconds(timer.project, on: tracker.today))
-        }
+        tracker.timers.map(timerResult)
+    }
+
+    /// `timer` with its total today.
+    func timerResult(_ timer: Running) -> TimerResult {
+        TimerResult(label: timer.project, start: timer.start, source: timer.source,
+                    totalSeconds: totalSeconds(timer.project, on: tracker.today))
     }
 
     func todayResult() -> DayResult { dayResult(tracker.today) }
 
     /// `label`'s total on `day` in whole seconds.
-    func totalSeconds(_ label: String, on day: Day) -> Int { seconds(tracker.total(label, on: day)) }
-
-    /// Whole seconds, rounded down like every total Chronobar shows.
-    func seconds(_ interval: TimeInterval) -> Int { Int(interval.rounded(.down)) }
+    func totalSeconds(_ label: String, on day: Day) -> Int { tracker.total(label, on: day).wholeSeconds }
 }

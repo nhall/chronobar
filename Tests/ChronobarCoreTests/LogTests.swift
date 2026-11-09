@@ -24,6 +24,26 @@ import ChronobarCore
         #expect(tracker.total("Internal", on: tracker.today) == 90 * 60)
     }
 
+    @Test func loggingReturnsTheSecondsItStored() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        let logged = try tracker.log("Garden Shed", "1:30", on: past)
+
+        #expect(logged == Logged(project: "Garden Shed", day: past, seconds: 5400))
+        #expect(contents(dayFile(root, "2026-10-28"))?.contains(
+            #"{ "project": "Garden Shed", "seconds": 5400, "note": "manual" }"#) == true)
+    }
+
+    @Test func loggingUnderADifferentlyCasedNameReturnsTheStoredSpelling() throws {
+        try write(root, "2026-10-28", #"{ "project": "Website Redesign", "seconds": 600, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        let logged = try tracker.log("WEBSITE redesign", "15", on: tracker.today)
+
+        #expect(logged.project == "Website Redesign")
+        #expect(tracker.rows(tracker.today).map(\.project) == ["Website Redesign"])
+    }
+
     @Test func loggingWritesAManualEntryWithoutStartingATimer() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
 

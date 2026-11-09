@@ -89,3 +89,8 @@ public struct Summary: Equatable, Sendable {
         self.elapsed = elapsed
     }
 }
+
+extension TimeInterval {
+    /// Whole seconds, rounded down like every total Chronobar shows.
+    public var wholeSeconds: Int { Int(rounded(.down)) }
+}

@@ -127,7 +127,7 @@ import ChronobarCore
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         clock.set("2026-11-03T10:00:00")
-        let project = try tracker.start("  website redesign ", source: .agent)
+        let project = try tracker.start("  website redesign ", source: .agent).project
 
         #expect(project == "Website Redesign")
         #expect(tracker.timers.map(\.project) == ["Website Redesign"])
