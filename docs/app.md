@@ -39,8 +39,11 @@ with its total for that Day.
 - Click a row's time to change its total: type `1:15` to set it, or `+15` and `-10` to change it.
 - Click a row's Label to move the row's time on that Day to another Label, to fix a typo or file it
   under a more specific Label. The field suggests Labels as the ＋ form does; Return moves the time and
-  Escape cancels. The Label on other Days keeps its name. For now a running row, a Label that already
-  has time that Day, and a change of capitals or spaces only are refused with a beep.
+  Escape cancels. The Label on other Days keeps its name. While you type a Label that already has a
+  row that Day, the field says "merges with Northwind (1:00)": Return makes the two rows one, with the
+  combined total, and moving it back later moves all of it. A merge that would count the same minutes
+  twice is refused with a beep. For now a running row and a change of capitals or spaces only are
+  refused too.
 - The header shows the date, (i) and ⚙. (i) opens the Time Summary: today, yesterday, this week and
   this month, each with its Clock time.
 - ‹ › move a week back or forward without limit. On any Day other than today, ＋ only logs time and
