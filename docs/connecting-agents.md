@@ -83,6 +83,7 @@ The server offers a tool for each [command](command-line.md), with the same rule
 | `set_start` | Moves a running timer's start. |
 | `add_entry` | Adds a finished line item, by start and end or by duration on a Day. |
 | `adjust` | Sets or changes a Label's total on a Day. |
+| `relabel` | Moves all of a Label's time on a Day to another Label. |
 | `day` | Reads a Day's rows, Total and Clock time. |
 | `week` | Reads a week's daily Totals and each Label's week total. |
 | `summary` | Reads today, yesterday, this week and this month. |
@@ -104,6 +105,9 @@ Each session runs its own server, which remembers the Labels that session starte
 the Label already running doesn't count). `stop` and `set_start` with no Label act on that session's
 timer, whatever else is running. If it started several that are still running, or none, they change
 nothing and list the running timers (`ambiguous` or `no_session_timer`), so the agent asks which.
+
+A timer the session started and then relabeled with `relabel` stays the session's under its new Label.
+One relabeled elsewhere (in the Panel, from the command line or by another session) no longer is.
 
 Any session can stop any timer by name. Closing a session leaves its timers running; the long-running
 warning catches one that's forgotten.

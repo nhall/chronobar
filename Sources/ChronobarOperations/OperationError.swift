@@ -9,7 +9,8 @@ public struct OperationError: Error, Codable, Equatable, Sendable {
         case unknownOperation = "unknown_operation"
         /// A Label that is empty once trimmed.
         case invalidLabel = "invalid_label"
-        /// `archive` named a Label with no time, not pinned and not archived.
+        /// `archive` named a Label with no time, not pinned and not archived, or `relabel` one with no time
+        /// on that Day.
         case unknownLabel = "unknown_label"
         /// A date that isn't a calendar Day written `YYYY-MM-DD`.
         case invalidDate = "invalid_date"
@@ -25,6 +26,10 @@ public struct OperationError: Error, Codable, Equatable, Sendable {
         case endBeforeStart = "end_before_start"
         /// The Label already has time in that stretch, which would count twice.
         case overlap
+        /// `relabel` onto a Label whose timer is running that Day, which would merge into a running row or put
+        /// two timers on one Label; `running` lists the running timers. Older commands never send `relabel`,
+        /// so none of them meets this kind.
+        case labelRunning = "label_running"
         /// A duration or total that isn't `1:30`, `45`, `+15` or `-10`, or a duration that isn't positive.
         case invalidDuration = "invalid_duration"
         /// A Day file, `projects.txt` or `archived.txt` won't parse, so Chronobar won't write it until it's
@@ -48,7 +53,7 @@ public struct OperationError: Error, Codable, Equatable, Sendable {
     /// One or two sentences for a person, naming what to do next where there is something.
     public let message: String
     /// The running timers, where knowing them helps pick one: `notRunning`, `nothingRunning`, `ambiguous`,
-    /// `noSessionTimer`.
+    /// `noSessionTimer`, `labelRunning`.
     public let running: [TimerResult]?
 
     public init(_ kind: Kind, _ message: String, running: [TimerResult]? = nil) {

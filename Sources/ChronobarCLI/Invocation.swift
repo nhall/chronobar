@@ -26,6 +26,8 @@ enum Invocation: Equatable {
           adjust <label> <T> [--day DAY]
                                         Set <label>'s total on DAY to T (1:15) or change it
                                         (+15, -10).
+          relabel <label> --to <new label> [--day DAY]
+                                        Move all of <label>'s time on DAY to <new label>.
           day [<date>]                  List a Day's labels and totals; <date> is YYYY-MM-DD,
                                         else today.
           week [<date>]                 List each Day's totals and each label's total for the
@@ -55,8 +57,18 @@ enum Invocation: Equatable {
     private static let valueOptions: [String: Set<String>] = [
         "--at": ["stop", "set-start"],
         "--start": ["add"], "--end": ["add"], "--duration": ["add"],
-        "--day": ["add", "adjust"],
+        "--day": ["add", "adjust", "relabel"],
+        "--to": ["relabel"],
     ]
+
+    /// The value options whose value is a label: every word after them up to the next option, joined, so
+    /// a label with spaces needs no quotes. After `--` every word is the label.
+    private static let labelOptions: Set<String> = ["--to"]
+
+    /// Whether `argument` is read as an option: it starts with `-`, but isn't a word such as `-10`.
+    private static func isOption(_ argument: String) -> Bool {
+        argument.hasPrefix("-") && argument.dropFirst().first?.isNumber != true
+    }
 
     /// Whether the answer is printed as the app's JSON response.
     var json: Bool {
@@ -78,11 +90,24 @@ enum Invocation: Equatable {
             var remaining = arguments[...]
             while let argument = remaining.popFirst() {
                 // A word such as `-10` is an adjust, not an option.
-                if optionsEnded || !argument.hasPrefix("-") || argument.dropFirst().first?.isNumber == true {
+                if optionsEnded || !Invocation.isOption(argument) {
                     words.append(argument)
                     continue
                 }
                 let parts = argument.split(separator: "=", maxSplits: 1).map(String.init)
+                if Invocation.labelOptions.contains(parts[0]) {
+                    var label = parts.count == 2 ? [parts[1]] : []
+                    while let next = remaining.first, optionsEnded || !Invocation.isOption(next) || next == "--" {
+                        remaining.removeFirst()
+                        if next == "--" && !optionsEnded { optionsEnded = true } else { label.append(next) }
+                    }
+                    if label.isEmpty {
+                        problem = problem ?? OperationError(.usage, "\(parts[0]) needs a label.")
+                    } else {
+                        values[parts[0]] = label.joined(separator: " ")
+                    }
+                    continue
+                }
                 if Invocation.valueOptions[parts[0]] != nil {
                     if let value = parts.count == 2 ? parts[1] : remaining.popFirst() {
                         values[parts[0]] = value
@@ -163,6 +188,11 @@ enum Invocation: Equatable {
                 throw OperationError(.usage, "adjust needs a label and a total such as 1:15, +15 or -10.")
             }
             request = .adjust(label: rest.joined(separator: " "), input: input, date: date)
+        case "relabel":
+            guard !label.isEmpty, let newLabel = values["--to"] else {
+                throw OperationError(.usage, "relabel needs a label and --to NEW LABEL.")
+            }
+            request = .relabel(label: label, newLabel: newLabel, date: date)
         case "day":
             guard words.count <= 2 else { throw OperationError(.usage, "day takes one date, YYYY-MM-DD.") }
             request = .day(date: label.isEmpty ? nil : label)

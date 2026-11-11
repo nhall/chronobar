@@ -29,6 +29,8 @@ public final class Operations {
             case .setStart(let label, let start): return .success(.setStart(try setStart(label, at: start)))
             case .addEntry(let label, let span): return .success(.addEntry(try addEntry(label, span)))
             case .adjust(let label, let input, let date): return .success(.adjust(try adjust(label, input, on: date)))
+            case .relabel(let label, let newLabel, let date):
+                return .success(.relabel(try relabel(label, to: newLabel, on: date)))
             case .day(let date): return .success(.day(try day(date)))
             case .week(let date): return .success(.week(try week(date)))
             case .summary: return .success(.summary(summary()))

@@ -45,7 +45,19 @@ chronobar set-start Northwind --at 13:15               # it actually started at 
 chronobar add Northwind --start 9:00 --end 10:30       # a finished Entry, without a timer
 chronobar add Northwind --duration 1:30 --day 2026-11-02   # or a duration on a Day
 chronobar adjust Northwind 1:15 --day 2026-11-02       # set the Day's total; +15 or -10 change it
+chronobar relabel Northwnd --to Northwind, Ticket 665 --day 2026-11-02   # move a Day's row to another Label
 ```
+
+`relabel` moves all of a Label's time on one Day (timed Entries, durations and adjustments) to another
+Label, so the Day's Total and Clock time stay the same. The Label on other Days keeps its name. If the
+new Label already has time that Day, the two rows merge into one; if their timed Entries overlap, it's
+refused (`overlap`) and names the new Label's Entry. A new Label that is archived comes back to the
+suggestions. A change of capitals or spaces only (`relabel northwind --to Northwind`) is kept, and on a
+pinned or archived Label it changes the list's spelling too, so every Day shows it. A running timer
+keeps running under the new Label, with the same start and the same source. Moving time onto a Label
+whose timer is running that Day is refused (`label_running`), since two timers never share a Label;
+a timer running since before midnight moves whole, with its time on the earlier Days, and those Days
+are checked the same way. A Label with no time that Day is refused (`unknown_label`).
 
 ## Reading and tidying
 
@@ -68,7 +80,8 @@ Chronobar has never seen (`unknown_label`), and leaves a running timer running.
 ## Rules
 
 - The words after a command are joined into one Label, so quotes are optional. For `adjust` the last
-  word is the total or change. `--` ends the options: everything after it is the Label.
+  word is the total or change. For `relabel` the words after `--to`, up to the next option, are the new
+  Label. `--` ends the options: everything after it is the Label (after `--to`, the new Label).
 - `stop` and `set-start` with no Label act on the only running timer. With several running they change
   nothing and list them.
 - Times are `HH:MM` today in local time, or ISO 8601 with an offset (`2026-11-02T23:15:00-05:00`).
@@ -107,7 +120,7 @@ The exit status is:
 
 Error kinds: `invalid_request`, `unknown_operation`, `invalid_label`, `unknown_label`, `invalid_date`,
 `not_running`, `nothing_running`, `ambiguous`, `future_time`, `end_before_start`, `overlap`,
-`invalid_duration` and `malformed_file`. Over MCP there is also `no_session_timer` (see
+`label_running`, `invalid_duration` and `malformed_file`. Over MCP there is also `no_session_timer` (see
 [Connecting agents](connecting-agents.md#which-timer-stop-the-timer-means)).
 
 `version_mismatch` (exit status 1) means the running app is a different version from `chronobar`,

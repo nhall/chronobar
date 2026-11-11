@@ -27,6 +27,20 @@ public enum Entry: Equatable, Sendable {
         return .timed(project: timer.project, start: timer.start, end: end, source: timer.source)
     }
 
+    /// This Entry filed under `project` instead, its time and Source unchanged.
+    func relabeled(_ project: String) -> Entry {
+        switch self {
+        case .timed(_, let start, let end, let source): .timed(project: project, start: start, end: end, source: source)
+        case .manual(_, let seconds, let note): .manual(project: project, seconds: seconds, note: note)
+        }
+    }
+
+    /// This Entry as a `TimedEntry`, as a correction returns it; nil for a manual one.
+    var timedEntry: TimedEntry? {
+        guard case .timed(let project, let start, let end, let source) = self else { return nil }
+        return TimedEntry(project: project, start: start, end: end, source: source)
+    }
+
     /// Seconds this Entry counts, with a running Entry counted up to `now`.
     func seconds(asOf now: Date) -> TimeInterval {
         switch self {

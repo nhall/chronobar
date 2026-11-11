@@ -30,14 +30,24 @@ final class PanelModel {
     var newProjectDuration = ""
     /// The Day the Panel shows; nil follows today, including across midnight.
     var viewedDay: Day? {
-        didSet { adjusting = nil }
+        didSet { editing = nil }
     }
     var showingSummary = false
-    /// The Project whose row's time is being typed over, and what has been typed.
-    var adjusting: String? {
-        didSet { adjustment = "" }
+    /// The row being edited, if any: one at a time, so starting an edit ends any other. Each start clears
+    /// what was typed, and a Label edit starts from the row's Label.
+    var editing: RowEdit? {
+        didSet {
+            adjustment = ""
+            relabelProjectName = if case .label(let project) = editing { project } else { "" }
+            relabelProjectListOpen = false
+        }
     }
+    /// What has been typed over the edited row's time.
     var adjustment = ""
+    /// The Label typed for the edited row.
+    var relabelProjectName = ""
+    /// Whether the row's Label field shows its list, which takes Return and Escape.
+    var relabelProjectListOpen = false
     /// The most the Panel's content can be on the Pill's screen (`PanelHeight.available`), set before the
     /// Panel opens and whenever the Pill or its screen changes.
     var availableHeight = Double.infinity
@@ -78,6 +88,14 @@ final class PanelModel {
     }
 }
 
+/// What part of a Panel row is being edited, and the row's Project.
+enum RowEdit: Equatable {
+    /// Its time, typed over with a new total or a change.
+    case total(String)
+    /// Its Label, to move the row's time to another.
+    case label(String)
+}
+
 /// What the Panel asks the app to do.
 struct PanelActions {
     /// Start and log return the Project's name as its row is shown, which can differ from what was typed
@@ -88,6 +106,9 @@ struct PanelActions {
     let log: (_ project: String, _ duration: String, _ day: Day) -> String?
     /// Returns false when the input was refused, so the field keeps what was typed.
     let adjust: (_ project: String, _ input: String, _ day: Day) -> Bool
+    /// Moves the row's time on `day` to `newLabel`. Returns the new Label's name as stored, or nil when
+    /// refused, so the field keeps what was typed.
+    let relabel: (_ project: String, _ newLabel: String, _ day: Day) -> String?
     let archive: (String) -> Void
     let pin: (String) -> Void
     let openDataFolder: () -> Void
@@ -213,8 +234,17 @@ struct PanelView: View {
                         RowView(row: row, canStart: isToday, panel: panel,
                                 toggle: { actions.toggle(row.project) },
                                 adjust: {
-                                    if actions.adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
-                                })
+                                    if actions.adjust(row.project, panel.adjustment, day) { panel.editing = nil }
+                                },
+                                labels: RowView.Labels(
+                                    rows: sheet.rows, suggestions: tracker.suggestions(for:),
+                                    isPinned: tracker.isPinned, pin: actions.pin, archive: actions.archive,
+                                    relabel: {
+                                        let typed = panel.relabelProjectName
+                                        guard let project = actions.relabel(row.project, typed, day) else { return }
+                                        panel.editing = nil
+                                        panel.projectToReveal = project
+                                    }))
                         .id(row.project)
                     }
                 }
@@ -459,8 +489,21 @@ private struct RowList<Rows: View>: View {
 
 /// One Project's total on the viewed Day. Today's rows end with ▶ to switch to the Project, or ⏸ to pause
 /// it while it runs; rows on any other Day have neither. Clicking the time types over it: a new total
-/// (`1:15`) or a change (`+15`, `-10`). Return applies it, Escape cancels.
+/// (`1:15`) or a change (`+15`, `-10`). Clicking the Label edits it in a Label field with the ＋ form's
+/// suggestions, to move the row's time to another Label; while the typed Label is another row's, the field
+/// says the two would merge. Return applies either edit, Escape cancels.
 private struct RowView: View {
+    /// What the row's Label field needs: the ＋ form's suggestions and their Pin and Archive, the Day's rows
+    /// for the hint that the typed Label would merge into one, and the relabel Return makes.
+    struct Labels {
+        let rows: [DaySheet.Row]
+        let suggestions: (String) -> [String]
+        let isPinned: (String) -> Bool
+        let pin: (String) -> Void
+        let archive: (String) -> Void
+        let relabel: () -> Void
+    }
+
     /// With its share of the Total line's minutes, and who started its running timer: an agent's gets a
     /// terminal icon after the name.
     let row: DaySheet.Row
@@ -468,12 +511,13 @@ private struct RowView: View {
     @Bindable var panel: PanelModel
     let toggle: () -> Void
     let adjust: () -> Void
+    let labels: Labels
     @FocusState private var focused: Bool
     /// Which of the row's buttons has keyboard focus, so a row focus moves onto is scrolled into view.
     @FocusState private var focusedButton: FocusedButton?
 
     private enum FocusedButton {
-        case total, toggle
+        case label, total, toggle
     }
 
     /// The ▶/⏸ column's width and the row's side insets, which the Total line above the rows matches.
@@ -483,8 +527,32 @@ private struct RowView: View {
     var body: some View {
         let presentation = RowPresentation(row)
         HStack {
-            Text(row.project).lineLimit(1)
+            if panel.editing == .label(row.project) {
+                LabelField(name: $panel.relabelProjectName, isListOpen: $panel.relabelProjectListOpen,
+                           suggestions: labels.suggestions, focusRequests: 0, submit: labels.relabel,
+                           cancel: { panel.editing = nil },
+                           isPinned: labels.isPinned, pin: labels.pin, archive: labels.archive)
+                    .help("Another Label for this row's time. Return moves it, Escape cancels.")
+                // Beside the field, not under it: the suggestions open in a window under the field.
+                if let hint = MergeHint(typed: panel.relabelProjectName, editing: row.project, rows: labels.rows) {
+                    Text(hint.text)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            } else {
+                Button {
+                    panel.editing = .label(row.project)
+                } label: {
+                    Text(row.project).lineLimit(1)
+                }
+                .buttonStyle(.plain)
+                .focused($focusedButton, equals: .label)
+                .help("Change this row's Label")
                 .accessibilityLabel(presentation.nameLabel)
+                .accessibilityHint("Change this row's Label")
+            }
             if let agentMark = presentation.agentMark {
                 // The name's VoiceOver label already says an agent started it.
                 Image(systemName: "terminal")
@@ -493,7 +561,7 @@ private struct RowView: View {
                     .accessibilityHidden(true)
             }
             Spacer()
-            if panel.adjusting == row.project {
+            if panel.editing == .total(row.project) {
                 TextField(presentation.total, text: $panel.adjustment)
                     .textFieldStyle(.roundedBorder)
                     .monospacedDigit()
@@ -501,7 +569,7 @@ private struct RowView: View {
                     .frame(width: 64)
                     .focused($focused)
                     .onSubmit(adjust)
-                    .onExitCommand { panel.adjusting = nil }
+                    .onExitCommand { panel.editing = nil }
                     .onAppear { focused = true }
                     .help("A new total (1:15) or a change (+15, -10)")
                     .accessibilityLabel("New total for \(row.project)")
@@ -509,7 +577,7 @@ private struct RowView: View {
                         + "Return applies it, Escape cancels.")
             } else {
                 Button {
-                    panel.adjusting = row.project
+                    panel.editing = .total(row.project)
                 } label: {
                     Text(presentation.total).monospacedDigit()
                 }

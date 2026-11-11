@@ -17,6 +17,8 @@ public enum Request: Equatable, Sendable {
     /// Sets `label`'s total on `date` (nil: today) to `input` (`1:15`) or changes it by `input` (`+15`,
     /// `-10`). `date` is `YYYY-MM-DD`.
     case adjust(label: String, input: String, date: String? = nil)
+    /// Moves all of `label`'s time on `date` (nil: today) to `newLabel`. `date` is `YYYY-MM-DD`.
+    case relabel(label: String, newLabel: String, date: String? = nil)
     /// A Day's rows and totals; with no date, today's. `date` is `YYYY-MM-DD`.
     case day(date: String?)
     /// The week containing `date` (nil: today), as the Week strip has it: each Day's totals and each
@@ -40,6 +42,7 @@ public enum Request: Equatable, Sendable {
         case .setStart: "set_start"
         case .addEntry: "add_entry"
         case .adjust: "adjust"
+        case .relabel: "relabel"
         case .day: "day"
         case .week: "week"
         case .summary: "summary"
@@ -59,7 +62,7 @@ public enum EntrySpan: Equatable, Sendable {
 
 extension Request: Codable {
     private enum CodingKeys: String, CodingKey {
-        case op, label
+        case op, label, newLabel
         case date, query
         case at, start, end, duration, input
     }
@@ -91,6 +94,10 @@ extension Request: Codable {
             self = .adjust(label: try container.decode(String.self, forKey: .label),
                            input: try container.decode(String.self, forKey: .input),
                            date: try container.decodeIfPresent(String.self, forKey: .date))
+        case "relabel":
+            self = .relabel(label: try container.decode(String.self, forKey: .label),
+                            newLabel: try container.decode(String.self, forKey: .newLabel),
+                            date: try container.decodeIfPresent(String.self, forKey: .date))
         case "day": self = .day(date: try container.decodeIfPresent(String.self, forKey: .date))
         case "week": self = .week(date: try container.decodeIfPresent(String.self, forKey: .date))
         case "summary": self = .summary
@@ -124,6 +131,10 @@ extension Request: Codable {
         case .adjust(let label, let input, let date):
             try container.encode(label, forKey: .label)
             try container.encode(input, forKey: .input)
+            try container.encodeIfPresent(date, forKey: .date)
+        case .relabel(let label, let newLabel, let date):
+            try container.encode(label, forKey: .label)
+            try container.encode(newLabel, forKey: .newLabel)
             try container.encodeIfPresent(date, forKey: .date)
         case .day(let date), .week(let date): try container.encodeIfPresent(date, forKey: .date)
         case .labels(let query): try container.encodeIfPresent(query, forKey: .query)

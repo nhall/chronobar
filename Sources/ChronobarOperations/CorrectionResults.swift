@@ -67,3 +67,32 @@ public struct AdjustResult: Codable, Equatable, Sendable {
         self.day = day
     }
 }
+
+public struct RelabelResult: Codable, Equatable, Sendable {
+    /// The old Label as its row showed it, so a client can follow a timer it knew by that Label.
+    public let oldLabel: String
+    /// The new Label as stored, which may be spelled differently from the request.
+    public let label: String
+    /// `YYYY-MM-DD`, the Day relabeled.
+    public let date: String
+    /// The finished timed Entries now under the new Label on that Day, oldest first; manual Entries and
+    /// adjustments count only in `totalSeconds`, and a running one is `timer`.
+    public let entries: [EntryResult]
+    /// The new Label's total on that Day: the old Label's, moved whole.
+    public let totalSeconds: Int
+    public let day: DayResult
+    /// The new Label's running timer, if it runs that Day: a relabeled running row's, its start and source
+    /// kept. Left out when none runs.
+    public let timer: TimerResult?
+
+    public init(oldLabel: String, label: String, date: String, entries: [EntryResult], totalSeconds: Int,
+                day: DayResult, timer: TimerResult? = nil) {
+        self.oldLabel = oldLabel
+        self.label = label
+        self.date = date
+        self.entries = entries
+        self.totalSeconds = totalSeconds
+        self.day = day
+        self.timer = timer
+    }
+}

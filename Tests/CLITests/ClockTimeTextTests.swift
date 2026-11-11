@@ -25,6 +25,27 @@ import ChronobarOperations
             """)
     }
 
+    @Test func relabelSaysWhereTheTimeWentAndEndsWithTheDaysTotalAndClockTime() {
+        let relabeled = RelabelResult(oldLabel: "Northwnd", label: "Northwind, Ticket 665", date: "2026-11-03",
+                                      entries: [], totalSeconds: 75 * 60, day: day)
+        #expect(Output.text(.relabel(relabeled)) == """
+            Relabeled as Northwind, Ticket 665 on 2026-11-03: 1:15.
+            2026-11-03: Total 3:17 · Clock time 3:00
+            """)
+    }
+
+    @Test func relabelingARunningRowSaysItsTimerRunsOnUnderTheNewLabel() throws {
+        let start = try #require(Calendar.current.date(bySettingHour: 10, minute: 5, second: 0, of: Date()))
+        let timer = TimerResult(label: "Northwind", start: start, source: .agent, totalSeconds: 75 * 60)
+        let relabeled = RelabelResult(oldLabel: "Northwnd", label: "Northwind", date: "2026-11-03",
+                                      entries: [], totalSeconds: 75 * 60, day: day, timer: timer)
+        #expect(Output.text(.relabel(relabeled)) == """
+            Relabeled as Northwind on 2026-11-03: 1:15.
+            Its timer runs on, since 10:05.
+            2026-11-03: Total 3:17 · Clock time 3:00
+            """)
+    }
+
     @Test func summaryKeepsEachPeriodsName() {
         let today = PeriodResult(first: "2026-11-03", last: "2026-11-03", totalSeconds: 197 * 60, elapsedSeconds: 180 * 60)
         let none = PeriodResult(first: "2026-11-02", last: "2026-11-02", totalSeconds: 0, elapsedSeconds: 0)

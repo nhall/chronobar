@@ -45,6 +45,17 @@ extension Operations {
                             day: dayResult(adjustment.day))
     }
 
+    func relabel(_ label: String, to newLabel: String, on date: String?) throws(OperationError) -> RelabelResult {
+        let label = try named(label)
+        let day = try date.map(parsedDay) ?? tracker.today
+        let relabeling = try core { try tracker.relabel(label, to: newLabel, on: day) }
+        return RelabelResult(oldLabel: relabeling.oldProject, label: relabeling.project,
+                             date: relabeling.day.description,
+                             entries: relabeling.entries.filter { $0.end != nil }.map(result),
+                             totalSeconds: relabeling.total, day: dayResult(relabeling.day),
+                             timer: relabeling.timer.map(timerResult))
+    }
+
     /// The `OperationError` for a correction Core refused, or nil for any other error.
     func correctionError(_ error: any Error) -> OperationError? {
         switch error {
@@ -63,6 +74,11 @@ extension Operations {
         case let error as InvalidDuration:
             OperationError(.invalidDuration, "\"\(error.text)\" isn't a duration such as 1:30 or 45 (minutes); "
                            + "adjust also takes a change such as +15 or -10.")
+        case let error as NoTimeOnDay:
+            OperationError(.unknownLabel, "\(error.project) has no time on \(error.day), so there's nothing to relabel.")
+        case let error as NewLabelRunning:
+            OperationError(.labelRunning, "\(error.project)'s timer is running, and relabel can't move time onto "
+                           + "a running timer. Stop it first, or pick another label.", running: runningTimers())
         default:
             nil
         }

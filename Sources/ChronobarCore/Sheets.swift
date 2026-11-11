@@ -30,6 +30,12 @@ public struct DaySheet: Equatable, Sendable {
         public let runningSource: EntrySource?
 
         public var isRunning: Bool { runningSource != nil }
+
+        public init(project: String, time: Figure, runningSource: EntrySource?) {
+            self.project = project
+            self.time = time
+            self.runningSource = runningSource
+        }
     }
 
     public let day: Day

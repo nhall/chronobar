@@ -59,8 +59,9 @@ final class MCPSession {
         return try UnnamedTimer.label(among: mine, running: running, to: verb, session: true)
     }
 
-    /// Notes the Label a `start` started, not one it found already running, and forgets the one a `stop`
-    /// stopped.
+    /// Notes the Label a `start` started, not one it found already running, forgets the one a `stop`
+    /// stopped, and follows one of the session's timers that its own `relabel` moved to another Label.
+    /// A timer relabeled elsewhere isn't followed, so it stops being the session's.
     private func remember(_ result: OperationResult) {
         switch result {
         case .start(let started) where !started.alreadyRunning
@@ -68,6 +69,11 @@ final class MCPSession {
             self.started.append(started.timer.label)
         case .stop(let stopped):
             started.removeAll { ProjectName.matches($0, stopped.entry.label) }
+        case .relabel(let relabeled):
+            guard let timer = relabeled.timer,
+                  let index = started.firstIndex(where: { ProjectName.matches($0, relabeled.oldLabel) })
+            else { break }
+            started[index] = timer.label
         default: break
         }
     }

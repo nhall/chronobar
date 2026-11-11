@@ -159,9 +159,11 @@ public final class Tracker {
     }
 
     /// The long-running warning's Stop: pauses `run`'s timer now, unless that run has already ended, so a
-    /// late click never stops a timer started again since.
+    /// late click never stops a timer started again since. A run relabeled since the warning is stopped
+    /// under its new Label: it is the same Timer.
     public func pause(_ run: TimerRun) throws {
         catchUp()
+        let run = warnings.current(run)
         guard let timer = timers[run.project], self.run(of: timer) == run else { return }
         try pause(timer.project)
     }
@@ -207,6 +209,14 @@ public final class Tracker {
         guard let threshold = longRunningThreshold else { return [] }
         return warnings.due(among: timers.map(run(of:)), at: now, threshold: threshold)
             .map { warning(for: $0, threshold: threshold) }
+    }
+
+    /// After a relabel moved the run of `project`'s Timer to `timer`, carries its Long-running warning over,
+    /// so the same run isn't warned about again under its new Label. A fix of capitals or spaces counts:
+    /// a run is remembered by its exact spelling.
+    func rekeyWarning(from project: String, to timer: Running) {
+        let run = run(of: timer)
+        warnings.rekey(TimerRun(project: project, since: run.since), to: run)
     }
 
     /// The Long-running warning for `run`, past a threshold of `threshold` seconds, on this Tracker's

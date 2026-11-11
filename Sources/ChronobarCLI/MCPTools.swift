@@ -54,6 +54,23 @@ enum MCPTools {
                                   "date": date("The Day; today if left out.")],
                                  required: ["label", "input"]),
              annotations: changing(destructive: true)),
+        Tool(name: "relabel", title: "Relabel a row",
+             description: "Move all of a Label's time on a Day (timed Entries, line items and adjustments) to "
+                 + "another Label, for example to fix a typo or file the time under a more specific Label. Other "
+                 + "Days keep the old Label. A running timer keeps running under the new Label, with the same "
+                 + "start, and stays this session's if this session started it. Returns the new Label as stored, "
+                 + "its finished Entries, its timer if one runs, its total, and the Day's totals, which don't "
+                 + "change. Into a Label that already has time that Day, the two rows merge; refused if their "
+                 + "timed Entries overlap, which would count that time twice, or if the new Label's timer is "
+                 + "running that Day. A change of capitals or spaces only is kept, also in the pinned or "
+                 + "archived list. A timer running since before midnight moves whole, with its time on the "
+                 + "earlier Days.",
+             inputSchema: schema(["label": label("The Label whose row to move."),
+                                  "new_label": label("The Label to move the time to. Matched to an existing Label "
+                                                     + "ignoring case."),
+                                  "date": date("The Day; today if left out.")],
+                                 required: ["label", "new_label"]),
+             annotations: changing(destructive: true)),
         Tool(name: "day", title: "A Day's rows",
              description: "List a Day's Labels with their totals (and which are running, today), with the Day "
                  + "total and clock time (elapsed_seconds). For a question about a week, call week instead.",

@@ -271,7 +271,177 @@ import ChronobarOperations
         #expect(operations.perform(.adjust(label: " ", input: "1:00", date: nil)).error?.kind == .invalidLabel)
     }
 
+    // MARK: Relabel
+
+    @Test func relabelingEchoesTheStoredEntriesAndTheDaysTotals() throws {
+        try write(root, "2026-11-02", """
+            { "project": "Northwnd", "start": "2026-11-02T09:00:00-05:00", "end": "2026-11-02T10:00:00-05:00", "source": "agent" },
+            { "project": "Northwnd", "seconds": 900, "note": "manual" }
+        """)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let relabeled = try operations.relabel("northwnd", to: "Northwind, Ticket 665", date: "2026-11-02")
+
+        #expect(relabeled == RelabelResult(
+            oldLabel: "Northwnd", label: "Northwind, Ticket 665", date: "2026-11-02",
+            entries: [EntryResult(label: "Northwind, Ticket 665", start: clock.date("2026-11-02T09:00:00"),
+                                  end: clock.date("2026-11-02T10:00:00"), source: .agent, totalSeconds: 75 * 60)],
+            totalSeconds: 75 * 60,
+            day: DayResult(date: "2026-11-02", totalSeconds: 75 * 60, totalMinutes: 75, elapsedSeconds: 3600, elapsedMinutes: 60)))
+    }
+
+    @Test func relabelingWithNoDayRelabelsToday() throws {
+        try write(root, "2026-11-03", #"    { "project": "Northwnd", "seconds": 900, "note": "manual" }"#)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let relabeled = try operations.relabel("Northwnd", to: "Northwind", date: nil)
+
+        #expect(relabeled.date == "2026-11-03")
+        #expect(relabeled.entries.isEmpty)
+        #expect(relabeled.totalSeconds == 900)
+    }
+
+    @Test func aCapitalisationFixEchoesTheNewSpelling() throws {
+        let projectsFile = root.appendingPathComponent("projects.txt")
+        try "northwnd\n".write(to: projectsFile, atomically: true, encoding: .utf8)
+        try write(root, "2026-11-02", #"    { "project": "northwnd", "seconds": 900, "note": "manual" }"#)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let relabeled = try operations.relabel("northwnd", to: "Northwnd", date: "2026-11-02")
+
+        #expect(relabeled.label == "Northwnd")
+        #expect(relabeled.totalSeconds == 900)
+        #expect(contents(projectsFile) == "Northwnd\n")
+    }
+
+    @Test(arguments: [("Northwnd", " "), (" ", "Northwind")])
+    func relabelingFromOrToABlankLabelIsRefused(label: String, newLabel: String) throws {
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let error = operations.perform(.relabel(label: label, newLabel: newLabel, date: nil)).error
+
+        #expect(error?.kind == .invalidLabel)
+    }
+
+    @Test func relabelingALabelWithNoTimeThatDayIsRefusedNamingTheDay() throws {
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let error = operations.perform(.relabel(label: "Northwnd", newLabel: "Northwind", date: "2026-11-02")).error
+
+        #expect(error?.kind == .unknownLabel)
+        #expect(error?.message == "Northwnd has no time on 2026-11-02, so there's nothing to relabel.")
+    }
+
+    @Test func relabelingIntoALabelWithTimeThatDayEchoesTheMergedRow() throws {
+        try write(root, "2026-11-02", """
+            { "project": "Northwind", "start": "2026-11-02T09:00:00-05:00", "end": "2026-11-02T10:00:00-05:00", "source": "app" },
+            { "project": "Northwnd", "seconds": 1800, "note": "manual" }
+        """)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let relabeled = try operations.relabel("Northwnd", to: "northwind", date: "2026-11-02")
+
+        #expect(relabeled == RelabelResult(
+            oldLabel: "Northwnd", label: "Northwind", date: "2026-11-02",
+            entries: [EntryResult(label: "Northwind", start: clock.date("2026-11-02T09:00:00"),
+                                  end: clock.date("2026-11-02T10:00:00"), source: .app, totalSeconds: 90 * 60)],
+            totalSeconds: 90 * 60,
+            day: DayResult(date: "2026-11-02", totalSeconds: 90 * 60, totalMinutes: 90, elapsedSeconds: 3600, elapsedMinutes: 60)))
+    }
+
+    @Test func aMergeThatWouldCountTimeTwiceIsAnOverlapNamingTheNewLabelsEntry() throws {
+        try write(root, "2026-11-02", """
+            { "project": "Northwind", "start": "2026-11-02T09:00:00-05:00", "end": "2026-11-02T10:00:00-05:00", "source": "app" },
+            { "project": "Northwnd", "start": "2026-11-02T09:30:00-05:00", "end": "2026-11-02T10:30:00-05:00", "source": "app" }
+        """)
+        let before = contents(dayFile(root, "2026-11-02"))
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let error = operations.perform(.relabel(label: "Northwnd", newLabel: "Northwind", date: "2026-11-02")).error
+
+        #expect(error?.kind == .overlap)
+        #expect(error?.message == "Northwind already has time from 2026-11-02T09:00:00-05:00 to "
+                + "2026-11-02T10:00:00-05:00, which this would count twice.")
+        #expect(contents(dayFile(root, "2026-11-02")) == before)
+    }
+
+    @Test func relabelingARunningRowEchoesItsTimerUnderTheNewLabelBesideItsFinishedEntries() throws {
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+        _ = try operations.start("Northwnd")
+        clock.set("2026-11-03T10:00:00")
+        _ = try operations.stop("Northwnd")
+        _ = try operations.start("Northwnd")
+        clock.set("2026-11-03T10:30:00")
+
+        let relabeled = try operations.relabel("Northwnd", to: "Northwind", date: nil)
+
+        #expect(relabeled == RelabelResult(
+            oldLabel: "Northwnd", label: "Northwind", date: "2026-11-03",
+            entries: [EntryResult(label: "Northwind", start: clock.date("2026-11-03T09:00:00"),
+                                  end: clock.date("2026-11-03T10:00:00"), source: .agent, totalSeconds: 90 * 60)],
+            totalSeconds: 90 * 60,
+            day: DayResult(date: "2026-11-03", totalSeconds: 90 * 60, totalMinutes: 90, elapsedSeconds: 90 * 60,
+                           elapsedMinutes: 90),
+            timer: TimerResult(label: "Northwind", start: clock.date("2026-11-03T10:00:00"), source: .agent,
+                               totalSeconds: 90 * 60)))
+        #expect(try operations.status().timers.map(\.label) == ["Northwind"])
+    }
+
+    @Test func relabelingOntoALabelWhoseTimerRunsIsRefusedNamingIt() throws {
+        try write(root, "2026-11-03", #"    { "project": "Northwnd", "seconds": 900, "note": "manual" }"#)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+        _ = try operations.start("Internal")
+        clock.set("2026-11-03T10:00:00")
+
+        let error = operations.perform(.relabel(label: "Northwnd", newLabel: "internal", date: nil)).error
+
+        #expect(error?.kind == .labelRunning)
+        #expect(error?.message == "Internal's timer is running, and relabel can't move time onto a running "
+                + "timer. Stop it first, or pick another label.")
+        #expect(error?.running?.map(\.label) == ["Internal"])
+    }
+
+    @Test func relabelingARunFromBeforeMidnightEchoesItsTimerAndMovesYesterdaysPiece() throws {
+        clock.set("2026-11-02T23:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        let operations = Operations(tracker: tracker)
+        _ = try operations.start("Northwnd")
+        clock.set("2026-11-03T01:00:00")
+
+        let relabeled = try operations.relabel("Northwnd", to: "Northwind", date: nil)
+
+        #expect(relabeled.timer?.label == "Northwind")
+        #expect(tracker.rows(Day(year: 2026, month: 11, day: 2)) == [Row(project: "Northwind", total: 3600)])
+    }
+
+    @Test func relabelingADayWhoseFileWontParseIsRefusedNamingIt() throws {
+        try write(root, "2026-11-02", #"    { "project": "Northwnd", "seconds": 900, "note": "manual" }"#)
+        try "{ oops".write(to: dayFile(root, "2026-11-02"), atomically: true, encoding: .utf8)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let error = operations.perform(.relabel(label: "Northwnd", newLabel: "Northwind", date: "2026-11-02")).error
+
+        #expect(error?.kind == .malformedFile)
+        #expect(error?.message.contains("days/2026-11-02.json") == true)
+    }
+
     // MARK: On the wire
+
+    /// The old Label as its row showed it, so a client can follow a Timer it knew by that Label.
+    @Test func aRelabelsReplyNamesTheOldLabelAndSurvivesTheRoundTrip() throws {
+        try write(root, "2026-11-02", #"    { "project": "Northwnd", "seconds": 900, "note": "manual" }"#)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let reply = operations.respond(to: Wire.encode(.relabel(label: "northwnd", newLabel: "Northwind", date: "2026-11-02")))
+
+        let json = try #require(try JSONSerialization.jsonObject(with: reply) as? [String: Any])
+        #expect((json["result"] as? [String: Any])?["old_label"] as? String == "Northwnd")
+        guard case .relabel(let relabeled) = try Wire.response(from: reply).success() else { throw Unexpected() }
+        #expect(relabeled.oldLabel == "Northwnd")
+        #expect(relabeled.label == "Northwind")
+        let again = Wire.encode(.success(.relabel(relabeled)), timeZone: .current)
+        #expect(try Wire.response(from: again).success() == .relabel(relabeled))
+    }
 
     private func respond(_ line: String, _ operations: Operations) throws -> [String: Any] {
         let reply = operations.respond(to: Data(line.utf8))
@@ -298,6 +468,7 @@ import ChronobarOperations
         let added = try respond(#"{"op": "add_entry", "label": "Internal", "start": "2026-11-03T07:00:00-05:00", "end": "2026-11-03T07:30:00-05:00"}"#, operations)
         let logged = try respond(#"{"op": "add_entry", "label": "Internal", "duration": "0:15", "date": "2026-11-02"}"#, operations)
         let adjusted = try respond(#"{"op": "adjust", "label": "Internal", "input": "-10"}"#, operations)
+        let relabeled = try respond(#"{"op": "relabel", "label": "Internal", "new_label": "Overhead", "date": "2026-11-02"}"#, operations)
 
         #expect(moved["op"] as? String == "set_start")
         #expect(((moved["result"] as? [String: Any])?["timer"] as? [String: Any])?["start"] as? String
@@ -307,6 +478,9 @@ import ChronobarOperations
         #expect(((logged["result"] as? [String: Any])?["manual"] as? [String: Any])?["date"] as? String == "2026-11-02")
         #expect((adjusted["result"] as? [String: Any])?["change_seconds"] as? Int == -10 * 60)
         #expect((adjusted["result"] as? [String: Any])?["total_seconds"] as? Int == 20 * 60)
+        #expect(relabeled["op"] as? String == "relabel")
+        #expect((relabeled["result"] as? [String: Any])?["label"] as? String == "Overhead")
+        #expect((relabeled["result"] as? [String: Any])?["total_seconds"] as? Int == 15 * 60)
     }
 
     @Test(arguments: [#"{"op": "set_start", "at": "08:30"}"#, #"{"op": "set_start", "at": "2026-11-03T08:30:00"}"#])
@@ -339,6 +513,7 @@ import ChronobarOperations
             .addEntry(label: "Internal", span: .times(start: clock.date("2026-11-03T07:00:00"), end: clock.date("2026-11-03T07:30:00"))),
             .addEntry(label: "Internal", span: .duration("15", date: "2026-11-02")),
             .adjust(label: "Internal", input: "+5", date: "2026-11-02"),
+            .relabel(label: "Internal", newLabel: "Overhead", date: "2026-11-02"),
             .stop(label: nil, at: clock.date("2026-11-03T09:50:00")),
         ]
 
@@ -376,6 +551,12 @@ extension Operations {
         guard case .adjust(let result) = try perform(.adjust(label: label, input: input, date: date)).success() else {
             throw Unexpected()
         }
+        return result
+    }
+
+    func relabel(_ label: String, to newLabel: String, date: String?) throws -> RelabelResult {
+        guard case .relabel(let result) = try perform(.relabel(label: label, newLabel: newLabel, date: date)).success()
+        else { throw Unexpected() }
         return result
     }
 }
