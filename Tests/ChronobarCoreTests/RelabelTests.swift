@@ -541,19 +541,44 @@ import ChronobarCore
         #expect(tracker.timers["Client A, Ticket 665"]?.source == .agent)
     }
 
-    @Test func relabelingTheEarlierPieceOfARunStillRunningIsRefusedForNow() throws {
+    // MARK: A running Timer whose run began before midnight
+
+    @Test func relabelingTodaysRowOfARunFromYesterdayMovesYesterdaysPieceTooAndLeavesItsOtherEntries() throws {
+        try write(root, "2026-11-02", """
+            { "project": "Northwnd", "start": "2026-11-02T20:00:00-05:00", "end": "2026-11-02T21:00:00-05:00", "source": "app" },
+            { "project": "Northwnd", "seconds": 600, "note": "manual" }
+        """)
         clock.set("2026-11-02T23:00:00")
         let tracker = Tracker(clock: clock, storageRoot: root)
-        try tracker.start("Northwnd")
+        try tracker.start("Northwnd", source: .agent)
         clock.set("2026-11-03T01:00:00")
         tracker.tick()
-        let before = contents(dayFile(root, "2026-11-02"))
 
-        #expect(throws: UnsupportedRelabel(project: "Northwnd", reason: .runFromEarlierDay)) {
-            try tracker.relabel("Northwnd", to: "Northwind", on: Day(year: 2026, month: 11, day: 2))
+        let relabeled = try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
+
+        #expect(contents(dayFile(root, "2026-11-02")) == """
+        {
+          "date": "2026-11-02",
+          "entries": [
+            { "project": "Northwnd", "start": "2026-11-02T20:00:00-05:00", "end": "2026-11-02T21:00:00-05:00", "source": "app" },
+            { "project": "Northwnd", "seconds": 600, "note": "manual" },
+            { "project": "Northwind", "start": "2026-11-02T23:00:00-05:00", "end": "2026-11-03T00:00:00-05:00", "source": "agent" }
+          ]
         }
 
-        #expect(contents(dayFile(root, "2026-11-02")) == before)
+        """)
+        #expect(contents(dayFile(root, "2026-11-03")) == """
+        {
+          "date": "2026-11-03",
+          "entries": [
+            { "project": "Northwind", "start": "2026-11-03T00:00:00-05:00", "end": null, "source": "agent" }
+          ]
+        }
+
+        """)
+        #expect(tracker.timers.map(\.project) == ["Northwind"])
+        #expect(tracker.timers["Northwind"]?.source == .agent)
+        #expect(relabeled.timer == tracker.timers["Northwind"])
     }
 
     @Test func aRowOfALabelThatIsRunningTodayCanBeRelabeledOnAnEarlierDay() throws {
