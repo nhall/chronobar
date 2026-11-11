@@ -56,8 +56,8 @@ suggestions. A change of capitals or spaces only (`relabel northwind --to Northw
 pinned or archived Label it changes the list's spelling too, so every Day shows it. A running timer
 keeps running under the new Label, with the same start and the same source. Moving time onto a Label
 whose timer is running that Day is refused (`label_running`), since two timers never share a Label;
-for now so is a timer running since before midnight. A Label with no time that Day is refused
-(`unknown_label`).
+a timer running since before midnight moves whole, with its time on the earlier Days, and those Days
+are checked the same way. A Label with no time that Day is refused (`unknown_label`).
 
 ## Reading and tidying
 

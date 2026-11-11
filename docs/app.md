@@ -46,7 +46,9 @@ with its total for that Day.
   Label it changes the list's spelling, so every Day shows the fix. A running row keeps running under
   the new Label, from the same start; a timer that already gave its long-running warning doesn't give
   it again. Moving time onto a Label whose timer is running is refused with a beep: stop that timer
-  first. For now a timer running since before midnight is refused too.
+  first. A timer running since before midnight moves whole, its time on the earlier Days too, so it can
+  still be stopped or moved back past midnight; a stopped one's Days are separate rows, and only the
+  row you click moves.
 - The header shows the date, (i) and ⚙. (i) opens the Time Summary: today, yesterday, this week and
   this month, each with its Clock time.
 - ‹ › move a week back or forward without limit. On any Day other than today, ＋ only logs time and

@@ -234,7 +234,13 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       agent Timer gets no Idle alert.
 - [ ] Beeps and keeps the field open, changing nothing: an empty Label, a merge into a row whose timed
       time overlaps it, a row moved onto a Label whose Timer is running (the running row in other
-      capitals is fine), and a Timer running since before midnight.
+      capitals is fine).
+- [ ] Start `Northwnd` before midnight and let it run past it. Relabel today's row to `Northwind`:
+      yesterday's row for that run reads `Northwind` too, while an earlier `Northwnd` Entry yesterday
+      keeps its Label. Move its start back to before 23:00, then stop it at 23:30: both work, and today
+      has no row. Relabeling yesterday's row instead moves today's running piece with it.
+- [ ] With a stopped `Northwnd` run that crossed midnight, relabel today's row: yesterday's row keeps
+      `Northwnd`.
 
 **Idle after sleep and lock**
 
