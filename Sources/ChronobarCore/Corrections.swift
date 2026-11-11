@@ -153,7 +153,7 @@ extension Tracker {
         guard let row = rows(day).first(where: { ProjectName.matches($0.project, name) }) else {
             throw NoTimeOnDay(project: ProjectName.trimmed(name), day: day)
         }
-        if target == row.project { return relabeling(row.project, on: day) }
+        if target == row.project { return relabeling(row.project, from: row.project, on: day) }
         // The run moving with the row, if the Label's Timer reaches `day`. All of it moves, its pieces on
         // other Days included, so it stays one Timer that can still be stopped or moved back past midnight.
         let run = try timers[name].map { try files.readRun(of: $0) }
@@ -196,13 +196,13 @@ extension Tracker {
             }
             reread()
             if let moving, let timer = timers[project] { rekeyWarning(from: moving.project, to: timer) }
-            return relabeling(project, on: day)
+            return relabeling(project, from: row.project, on: day)
         }
     }
 
-    /// The Label's row on `day` as a relabel returns it: its timed Entries there, its Total and its Timer
-    /// if that runs on `day`.
-    private func relabeling(_ project: String, on day: Day) -> Relabeling {
+    /// The Label's row on `day` as a relabel from `old` returns it: its timed Entries there, its Total and
+    /// its Timer if that runs on `day`.
+    private func relabeling(_ project: String, from old: String, on day: Day) -> Relabeling {
         let entries = files.entries(on: day).compactMap { entry -> TimedEntry? in
             guard case .timed(let label, let start, let end, let source) = entry,
                   ProjectName.matches(label, project) else { return nil }
@@ -211,8 +211,8 @@ extension Tracker {
         let timer = timers[project].flatMap { timer in
             files.run(of: timer).contains { $0.day == day } ? timer : nil
         }
-        return Relabeling(project: project, day: day, entries: entries, total: total(project, on: day).wholeSeconds,
-                          timer: timer)
+        return Relabeling(oldProject: old, project: project, day: day, entries: entries,
+                          total: total(project, on: day).wholeSeconds, timer: timer)
     }
 
     /// `start` to `end` (nil: still running, today) as one timed Entry per Day, cut at each midnight.

@@ -49,7 +49,8 @@ extension Operations {
         let label = try named(label)
         let day = try date.map(parsedDay) ?? tracker.today
         let relabeling = try core { try tracker.relabel(label, to: newLabel, on: day) }
-        return RelabelResult(label: relabeling.project, date: relabeling.day.description,
+        return RelabelResult(oldLabel: relabeling.oldProject, label: relabeling.project,
+                             date: relabeling.day.description,
                              entries: relabeling.entries.filter { $0.end != nil }.map(result),
                              totalSeconds: relabeling.total, day: dayResult(relabeling.day),
                              timer: relabeling.timer.map(timerResult))

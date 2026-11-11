@@ -58,7 +58,7 @@ import ChronobarCore
         let relabeled = try tracker.relabel("northwnd", to: "Northwind", on: tracker.today)
 
         #expect(relabeled == Relabeling(
-            project: "Northwind", day: tracker.today,
+            oldProject: "Northwnd", project: "Northwind", day: tracker.today,
             entries: [TimedEntry(project: "Northwind", start: clock.date("2026-11-03T09:00:00"),
                                  end: clock.date("2026-11-03T10:00:00"), source: .agent)],
             total: 75 * 60))
@@ -111,7 +111,7 @@ import ChronobarCore
         let relabeled = try tracker.relabel("Northwind", to: " Northwind ", on: tracker.today)
 
         #expect(relabeled == Relabeling(
-            project: "Northwind", day: tracker.today,
+            oldProject: "Northwind", project: "Northwind", day: tracker.today,
             entries: [TimedEntry(project: "northwind", start: clock.date("2026-11-03T09:00:00"),
                                  end: clock.date("2026-11-03T10:00:00"), source: .app)],
             total: 3600))
@@ -142,7 +142,7 @@ import ChronobarCore
         """)
         #expect(tracker.rows(tracker.today) == [Row(project: "Northwind", total: 90 * 60)])
         #expect(relabeled == Relabeling(
-            project: "Northwind", day: tracker.today,
+            oldProject: "Northwnd", project: "Northwind", day: tracker.today,
             entries: [TimedEntry(project: "Northwind", start: clock.date("2026-11-03T09:00:00"),
                                  end: clock.date("2026-11-03T10:00:00"), source: .app),
                       TimedEntry(project: "Northwind", start: clock.date("2026-11-03T10:30:00"),

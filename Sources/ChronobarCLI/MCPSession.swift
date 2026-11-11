@@ -29,7 +29,7 @@ final class MCPSession {
         do throws(OperationError) {
             let request = try withSessionLabel(try Self.request(tool, arguments ?? [:]))
             let result = try perform(request).get()
-            remember(result, of: request)
+            remember(result)
             return self.result(result)
         } catch {
             return result(error)
@@ -62,16 +62,16 @@ final class MCPSession {
     /// Notes the Label a `start` started, not one it found already running, forgets the one a `stop`
     /// stopped, and follows one of the session's timers that its own `relabel` moved to another Label.
     /// A timer relabeled elsewhere isn't followed, so it stops being the session's.
-    private func remember(_ result: OperationResult, of request: ChronobarOperations.Request) {
-        switch (result, request) {
-        case (.start(let started), _) where !started.alreadyRunning
+    private func remember(_ result: OperationResult) {
+        switch result {
+        case .start(let started) where !started.alreadyRunning
             && !self.started.contains(where: { ProjectName.matches($0, started.timer.label) }):
             self.started.append(started.timer.label)
-        case (.stop(let stopped), _):
+        case .stop(let stopped):
             started.removeAll { ProjectName.matches($0, stopped.entry.label) }
-        case (.relabel(let relabeled), .relabel(let label, _, _)):
+        case .relabel(let relabeled):
             guard let timer = relabeled.timer,
-                  let index = started.firstIndex(where: { ProjectName.matches($0, label) }) else { break }
+                  let index = started.firstIndex(where: { ProjectName.matches($0, relabeled.oldLabel) }) else { break }
             started[index] = timer.label
         default: break
         }
