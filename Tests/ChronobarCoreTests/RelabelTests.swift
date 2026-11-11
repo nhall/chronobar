@@ -515,6 +515,44 @@ import ChronobarCore
         #expect(tracker.tick().isEmpty)
     }
 
+    /// The warning was shown under the old Label; its Stop still stops the same Timer under the new one.
+    @Test(arguments: ["Northwind", "northwnd"])
+    func aWarningsStopShownBeforeARelabelStopsTheRelabeledTimer(newLabel: String) throws {
+        clock.set("2026-11-03T09:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        tracker.longRunningThreshold = 2 * 3600
+        try tracker.start("Northwnd")
+        clock.set("2026-11-03T11:00:00")
+        let reported = tracker.tick()
+        try tracker.relabel("Northwnd", to: newLabel, on: tracker.today)
+        try tracker.relabel(newLabel, to: "Northwind, Ticket 665", on: tracker.today)
+
+        clock.set("2026-11-03T11:20:00")
+        try tracker.pause(reported[0].run)
+
+        #expect(tracker.timers.isEmpty)
+        #expect(tracker.total("Northwind, Ticket 665", on: tracker.today) == 2 * 3600 + 20 * 60)
+    }
+
+    /// The relabeled Timer was stopped and the new Label started again: a late Stop leaves that Timer alone.
+    @Test func aWarningsStopShownBeforeARelabelLeavesALaterTimerOfTheNewLabelRunning() throws {
+        clock.set("2026-11-03T09:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        tracker.longRunningThreshold = 2 * 3600
+        try tracker.start("Northwnd")
+        clock.set("2026-11-03T11:00:00")
+        let reported = tracker.tick()
+        try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
+        try tracker.pause("Northwind")
+        clock.set("2026-11-03T11:10:00")
+        try tracker.start("Northwind")
+
+        clock.set("2026-11-03T11:20:00")
+        try tracker.pause(reported[0].run)
+
+        #expect(tracker.isRunning("Northwind"))
+    }
+
     @Test func idleTimeIsStillTakenOffARelabeledAppTimerAndLeftOnARelabeledAgentTimer() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redsign")

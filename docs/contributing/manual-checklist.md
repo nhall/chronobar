@@ -228,7 +228,8 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       with the combined total.
 - [ ] With Long-running warnings at 2 hours, let a Timer pass them and get its notification, then
       relabel its row (and again in other capitals only): no second notification, now or after a
-      relaunch.
+      relaunch. Before relaunching, click the first notification's Stop: the Timer stops under its
+      new Label. Stop on a notification for a run since stopped and started again changes nothing.
 - [ ] Relabel a running row started in the app, then sleep the Mac past the Idle threshold: the Idle
       alert names the new Label, and removing the time restarts it under that Label. A relabeled
       agent Timer gets no Idle alert.
