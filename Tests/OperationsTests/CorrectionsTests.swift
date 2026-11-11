@@ -301,6 +301,19 @@ import ChronobarOperations
         #expect(relabeled.totalSeconds == 900)
     }
 
+    @Test func aCapitalisationFixEchoesTheNewSpelling() throws {
+        let projectsFile = root.appendingPathComponent("projects.txt")
+        try "northwnd\n".write(to: projectsFile, atomically: true, encoding: .utf8)
+        try write(root, "2026-11-02", #"    { "project": "northwnd", "seconds": 900, "note": "manual" }"#)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let relabeled = try operations.relabel("northwnd", to: "Northwnd", date: "2026-11-02")
+
+        #expect(relabeled.label == "Northwnd")
+        #expect(relabeled.totalSeconds == 900)
+        #expect(contents(projectsFile) == "Northwnd\n")
+    }
+
     @Test(arguments: [("Northwnd", " "), (" ", "Northwind")])
     func relabelingFromOrToABlankLabelIsRefused(label: String, newLabel: String) throws {
         let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
@@ -330,7 +343,6 @@ import ChronobarOperations
 
         let running = operations.perform(.relabel(label: "Internal", newLabel: "Overhead", date: nil)).error
         let merge = operations.perform(.relabel(label: "Northwnd", newLabel: "northwind", date: "2026-11-02")).error
-        let respelling = operations.perform(.relabel(label: "Northwnd", newLabel: "NORTHWND", date: "2026-11-02")).error
 
         #expect(running?.kind == .failed)
         #expect(running?.message == "Internal's timer is running, and Chronobar can't relabel a running timer yet. "
@@ -338,9 +350,6 @@ import ChronobarOperations
         #expect(merge?.kind == .failed)
         #expect(merge?.message == "Northwind already has time that Day, and Chronobar can't merge two rows yet. "
                 + "Pick a Label with no time that Day.")
-        #expect(respelling?.kind == .failed)
-        #expect(respelling?.message == "That is Northwnd spelled another way, and Chronobar can't change only "
-                + "a Label's capitals or spaces yet.")
     }
 
     @Test func relabelingADayWhoseFileWontParseIsRefusedNamingIt() throws {

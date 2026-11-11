@@ -86,6 +86,30 @@ final class LabelCatalogue {
         return try save(label, bringingBack(label))
     }
 
+    /// Resolves `newName` for relabeling the Label `name` to it, and hands `save` the stored spelling with
+    /// the Label-list writes that must land with that change, all or none, as `resolvingForWrite` does.
+    /// Another Label is spelled and brought back as for any write. The same Label spelled with other
+    /// capitals or spaces is stored as typed, trimmed, since resolving it would give back the old spelling;
+    /// if it is Pinned or Archived, that list's line is respelled with it, so every Day shows the fix.
+    func resolvingForRelabel<T>(_ name: String, to newName: String,
+                                _ save: (_ label: String, _ alongWith: [FileWrite]) throws -> T) throws -> T {
+        guard ProjectName.matches(name, newName) else { return try resolvingForWrite(newName, save) }
+        let label = ProjectName.trimmed(newName)
+        guard !label.isEmpty else { throw EmptyProjectName() }
+        try load()
+        defer { reload() }
+        return try save(label, respelling(label))
+    }
+
+    /// The `projects.txt` and `archived.txt` writes spelling `label`'s line as `label`, as last read; none
+    /// for a list it isn't on or already spells it so.
+    private func respelling(_ label: String) -> [FileWrite] {
+        [(pinned, pinnedStore), (archived, archivedStore)].compactMap { list, store in
+            guard list.contains(matching: label), !list.contains(label) else { return nil }
+            return store.write(list.map { ProjectName.matches($0, label) ? label : $0 })
+        }
+    }
+
     /// The `archived.txt` write taking `label` off it, as last read; none if it isn't archived.
     private func bringingBack(_ label: String) -> [FileWrite] {
         guard archived.contains(matching: label) else { return [] }
