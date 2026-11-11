@@ -25,6 +25,16 @@ import ChronobarCore
         #expect(MergeHint(typed: typed, editing: "Northwnd", rows: rows) == nil)
     }
 
+    /// Return would be refused, the Timer running, so there's no merge to warn of.
+    @Test func aRunningRowGivesNoHint() {
+        let rows = [
+            DaySheet.Row(project: "Northwnd", time: Figure(seconds: 1800, minutes: 30), runningSource: nil),
+            DaySheet.Row(project: "Northwind", time: Figure(seconds: 3599, minutes: 60), runningSource: .agent),
+        ]
+
+        #expect(MergeHint(typed: "Northwind", editing: "Northwnd", rows: rows) == nil)
+    }
+
     @Test(arguments: ["", "  ", "North", "Northwind, Ticket 665"])
     func aNameMatchingNoOtherRowGivesNoHint(typed: String) {
         #expect(MergeHint(typed: typed, editing: "Northwnd", rows: rows) == nil)

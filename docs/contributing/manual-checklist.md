@@ -217,7 +217,8 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] With a `Northwnd` row (0:30) and a `Northwind` row (1:00) that don't overlap, click `Northwnd` and
       type `northwind`: beside the field it reads "merges with Northwind (1:00)", readable while the
       suggestions are open. Typing `Northwnd` again, or `NORTHWND`, or a Label with no row that Day, hides
-      it. Return: one `Northwind` row of 1:30, with the Total line and Clock time unchanged.
+      it. Return: one `Northwind` row of 1:30, with the Total line and Clock time unchanged. With
+      `Northwind` running instead, typing `northwind` shows no hint, and Return beeps.
 - [ ] Pin a Label spelled `northwind` and relabel its row to `Northwind`: the row, the row on other Days
       and the pinned suggestion all read `Northwind`. An archived Label respelled this way stays
       archived. Relabel a row onto an archived Label: it shows in the suggestions again.

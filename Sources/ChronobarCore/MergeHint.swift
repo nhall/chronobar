@@ -15,10 +15,12 @@ public struct MergeHint: Equatable, Sendable {
     }
 
     /// The row of `rows` that `typed` names, matched as Labels are (capitals and surrounding spaces aside);
-    /// nil if none does, or if it names `editing`, the row being relabeled, which is never a merge.
+    /// nil if none does, if it names `editing`, the row being relabeled, which is never a merge, or if that
+    /// row's Timer is running, which refuses the relabel rather than merging (the refusal beeps on Return).
     public init?(typed: String, editing: String, rows: [DaySheet.Row]) {
         guard !ProjectName.matches(typed, editing),
-              let row = rows.first(where: { ProjectName.matches($0.project, typed) }) else { return nil }
+              let row = rows.first(where: { ProjectName.matches($0.project, typed) }), !row.isRunning
+        else { return nil }
         self.init(project: row.project, total: DurationFormat.hoursMinutes(minutes: row.time.minutes))
     }
 }
