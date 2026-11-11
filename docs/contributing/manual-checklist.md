@@ -214,8 +214,11 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] While one row's Label field is open, click another row's time: the Label field closes. Clicking a
       Label closes an open time edit the same way, and moving to another Day closes either.
 - [ ] Relabel a row on a past Day: only that Day's row changes.
-- [ ] Beeps and keeps the field open, changing nothing: an empty Label, the running row, a Label with time
-      that Day already, and the same Label in other capitals.
+- [ ] Pin a Label spelled `northwind` and relabel its row to `Northwind`: the row, the row on other Days
+      and the pinned suggestion all read `Northwind`. An archived Label respelled this way stays
+      archived. Relabel a row onto an archived Label: it shows in the suggestions again.
+- [ ] Beeps and keeps the field open, changing nothing: an empty Label, the running row (in other
+      capitals too), and a Label with time that Day already.
 
 **Idle after sleep and lock**
 

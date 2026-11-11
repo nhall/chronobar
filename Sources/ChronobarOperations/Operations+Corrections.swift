@@ -83,9 +83,6 @@ extension Operations {
             case .merge:
                 OperationError(.failed, "\(error.project) already has time that Day, and Chronobar can't merge "
                                + "two rows yet. Pick a Label with no time that Day.")
-            case .respelling:
-                OperationError(.failed, "That is \(error.project) spelled another way, and Chronobar can't change "
-                               + "only a Label's capitals or spaces yet.")
             }
         default:
             nil
