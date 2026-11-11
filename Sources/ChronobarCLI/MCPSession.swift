@@ -71,7 +71,8 @@ final class MCPSession {
             started.removeAll { ProjectName.matches($0, stopped.entry.label) }
         case .relabel(let relabeled):
             guard let timer = relabeled.timer,
-                  let index = started.firstIndex(where: { ProjectName.matches($0, relabeled.oldLabel) }) else { break }
+                  let index = started.firstIndex(where: { ProjectName.matches($0, relabeled.oldLabel) })
+            else { break }
             started[index] = timer.label
         default: break
         }
