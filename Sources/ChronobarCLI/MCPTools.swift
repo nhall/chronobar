@@ -54,6 +54,18 @@ enum MCPTools {
                                   "date": date("The Day; today if left out.")],
                                  required: ["label", "input"]),
              annotations: changing(destructive: true)),
+        Tool(name: "relabel", title: "Relabel a row",
+             description: "Move all of a Label's time on a Day (timed Entries, line items and adjustments) to "
+                 + "another Label, for example to fix a typo or file the time under a more specific Label. Other "
+                 + "Days keep the old Label. Returns the new Label as stored, its Entries and total, and the Day's "
+                 + "totals, which don't change. For now refused for a running timer, for a new Label that "
+                 + "already has time that Day, and for a change of capitals or spaces only.",
+             inputSchema: schema(["label": label("The Label whose row to move."),
+                                  "new_label": label("The Label to move the time to. Matched to an existing Label "
+                                                     + "ignoring case."),
+                                  "date": date("The Day; today if left out.")],
+                                 required: ["label", "new_label"]),
+             annotations: changing(destructive: true)),
         Tool(name: "day", title: "A Day's rows",
              description: "List a Day's Labels with their totals (and which are running, today), with the Day "
                  + "total and clock time (elapsed_seconds). For a question about a week, call week instead.",

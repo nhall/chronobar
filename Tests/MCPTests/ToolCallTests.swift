@@ -161,6 +161,9 @@ import ChronobarOperations
             .objectValue?["start"] == "2026-11-03T08:30:00-05:00")
         #expect(try mcp.result("add_entry", ["label": "Internal", "duration": "0:30"])["label"] == "Internal")
         #expect(try mcp.result("adjust", ["label": "Internal", "input": "+15"])["total_seconds"] == .int(45 * 60))
+        #expect(try mcp.result("relabel", ["label": "Internal", "new_label": "Overhead", "date": "2026-11-03"])["label"]
+                == "Overhead")
+        #expect(try mcp.result("relabel", ["label": "Overhead", "new_label": "Internal"])["total_seconds"] == .int(45 * 60))
         #expect(try mcp.result("day", ["date": "2026-11-03"])["rows"]?.arrayValue?.count == 2)
         #expect(try mcp.result("summary")["today"]?.objectValue?["total_seconds"] == .int((90 + 45) * 60))
         #expect(try mcp.result("labels", ["query": "web"])["labels"]?.arrayValue?.count == 1)
