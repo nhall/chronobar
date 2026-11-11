@@ -35,6 +35,12 @@ public enum Entry: Equatable, Sendable {
         }
     }
 
+    /// This Entry as a `TimedEntry`, as a correction returns it; nil for a manual one.
+    var timedEntry: TimedEntry? {
+        guard case .timed(let project, let start, let end, let source) = self else { return nil }
+        return TimedEntry(project: project, start: start, end: end, source: source)
+    }
+
     /// Seconds this Entry counts, with a running Entry counted up to `now`.
     func seconds(asOf now: Date) -> TimeInterval {
         switch self {

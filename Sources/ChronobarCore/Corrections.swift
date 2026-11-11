@@ -186,10 +186,7 @@ extension Tracker {
                         .first(where: { ProjectName.matches($0.project, project) }) {
                         throw NewLabelRunning(project: timer.project)
                     }
-                    let moved = entries.compactMap { entry -> TimedEntry? in
-                        guard moves(entry), case .timed(_, let start, let end, let source) = entry else { return nil }
-                        return TimedEntry(project: project, start: start, end: end, source: source)
-                    }
+                    let moved = entries.filter(moves).compactMap { $0.relabeled(project).timedEntry }
                     if let overlap = overlap(of: moved, with: entries) { throw overlap }
                 }
                 entries = entries.map { moves($0) ? $0.relabeled(project) : $0 }
@@ -203,11 +200,8 @@ extension Tracker {
     /// The Label's row on `day` as a relabel from `old` returns it: its timed Entries there, its Total and
     /// its Timer if that runs on `day`.
     private func relabeling(_ project: String, from old: String, on day: Day) -> Relabeling {
-        let entries = files.entries(on: day).compactMap { entry -> TimedEntry? in
-            guard case .timed(let label, let start, let end, let source) = entry,
-                  ProjectName.matches(label, project) else { return nil }
-            return TimedEntry(project: label, start: start, end: end, source: source)
-        }
+        let entries = files.entries(on: day).filter { ProjectName.matches($0.project, project) }
+            .compactMap(\.timedEntry)
         let timer = timers[project].flatMap { timer in
             files.run(of: timer).contains { $0.day == day } ? timer : nil
         }
