@@ -43,8 +43,9 @@ enum Output {
             return "\(adjusted.label) on \(adjusted.date): \(total(adjusted.totalSeconds)) (\(change)).\n"
                 + day(adjusted.day)
         case .relabel(let relabeled):
-            return "Relabeled as \(relabeled.label) on \(relabeled.date): \(total(relabeled.totalSeconds)).\n"
-                + day(relabeled.day)
+            var lines = ["Relabeled as \(relabeled.label) on \(relabeled.date): \(total(relabeled.totalSeconds))."]
+            if let timer = relabeled.timer { lines += ["Its timer runs on, since \(clock(timer.start))."] }
+            return (lines + [day(relabeled.day)]).joined(separator: "\n")
         case .day(let day): return rows(day)
         case .week(let week): return weekText(week)
         case .summary(let summary): return periods(summary)
