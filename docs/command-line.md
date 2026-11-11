@@ -51,9 +51,10 @@ chronobar relabel Northwnd --to Northwind, Ticket 665 --day 2026-11-02   # move 
 `relabel` moves all of a Label's time on one Day (timed Entries, durations and adjustments) to another
 Label, so the Day's Total and Clock time stay the same. The Label on other Days keeps its name. If the
 new Label already has time that Day, the two rows merge into one; if their timed Entries overlap, it's
-refused (`overlap`) and names the new Label's Entry. For now it refuses a running timer, either
-Label's, and a change of capitals or spaces only. A Label with no time that Day is refused
-(`unknown_label`).
+refused (`overlap`) and names the new Label's Entry. A new Label that is archived comes back to the
+suggestions. A change of capitals or spaces only (`relabel northwind --to Northwind`) is kept, and on a
+pinned or archived Label it changes the list's spelling too, so every Day shows it. For now it refuses
+a running timer, either Label's. A Label with no time that Day is refused (`unknown_label`).
 
 ## Reading and tidying
 

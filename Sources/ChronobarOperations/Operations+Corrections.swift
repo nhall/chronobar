@@ -83,9 +83,6 @@ extension Operations {
             case .mergeIntoRunning:
                 OperationError(.failed, "\(error.project)'s timer is running, and Chronobar can't merge time into "
                                + "a running timer yet. Stop it first, then relabel.")
-            case .respelling:
-                OperationError(.failed, "That is \(error.project) spelled another way, and Chronobar can't change "
-                               + "only a Label's capitals or spaces yet.")
             }
         default:
             nil

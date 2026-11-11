@@ -218,9 +218,11 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       type `northwind`: beside the field it reads "merges with Northwind (1:00)", readable while the
       suggestions are open. Typing `Northwnd` again, or `NORTHWND`, or a Label with no row that Day, hides
       it. Return: one `Northwind` row of 1:30, with the Total line and Clock time unchanged.
-- [ ] Beeps and keeps the field open, changing nothing: an empty Label, the running row, a merge into a
-      row whose timed time overlaps it, a merge into the running row, and the same Label in other
-      capitals.
+- [ ] Pin a Label spelled `northwind` and relabel its row to `Northwind`: the row, the row on other Days
+      and the pinned suggestion all read `Northwind`. An archived Label respelled this way stays
+      archived. Relabel a row onto an archived Label: it shows in the suggestions again.
+- [ ] Beeps and keeps the field open, changing nothing: an empty Label, the running row (in other
+      capitals too), a merge into a row whose timed time overlaps it, and a merge into the running row.
 
 **Idle after sleep and lock**
 

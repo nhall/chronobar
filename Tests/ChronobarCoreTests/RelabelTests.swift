@@ -226,19 +226,141 @@ import ChronobarCore
         #expect(tracker.isRunning("Northwind"))
     }
 
-    // MARK: Not yet supported
+    // MARK: Capitalisation and spacing
 
-    @Test func aCapitalisationOrSpacingFixIsRefusedForNow() throws {
+    @Test func aCapitalisationOrSpacingFixWritesTheNewSpellingToThatDaysEntries() throws {
+        try write(root, "2026-11-02", #"    { "project": "northwind", "seconds": 3600, "note": "manual" }"#)
+        try write(root, "2026-11-03", """
+            { "project": "northwind", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" },
+            { "project": "NORTHWIND ", "seconds": 1800, "note": "manual" }
+        """)
+        let before = contents(dayFile(root, "2026-11-02"))
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        let relabeled = try tracker.relabel("northwind", to: " Northwind ", on: tracker.today)
+
+        #expect(relabeled.project == "Northwind")
+        #expect(contents(dayFile(root, "2026-11-03")) == """
+        {
+          "date": "2026-11-03",
+          "entries": [
+            { "project": "Northwind", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" },
+            { "project": "Northwind", "seconds": 1800, "note": "manual" }
+          ]
+        }
+
+        """)
+        #expect(tracker.rows(tracker.today) == [Row(project: "Northwind", total: 90 * 60)])
+        #expect(contents(dayFile(root, "2026-11-02")) == before)
+    }
+
+    @Test func aFixOnAPinnedLabelRewritesItsPinnedSpellingSoEveryDayShowsIt() throws {
+        try "Internal\nnorthwind\n".write(to: projectsFile(root), atomically: true, encoding: .utf8)
+        try write(root, "2026-11-02", #"    { "project": "northwind", "seconds": 3600, "note": "manual" }"#)
+        try write(root, "2026-11-03", #"    { "project": "northwind", "seconds": 1800, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        let relabeled = try tracker.relabel("northwind", to: "Northwind", on: tracker.today)
+
+        #expect(relabeled.project == "Northwind")
+        #expect(contents(projectsFile(root)) == "Internal\nNorthwind\n")
+        #expect(tracker.projects == ["Internal", "Northwind"])
+        #expect(tracker.rows(tracker.today) == [Row(project: "Northwind", total: 1800)])
+        #expect(tracker.rows(Day(year: 2026, month: 11, day: 2)) == [Row(project: "Northwind", total: 3600)])
+    }
+
+    @Test func aFixOnAnArchivedLabelRewritesItsArchivedSpellingAndLeavesItArchived() throws {
+        try "Mobile App\nnorthwind\n".write(to: archivedFile(root), atomically: true, encoding: .utf8)
+        try write(root, "2026-11-03", #"    { "project": "northwind", "seconds": 1800, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        let relabeled = try tracker.relabel("northwind", to: "Northwind", on: tracker.today)
+
+        #expect(relabeled.project == "Northwind")
+        #expect(contents(archivedFile(root)) == "Mobile App\nNorthwind\n")
+        #expect(tracker.archived == ["Mobile App", "Northwind"])
+        #expect(tracker.rows(tracker.today) == [Row(project: "Northwind", total: 1800)])
+    }
+
+    @Test func aFixWhosePinnedFileCantBeReplacedChangesNeitherFile() throws {
+        try "northwind\n".write(to: projectsFile(root), atomically: true, encoding: .utf8)
+        try write(root, "2026-11-03", #"    { "project": "northwind", "seconds": 1800, "note": "manual" }"#)
+        let before = contents(dayFile(root, "2026-11-03"))
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: projectsFile(root).path)
+        defer { try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: projectsFile(root).path) }
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        #expect(throws: (any Error).self) { try tracker.relabel("northwind", to: "Northwind", on: tracker.today) }
+
+        #expect(contents(projectsFile(root)) == "northwind\n")
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+        #expect(tracker.rows(tracker.today) == [Row(project: "northwind", total: 1800)])
+    }
+
+    // MARK: Pinned and Archived Labels
+
+    @Test func relabelingOntoAnArchivedLabelBringsItBackInTheSameSave() throws {
+        try "Mobile App\n".write(to: archivedFile(root), atomically: true, encoding: .utf8)
+        try write(root, "2026-11-03", #"    { "project": "Mobile", "seconds": 1800, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        let relabeled = try tracker.relabel("Mobile", to: "mobile app", on: tracker.today)
+
+        #expect(relabeled.project == "Mobile App")
+        #expect(contents(archivedFile(root)) == "")
+        #expect(tracker.archived == [])
+        #expect(tracker.suggestions(for: "mob") == ["Mobile App"])
+    }
+
+    @Test func relabelingOntoAnArchivedLabelChangesNeitherFileWhenTheArchivedFileCantBeReplaced() throws {
+        try "Mobile App\n".write(to: archivedFile(root), atomically: true, encoding: .utf8)
+        try write(root, "2026-11-03", #"    { "project": "Mobile", "seconds": 1800, "note": "manual" }"#)
+        let before = contents(dayFile(root, "2026-11-03"))
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: archivedFile(root).path)
+        defer { try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: archivedFile(root).path) }
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        #expect(throws: (any Error).self) { try tracker.relabel("Mobile", to: "mobile app", on: tracker.today) }
+
+        #expect(contents(archivedFile(root)) == "Mobile App\n")
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+        #expect(tracker.archived == ["Mobile App"])
+    }
+
+    @Test func theOldLabelStaysPinnedOrArchived() throws {
+        try "Northwnd\n".write(to: projectsFile(root), atomically: true, encoding: .utf8)
+        try "Internl\n".write(to: archivedFile(root), atomically: true, encoding: .utf8)
+        try write(root, "2026-11-03", """
+            { "project": "Northwnd", "seconds": 1800, "note": "manual" },
+            { "project": "Internl", "seconds": 900, "note": "manual" }
+        """)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
+        try tracker.relabel("Internl", to: "Internal", on: tracker.today)
+
+        #expect(contents(projectsFile(root)) == "Northwnd\n")
+        #expect(contents(archivedFile(root)) == "Internl\n")
+        #expect(tracker.projects == ["Northwnd"])
+        #expect(tracker.archived == ["Internl"])
+    }
+
+    @Test func aMalformedLabelListRefusesARelabelNamingItAndChangesNothing() throws {
+        try Data([0x49, 0x6E, 0xFF, 0xFE, 0x0A]).write(to: archivedFile(root))
         try write(root, "2026-11-03", #"    { "project": "northwind", "seconds": 1800, "note": "manual" }"#)
         let before = contents(dayFile(root, "2026-11-03"))
         let tracker = Tracker(clock: clock, storageRoot: root)
 
-        #expect(throws: UnsupportedRelabel(project: "northwind", reason: .respelling)) {
-            try tracker.relabel("northwind", to: "Northwind", on: tracker.today)
+        for name in ["Northwind", "Internal"] {
+            #expect(throws: MalformedLabelList(list: .archived)) {
+                try tracker.relabel("northwind", to: name, on: tracker.today)
+            }
         }
 
         #expect(contents(dayFile(root, "2026-11-03")) == before)
     }
+
+    // MARK: Not yet supported
 
     @Test func relabelingARunningTimerIsRefusedForNow() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
@@ -252,6 +374,19 @@ import ChronobarCore
 
         #expect(contents(dayFile(root, "2026-11-03")) == before)
         #expect(tracker.isRunning("Northwnd"))
+    }
+
+    @Test func aCapitalisationFixOfARunningTimerIsRefusedForNow() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("northwind")
+        let before = contents(dayFile(root, "2026-11-03"))
+
+        #expect(throws: UnsupportedRelabel(project: "northwind", reason: .running)) {
+            try tracker.relabel("northwind", to: "Northwind", on: tracker.today)
+        }
+
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+        #expect(tracker.timers.newest?.project == "northwind")
     }
 
     @Test func relabelingTheEarlierPieceOfARunStillRunningIsRefusedForNow() throws {

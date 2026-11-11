@@ -70,11 +70,9 @@ public struct UnsupportedRelabel: Error, Equatable {
         case running
         /// The new Label's Timer is running and its run reaches the Day, so the rows would merge into it.
         case mergeIntoRunning
-        /// The new Label is the same Label spelled with other capitals or spaces.
-        case respelling
     }
 
-    /// The running or respelled Label, or the one the rows would merge into, as stored.
+    /// The running Label, or the one the rows would merge into, as stored.
     public let project: String
     public let reason: Reason
 
@@ -146,9 +144,11 @@ extension Tracker {
     /// included, to `newName`, written under its stored spelling as for start. A new Label with time on `day`
     /// already gets the moved Entries beside its own, merging the rows; refused with `Overlap` if timed
     /// Entries of the two would share time. The Label on other Days is untouched, and an archived new Label
-    /// comes back. Relabeling to the row's own spelling changes nothing. Refused if the Label has no Entries
-    /// on `day` or `day`'s file won't parse or has writes waiting; and, for now, where either Label's running
-    /// Timer's run reaches `day`, and for a fix of capitalisation or spacing alone. Returns what it stored.
+    /// comes back; the old Label's lists are left alone. A fix of capitals or spaces alone is written as
+    /// typed, and respells the Label on the Pinned or Archived Labels too, in the same save. Relabeling to
+    /// the row's own spelling changes nothing. Refused if the Label has no Entries on `day`, `day`'s file
+    /// won't parse or has writes waiting, or a Label list won't parse; and, for now, where either Label's
+    /// running Timer's run reaches `day`. Returns what it stored.
     @discardableResult
     public func relabel(_ name: String, to newName: String, on day: Day) throws -> Relabeling {
         catchUp()
@@ -158,28 +158,29 @@ extension Tracker {
         guard let row = rows(day).first(where: { ProjectName.matches($0.project, name) }) else {
             throw NoTimeOnDay(project: ProjectName.trimmed(name), day: day)
         }
-        if ProjectName.matches(row.project, target) {
-            guard target == row.project else { throw UnsupportedRelabel(project: row.project, reason: .respelling) }
-            return relabeling(row.project, on: day)
-        }
+        if target == row.project { return relabeling(row.project, on: day) }
+        // The old Label first, so a case-only fix of a running Timer is refused as running.
         for (label, reason) in [(name, UnsupportedRelabel.Reason.running), (target, .mergeIntoRunning)] {
             if let timer = timers[label], try files.readRun(of: timer).contains(where: { $0.day == day }) {
                 throw UnsupportedRelabel(project: timer.project, reason: reason)
             }
         }
-        return try labels.resolvingForWrite(target) { project, bringingBack in
+        return try labels.resolvingForRelabel(row.project, to: target) { project, lists in
             // Checked again on the Entries as re-read, so a hand edit since can't slip past.
-            try files.change([day], alongWith: bringingBack) { _, entries in
+            try files.change([day], alongWith: lists) { _, entries in
                 guard entries.contains(where: { ProjectName.matches($0.project, name) }) else {
                     throw NoTimeOnDay(project: ProjectName.trimmed(name), day: day)
                 }
                 // Merging into the new Label's time there: refused where the same minutes would count twice.
-                let moved = entries.compactMap { entry -> TimedEntry? in
-                    guard case .timed(let label, let start, let end, let source) = entry,
-                          ProjectName.matches(label, name) else { return nil }
-                    return TimedEntry(project: project, start: start, end: end, source: source)
+                // A fix of capitals or spaces stays the same Label, so it isn't a merge.
+                if !ProjectName.matches(project, name) {
+                    let moved = entries.compactMap { entry -> TimedEntry? in
+                        guard case .timed(let label, let start, let end, let source) = entry,
+                              ProjectName.matches(label, name) else { return nil }
+                        return TimedEntry(project: project, start: start, end: end, source: source)
+                    }
+                    if let overlap = overlap(of: moved, with: entries) { throw overlap }
                 }
-                if let overlap = overlap(of: moved, with: entries) { throw overlap }
                 entries = entries.map { ProjectName.matches($0.project, name) ? $0.relabeled(project) : $0 }
             }
             reread()
