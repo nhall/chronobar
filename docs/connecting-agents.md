@@ -106,6 +106,9 @@ the Label already running doesn't count). `stop` and `set_start` with no Label a
 timer, whatever else is running. If it started several that are still running, or none, they change
 nothing and list the running timers (`ambiguous` or `no_session_timer`), so the agent asks which.
 
+A timer the session started and then relabeled with `relabel` stays the session's under its new Label.
+One relabeled elsewhere (in the Panel, from the command line or by another session) no longer is.
+
 Any session can stop any timer by name. Closing a session leaves its timers running; the long-running
 warning catches one that's forgotten.
 
