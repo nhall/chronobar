@@ -30,14 +30,33 @@ final class PanelModel {
     var newProjectDuration = ""
     /// The Day the Panel shows; nil follows today, including across midnight.
     var viewedDay: Day? {
-        didSet { adjusting = nil }
+        didSet {
+            adjusting = nil
+            relabeling = nil
+        }
     }
     var showingSummary = false
-    /// The Project whose row's time is being typed over, and what has been typed.
+    /// The Project whose row's time is being typed over, and what has been typed. One row edits at a time,
+    /// so this ends any relabel.
     var adjusting: String? {
-        didSet { adjustment = "" }
+        didSet {
+            adjustment = ""
+            if adjusting != nil { relabeling = nil }
+        }
     }
     var adjustment = ""
+    /// The Project whose row's Label is being edited, and the Label typed, which starts as the row's.
+    /// One row edits at a time, so this ends any time edit.
+    var relabeling: String? {
+        didSet {
+            newLabel = relabeling ?? ""
+            newLabelListOpen = false
+            if relabeling != nil { adjusting = nil }
+        }
+    }
+    var newLabel = ""
+    /// Whether the row's Label field shows its list, which takes Return and Escape.
+    var newLabelListOpen = false
     /// The most the Panel's content can be on the Pill's screen (`PanelHeight.available`), set before the
     /// Panel opens and whenever the Pill or its screen changes.
     var availableHeight = Double.infinity
@@ -88,6 +107,9 @@ struct PanelActions {
     let log: (_ project: String, _ duration: String, _ day: Day) -> String?
     /// Returns false when the input was refused, so the field keeps what was typed.
     let adjust: (_ project: String, _ input: String, _ day: Day) -> Bool
+    /// Moves the row's time on `day` to `newLabel`. Returns the new Label's name as stored, or nil when
+    /// refused, so the field keeps what was typed.
+    let relabel: (_ project: String, _ newLabel: String, _ day: Day) -> String?
     let archive: (String) -> Void
     let pin: (String) -> Void
     let openDataFolder: () -> Void
@@ -214,7 +236,17 @@ struct PanelView: View {
                                 toggle: { actions.toggle(row.project) },
                                 adjust: {
                                     if actions.adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
-                                })
+                                },
+                                labels: RowView.Labels(
+                                    suggestions: tracker.suggestions(for:), isPinned: tracker.isPinned,
+                                    pin: actions.pin, archive: actions.archive,
+                                    relabel: {
+                                        guard let project = actions.relabel(row.project, panel.newLabel, day) else {
+                                            return
+                                        }
+                                        panel.relabeling = nil
+                                        panel.projectToReveal = project
+                                    }))
                         .id(row.project)
                     }
                 }
@@ -459,8 +491,19 @@ private struct RowList<Rows: View>: View {
 
 /// One Project's total on the viewed Day. Today's rows end with ▶ to switch to the Project, or ⏸ to pause
 /// it while it runs; rows on any other Day have neither. Clicking the time types over it: a new total
-/// (`1:15`) or a change (`+15`, `-10`). Return applies it, Escape cancels.
+/// (`1:15`) or a change (`+15`, `-10`). Clicking the Label edits it in a Label field with the ＋ form's
+/// suggestions, to move the row's time to another Label. Return applies either edit, Escape cancels.
 private struct RowView: View {
+    /// What the row's Label field needs: the ＋ form's suggestions and their Pin and Archive, and the
+    /// relabel Return makes.
+    struct Labels {
+        let suggestions: (String) -> [String]
+        let isPinned: (String) -> Bool
+        let pin: (String) -> Void
+        let archive: (String) -> Void
+        let relabel: () -> Void
+    }
+
     /// With its share of the Total line's minutes, and who started its running timer: an agent's gets a
     /// terminal icon after the name.
     let row: DaySheet.Row
@@ -468,12 +511,13 @@ private struct RowView: View {
     @Bindable var panel: PanelModel
     let toggle: () -> Void
     let adjust: () -> Void
+    let labels: Labels
     @FocusState private var focused: Bool
     /// Which of the row's buttons has keyboard focus, so a row focus moves onto is scrolled into view.
     @FocusState private var focusedButton: FocusedButton?
 
     private enum FocusedButton {
-        case total, toggle
+        case label, total, toggle
     }
 
     /// The ▶/⏸ column's width and the row's side insets, which the Total line above the rows matches.
@@ -483,8 +527,24 @@ private struct RowView: View {
     var body: some View {
         let presentation = RowPresentation(row)
         HStack {
-            Text(row.project).lineLimit(1)
+            if panel.relabeling == row.project {
+                LabelField(name: $panel.newLabel, isListOpen: $panel.newLabelListOpen,
+                           suggestions: labels.suggestions, focusRequests: 0, submit: labels.relabel,
+                           cancel: { panel.relabeling = nil },
+                           isPinned: labels.isPinned, pin: labels.pin, archive: labels.archive)
+                    .help("Another Label for this row's time. Return moves it, Escape cancels.")
+            } else {
+                Button {
+                    panel.relabeling = row.project
+                } label: {
+                    Text(row.project).lineLimit(1)
+                }
+                .buttonStyle(.plain)
+                .focused($focusedButton, equals: .label)
+                .help("Change this row's Label")
                 .accessibilityLabel(presentation.nameLabel)
+                .accessibilityHint("Change this row's Label")
+            }
             if let agentMark = presentation.agentMark {
                 // The name's VoiceOver label already says an agent started it.
                 Image(systemName: "terminal")
