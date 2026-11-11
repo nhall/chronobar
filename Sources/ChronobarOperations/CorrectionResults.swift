@@ -67,3 +67,24 @@ public struct AdjustResult: Codable, Equatable, Sendable {
         self.day = day
     }
 }
+
+public struct RelabelResult: Codable, Equatable, Sendable {
+    /// The new Label as stored, which may be spelled differently from the request.
+    public let label: String
+    /// `YYYY-MM-DD`, the Day relabeled.
+    public let date: String
+    /// The timed Entries now under the new Label on that Day, oldest first; manual Entries and
+    /// adjustments count only in `totalSeconds`.
+    public let entries: [EntryResult]
+    /// The new Label's total on that Day: the old Label's, moved whole.
+    public let totalSeconds: Int
+    public let day: DayResult
+
+    public init(label: String, date: String, entries: [EntryResult], totalSeconds: Int, day: DayResult) {
+        self.label = label
+        self.date = date
+        self.entries = entries
+        self.totalSeconds = totalSeconds
+        self.day = day
+    }
+}
