@@ -58,7 +58,7 @@ import ChronobarCore
         let relabeled = try tracker.relabel("northwnd", to: "Northwind", on: tracker.today)
 
         #expect(relabeled == Relabeling(
-            project: "Northwind", day: tracker.today,
+            oldProject: "Northwnd", project: "Northwind", day: tracker.today,
             entries: [TimedEntry(project: "Northwind", start: clock.date("2026-11-03T09:00:00"),
                                  end: clock.date("2026-11-03T10:00:00"), source: .agent)],
             total: 75 * 60))
@@ -111,7 +111,7 @@ import ChronobarCore
         let relabeled = try tracker.relabel("Northwind", to: " Northwind ", on: tracker.today)
 
         #expect(relabeled == Relabeling(
-            project: "Northwind", day: tracker.today,
+            oldProject: "Northwind", project: "Northwind", day: tracker.today,
             entries: [TimedEntry(project: "northwind", start: clock.date("2026-11-03T09:00:00"),
                                  end: clock.date("2026-11-03T10:00:00"), source: .app)],
             total: 3600))
@@ -142,7 +142,7 @@ import ChronobarCore
         """)
         #expect(tracker.rows(tracker.today) == [Row(project: "Northwind", total: 90 * 60)])
         #expect(relabeled == Relabeling(
-            project: "Northwind", day: tracker.today,
+            oldProject: "Northwnd", project: "Northwind", day: tracker.today,
             entries: [TimedEntry(project: "Northwind", start: clock.date("2026-11-03T09:00:00"),
                                  end: clock.date("2026-11-03T10:00:00"), source: .app),
                       TimedEntry(project: "Northwind", start: clock.date("2026-11-03T10:30:00"),
@@ -210,6 +210,23 @@ import ChronobarCore
 
         #expect(contents(dayFile(root, "2026-11-03")) == before)
         #expect(tracker.isRunning("Northwind"))
+    }
+
+    /// Checked on the Day as re-read: a Timer started by a hand edit since the last read refuses it too.
+    @Test func aMergeIntoALabelStartedInTheFileSinceItWasReadIsRefusedAndChangesNothing() throws {
+        try write(root, "2026-11-03", #"    { "project": "Northwnd", "seconds": 1800, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try write(root, "2026-11-03", """
+            { "project": "Northwnd", "seconds": 1800, "note": "manual" },
+            { "project": "Northwind", "start": "2026-11-03T11:00:00-05:00", "end": null, "source": "agent" }
+        """)
+        let before = contents(dayFile(root, "2026-11-03"))
+
+        #expect(throws: NewLabelRunning(project: "Northwind")) {
+            try tracker.relabel("Northwnd", to: "northwind", on: tracker.today)
+        }
+
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
     }
 
     @Test func aMergeOnAnEarlierDayIntoALabelRunningTodayGoesAhead() throws {
@@ -513,6 +530,44 @@ import ChronobarCore
         clock.set("2026-11-03T11:00:00")
         #expect(tracker.tick().map(\.run) == [TimerRun(project: "Northwind", since: clock.date("2026-11-03T09:00:00"))])
         #expect(tracker.tick().isEmpty)
+    }
+
+    /// The warning was shown under the old Label; its Stop still stops the same Timer under the new one.
+    @Test(arguments: ["Northwind", "northwnd"])
+    func aWarningsStopShownBeforeARelabelStopsTheRelabeledTimer(newLabel: String) throws {
+        clock.set("2026-11-03T09:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        tracker.longRunningThreshold = 2 * 3600
+        try tracker.start("Northwnd")
+        clock.set("2026-11-03T11:00:00")
+        let reported = tracker.tick()
+        try tracker.relabel("Northwnd", to: newLabel, on: tracker.today)
+        try tracker.relabel(newLabel, to: "Northwind, Ticket 665", on: tracker.today)
+
+        clock.set("2026-11-03T11:20:00")
+        try tracker.pause(reported[0].run)
+
+        #expect(tracker.timers.isEmpty)
+        #expect(tracker.total("Northwind, Ticket 665", on: tracker.today) == 2 * 3600 + 20 * 60)
+    }
+
+    /// The relabeled Timer was stopped and the new Label started again: a late Stop leaves that Timer alone.
+    @Test func aWarningsStopShownBeforeARelabelLeavesALaterTimerOfTheNewLabelRunning() throws {
+        clock.set("2026-11-03T09:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        tracker.longRunningThreshold = 2 * 3600
+        try tracker.start("Northwnd")
+        clock.set("2026-11-03T11:00:00")
+        let reported = tracker.tick()
+        try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
+        try tracker.pause("Northwind")
+        clock.set("2026-11-03T11:10:00")
+        try tracker.start("Northwind")
+
+        clock.set("2026-11-03T11:20:00")
+        try tracker.pause(reported[0].run)
+
+        #expect(tracker.isRunning("Northwind"))
     }
 
     @Test func idleTimeIsStillTakenOffARelabeledAppTimerAndLeftOnARelabeledAgentTimer() throws {

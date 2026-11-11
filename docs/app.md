@@ -45,7 +45,7 @@ with its total for that Day.
   twice is refused with a beep. Fixing only capitals or spaces works too, and on a pinned or archived
   Label it changes the list's spelling, so every Day shows the fix. A running row keeps running under
   the new Label, from the same start; a timer that already gave its long-running warning doesn't give
-  it again. Moving time onto a Label whose timer is running is refused with a beep: stop that timer
+  it again, and that warning's Stop still stops it. Moving time onto a Label whose timer is running is refused with a beep: stop that timer
   first. A timer running since before midnight moves whole, its time on the earlier Days too, so it can
   still be stopped or moved back past midnight; a stopped one's Days are separate rows, and only the
   row you click moves.

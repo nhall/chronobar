@@ -159,9 +159,11 @@ public final class Tracker {
     }
 
     /// The long-running warning's Stop: pauses `run`'s timer now, unless that run has already ended, so a
-    /// late click never stops a timer started again since.
+    /// late click never stops a timer started again since. A run relabeled since the warning is stopped
+    /// under its new Label: it is the same Timer.
     public func pause(_ run: TimerRun) throws {
         catchUp()
+        let run = warnings.current(run)
         guard let timer = timers[run.project], self.run(of: timer) == run else { return }
         try pause(timer.project)
     }

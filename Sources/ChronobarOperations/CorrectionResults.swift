@@ -69,6 +69,8 @@ public struct AdjustResult: Codable, Equatable, Sendable {
 }
 
 public struct RelabelResult: Codable, Equatable, Sendable {
+    /// The old Label as its row showed it, so a client can follow a timer it knew by that Label.
+    public let oldLabel: String
     /// The new Label as stored, which may be spelled differently from the request.
     public let label: String
     /// `YYYY-MM-DD`, the Day relabeled.
@@ -83,8 +85,9 @@ public struct RelabelResult: Codable, Equatable, Sendable {
     /// kept. Left out when none runs.
     public let timer: TimerResult?
 
-    public init(label: String, date: String, entries: [EntryResult], totalSeconds: Int, day: DayResult,
-                timer: TimerResult? = nil) {
+    public init(oldLabel: String, label: String, date: String, entries: [EntryResult], totalSeconds: Int,
+                day: DayResult, timer: TimerResult? = nil) {
+        self.oldLabel = oldLabel
         self.label = label
         self.date = date
         self.entries = entries

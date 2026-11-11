@@ -283,7 +283,7 @@ import ChronobarOperations
         let relabeled = try operations.relabel("northwnd", to: "Northwind, Ticket 665", date: "2026-11-02")
 
         #expect(relabeled == RelabelResult(
-            label: "Northwind, Ticket 665", date: "2026-11-02",
+            oldLabel: "Northwnd", label: "Northwind, Ticket 665", date: "2026-11-02",
             entries: [EntryResult(label: "Northwind, Ticket 665", start: clock.date("2026-11-02T09:00:00"),
                                   end: clock.date("2026-11-02T10:00:00"), source: .agent, totalSeconds: 75 * 60)],
             totalSeconds: 75 * 60,
@@ -342,7 +342,7 @@ import ChronobarOperations
         let relabeled = try operations.relabel("Northwnd", to: "northwind", date: "2026-11-02")
 
         #expect(relabeled == RelabelResult(
-            label: "Northwind", date: "2026-11-02",
+            oldLabel: "Northwnd", label: "Northwind", date: "2026-11-02",
             entries: [EntryResult(label: "Northwind", start: clock.date("2026-11-02T09:00:00"),
                                   end: clock.date("2026-11-02T10:00:00"), source: .app, totalSeconds: 90 * 60)],
             totalSeconds: 90 * 60,
@@ -376,7 +376,7 @@ import ChronobarOperations
         let relabeled = try operations.relabel("Northwnd", to: "Northwind", date: nil)
 
         #expect(relabeled == RelabelResult(
-            label: "Northwind", date: "2026-11-03",
+            oldLabel: "Northwnd", label: "Northwind", date: "2026-11-03",
             entries: [EntryResult(label: "Northwind", start: clock.date("2026-11-03T09:00:00"),
                                   end: clock.date("2026-11-03T10:00:00"), source: .agent, totalSeconds: 90 * 60)],
             totalSeconds: 90 * 60,
@@ -426,6 +426,22 @@ import ChronobarOperations
     }
 
     // MARK: On the wire
+
+    /// The old Label as its row showed it, so a client can follow a Timer it knew by that Label.
+    @Test func aRelabelsReplyNamesTheOldLabelAndSurvivesTheRoundTrip() throws {
+        try write(root, "2026-11-02", #"    { "project": "Northwnd", "seconds": 900, "note": "manual" }"#)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let reply = operations.respond(to: Wire.encode(.relabel(label: "northwnd", newLabel: "Northwind", date: "2026-11-02")))
+
+        let json = try #require(try JSONSerialization.jsonObject(with: reply) as? [String: Any])
+        #expect((json["result"] as? [String: Any])?["old_label"] as? String == "Northwnd")
+        guard case .relabel(let relabeled) = try Wire.response(from: reply).success() else { throw Unexpected() }
+        #expect(relabeled.oldLabel == "Northwnd")
+        #expect(relabeled.label == "Northwind")
+        let again = Wire.encode(.success(.relabel(relabeled)), timeZone: .current)
+        #expect(try Wire.response(from: again).success() == .relabel(relabeled))
+    }
 
     private func respond(_ line: String, _ operations: Operations) throws -> [String: Any] {
         let reply = operations.respond(to: Data(line.utf8))

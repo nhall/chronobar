@@ -26,8 +26,8 @@ import ChronobarOperations
     }
 
     @Test func relabelSaysWhereTheTimeWentAndEndsWithTheDaysTotalAndClockTime() {
-        let relabeled = RelabelResult(label: "Northwind, Ticket 665", date: "2026-11-03", entries: [],
-                                      totalSeconds: 75 * 60, day: day)
+        let relabeled = RelabelResult(oldLabel: "Northwnd", label: "Northwind, Ticket 665", date: "2026-11-03",
+                                      entries: [], totalSeconds: 75 * 60, day: day)
         #expect(Output.text(.relabel(relabeled)) == """
             Relabeled as Northwind, Ticket 665 on 2026-11-03: 1:15.
             2026-11-03: Total 3:17 · Clock time 3:00
@@ -37,8 +37,8 @@ import ChronobarOperations
     @Test func relabelingARunningRowSaysItsTimerRunsOnUnderTheNewLabel() throws {
         let start = try #require(Calendar.current.date(bySettingHour: 10, minute: 5, second: 0, of: Date()))
         let timer = TimerResult(label: "Northwind", start: start, source: .agent, totalSeconds: 75 * 60)
-        let relabeled = RelabelResult(label: "Northwind", date: "2026-11-03", entries: [],
-                                      totalSeconds: 75 * 60, day: day, timer: timer)
+        let relabeled = RelabelResult(oldLabel: "Northwnd", label: "Northwind", date: "2026-11-03",
+                                      entries: [], totalSeconds: 75 * 60, day: day, timer: timer)
         #expect(Output.text(.relabel(relabeled)) == """
             Relabeled as Northwind on 2026-11-03: 1:15.
             Its timer runs on, since 10:05.

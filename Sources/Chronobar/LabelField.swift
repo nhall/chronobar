@@ -9,7 +9,8 @@ import ChronobarCore
 /// through the list doesn't narrow it. Typing narrows the list and opens it while anything matches, and
 /// closes it when nothing does. There is no inline completion, so what was typed is never replaced by a
 /// longer name. Return on a highlighted name picks it, fills the field and closes the list; otherwise
-/// Return submits. Escape closes the list, or with it closed calls `cancel`, if given. Right-clicking a name offers Pin (unless pinned) and Archive.
+/// Return submits. Escape closes the list, or with it closed calls `cancel`, if given. Right-clicking a
+/// name offers Pin (unless pinned) and Archive.
 struct LabelField: NSViewRepresentable {
     @Binding var name: String
     /// Whether the list is showing. The form's default button gives up Return meanwhile, so Return can
