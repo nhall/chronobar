@@ -28,7 +28,20 @@ struct LongRunningWarnings {
         let passed = running.filter { now.timeIntervalSince($0.since) >= threshold && !warned.contains($0) }
         guard !passed.isEmpty else { return [] }
         warned = warned.filter(running.contains) + passed
-        defaults?.set(warned.map { ["project": $0.project, "since": $0.since] }, forKey: Self.key)
+        save()
         return passed
+    }
+
+    /// `run` goes on as `new`, as when its Timer was relabeled: if `run` was warned about, `new` counts as
+    /// warned about too, so it isn't warned about again.
+    mutating func rekey(_ run: TimerRun, to new: TimerRun) {
+        guard run != new, let index = warned.firstIndex(of: run) else { return }
+        warned[index] = new
+        save()
+    }
+
+    /// Writes the warned runs to the settings store, for the next launch.
+    private func save() {
+        defaults?.set(warned.map { ["project": $0.project, "since": $0.since] }, forKey: Self.key)
     }
 }

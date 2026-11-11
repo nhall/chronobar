@@ -63,16 +63,23 @@ public struct NoTimeOnDay: Error, Equatable {
     }
 }
 
+/// A relabel onto a Label whose Timer is running and reaches the Day: the row would merge into a running
+/// row, and a running row would put two Timers on one Label. Refused, changing nothing.
+public struct NewLabelRunning: Error, Equatable {
+    /// The new Label, as its Timer stores it.
+    public let project: String
+
+    public init(project: String) { self.project = project }
+}
+
 /// A relabel this version doesn't make yet. Each is refused and changes nothing.
 public struct UnsupportedRelabel: Error, Equatable {
     public enum Reason: Sendable {
-        /// The Label's Timer is running and its run reaches the Day.
-        case running
-        /// The new Label's Timer is running and its run reaches the Day, so the rows would merge into it.
-        case mergeIntoRunning
+        /// The Label's Timer is running and its run reaches the Day, but began before today's midnight.
+        case runFromEarlierDay
     }
 
-    /// The running Label, or the one the rows would merge into, as stored.
+    /// The running Label, as stored.
     public let project: String
     public let reason: Reason
 
@@ -146,9 +153,12 @@ extension Tracker {
     /// Entries of the two would share time. The Label on other Days is untouched, and an archived new Label
     /// comes back; the old Label's lists are left alone. A fix of capitals or spaces alone is written as
     /// typed, and respells the Label on the Pinned or Archived Labels too, in the same save. Relabeling to
-    /// the row's own spelling changes nothing. Refused if the Label has no Entries on `day`, `day`'s file
-    /// won't parse or has writes waiting, or a Label list won't parse; and, for now, where either Label's
-    /// running Timer's run reaches `day`. Returns what it stored.
+    /// the row's own spelling changes nothing. A running row's Timer runs on under the new Label as the
+    /// same Timer: its start, Source and Long-running warning stay. Refused with `NewLabelRunning` where the
+    /// new Label's Timer runs on `day`, unless it is the row's own Timer and only its capitals or spaces
+    /// change. Refused too if the Label has no Entries on `day`, `day`'s file won't parse or has writes
+    /// waiting, or a Label list won't parse; and, for now, where the Label's running Timer began before
+    /// today's midnight and its run reaches `day`. Returns what it stored.
     @discardableResult
     public func relabel(_ name: String, to newName: String, on day: Day) throws -> Relabeling {
         catchUp()
@@ -159,11 +169,17 @@ extension Tracker {
             throw NoTimeOnDay(project: ProjectName.trimmed(name), day: day)
         }
         if target == row.project { return relabeling(row.project, on: day) }
-        // The old Label first, so a case-only fix of a running Timer is refused as running.
-        for (label, reason) in [(name, UnsupportedRelabel.Reason.running), (target, .mergeIntoRunning)] {
-            if let timer = timers[label], try files.readRun(of: timer).contains(where: { $0.day == day }) {
-                throw UnsupportedRelabel(project: timer.project, reason: reason)
-            }
+        // The run moving with the row, if the Label's Timer reaches `day`.
+        let moving = try timers[name].flatMap { timer in
+            try files.readRun(of: timer).contains { $0.day == day } ? timer : nil
+        }
+        if let moving, try files.readRun(of: moving).count > 1 {
+            throw UnsupportedRelabel(project: moving.project, reason: .runFromEarlierDay)
+        }
+        // Two Timers never share a Label; a fix of capitals or spaces keeps the one it has.
+        if !ProjectName.matches(target, name), let timer = timers[target],
+           try files.readRun(of: timer).contains(where: { $0.day == day }) {
+            throw NewLabelRunning(project: timer.project)
         }
         return try labels.resolvingForRelabel(row.project, to: target) { project, lists in
             // Checked again on the Entries as re-read, so a hand edit since can't slip past.
@@ -184,18 +200,24 @@ extension Tracker {
                 entries = entries.map { ProjectName.matches($0.project, name) ? $0.relabeled(project) : $0 }
             }
             reread()
+            if let moving, let timer = timers[project] { rekeyWarning(from: moving.project, to: timer) }
             return relabeling(project, on: day)
         }
     }
 
-    /// The Label's row on `day` as a relabel returns it: its timed Entries there and its Total.
+    /// The Label's row on `day` as a relabel returns it: its timed Entries there, its Total and its Timer
+    /// if that runs on `day`.
     private func relabeling(_ project: String, on day: Day) -> Relabeling {
         let entries = files.entries(on: day).compactMap { entry -> TimedEntry? in
             guard case .timed(let label, let start, let end, let source) = entry,
                   ProjectName.matches(label, project) else { return nil }
             return TimedEntry(project: label, start: start, end: end, source: source)
         }
-        return Relabeling(project: project, day: day, entries: entries, total: total(project, on: day).wholeSeconds)
+        let timer = timers[project].flatMap { timer in
+            files.run(of: timer).contains { $0.day == day } ? timer : nil
+        }
+        return Relabeling(project: project, day: day, entries: entries, total: total(project, on: day).wholeSeconds,
+                          timer: timer)
     }
 
     /// `start` to `end` (nil: still running, today) as one timed Entry per Day, cut at each midnight.
