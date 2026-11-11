@@ -99,4 +99,128 @@ import ChronobarCore
 
         #expect(contents(dayFile(root, "2026-11-03")) == before)
     }
+
+    @Test func theSameLabelWithTheSameSpellingSucceedsWithoutChangingAnything() throws {
+        try "Northwind\n".write(to: projectsFile(root), atomically: true, encoding: .utf8)
+        try write(root, "2026-11-03", """
+            { "project": "northwind", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" }
+        """)
+        let before = contents(dayFile(root, "2026-11-03"))
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        let relabeled = try tracker.relabel("Northwind", to: " Northwind ", on: tracker.today)
+
+        #expect(relabeled == Relabeling(
+            project: "Northwind", day: tracker.today,
+            entries: [TimedEntry(project: "northwind", start: clock.date("2026-11-03T09:00:00"),
+                                 end: clock.date("2026-11-03T10:00:00"), source: .app)],
+            total: 3600))
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+    }
+
+    // MARK: Not yet supported
+
+    @Test func aCapitalisationOrSpacingFixIsRefusedForNow() throws {
+        try write(root, "2026-11-03", #"    { "project": "northwind", "seconds": 1800, "note": "manual" }"#)
+        let before = contents(dayFile(root, "2026-11-03"))
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        #expect(throws: UnsupportedRelabel(project: "northwind", reason: .respelling)) {
+            try tracker.relabel("northwind", to: "Northwind", on: tracker.today)
+        }
+
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+    }
+
+    @Test func relabelingIntoALabelWithTimeThatDayIsRefusedForNow() throws {
+        try write(root, "2026-11-03", """
+            { "project": "Northwnd", "seconds": 1800, "note": "manual" },
+            { "project": "Northwind", "seconds": 3600, "note": "manual" }
+        """)
+        let before = contents(dayFile(root, "2026-11-03"))
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        #expect(throws: UnsupportedRelabel(project: "Northwind", reason: .merge)) {
+            try tracker.relabel("Northwnd", to: "northwind", on: tracker.today)
+        }
+
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+    }
+
+    @Test func relabelingARunningTimerIsRefusedForNow() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Northwnd")
+        clock.set("2026-11-03T13:00:00")
+        let before = contents(dayFile(root, "2026-11-03"))
+
+        #expect(throws: UnsupportedRelabel(project: "Northwnd", reason: .running)) {
+            try tracker.relabel("northwnd", to: "Northwind", on: tracker.today)
+        }
+
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+        #expect(tracker.isRunning("Northwnd"))
+    }
+
+    @Test func relabelingTheEarlierPieceOfARunStillRunningIsRefusedForNow() throws {
+        clock.set("2026-11-02T23:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Northwnd")
+        clock.set("2026-11-03T01:00:00")
+        tracker.tick()
+        let before = contents(dayFile(root, "2026-11-02"))
+
+        #expect(throws: UnsupportedRelabel(project: "Northwnd", reason: .running)) {
+            try tracker.relabel("Northwnd", to: "Northwind", on: Day(year: 2026, month: 11, day: 2))
+        }
+
+        #expect(contents(dayFile(root, "2026-11-02")) == before)
+    }
+
+    @Test func aRowOfALabelThatIsRunningTodayCanBeRelabeledOnAnEarlierDay() throws {
+        try write(root, "2026-11-02", #"    { "project": "Northwnd", "seconds": 1800, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Northwnd")
+
+        try tracker.relabel("Northwnd", to: "Northwind", on: Day(year: 2026, month: 11, day: 2))
+
+        #expect(tracker.rows(Day(year: 2026, month: 11, day: 2)) == [Row(project: "Northwind", total: 1800)])
+        #expect(tracker.isRunning("Northwnd"))
+    }
+
+    // MARK: All or nothing
+
+    @Test func aDayWhoseFileWontParseIsRefusedAndNamed() throws {
+        try write(root, "2026-11-02", #"    { "project": "Northwnd", "seconds": 1800, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        _ = tracker.rows(Day(year: 2026, month: 11, day: 2))
+        try "{ oops".write(to: dayFile(root, "2026-11-02"), atomically: true, encoding: .utf8)
+
+        for name in ["Northwind", "Northwnd"] {
+            #expect(throws: MalformedDayFile(day: Day(year: 2026, month: 11, day: 2))) {
+                try tracker.relabel("Northwnd", to: name, on: Day(year: 2026, month: 11, day: 2))
+            }
+        }
+
+        #expect(contents(dayFile(root, "2026-11-02")) == "{ oops")
+    }
+
+    @Test func aDayWithWritesWaitingIsRefusedAndNamed() throws {
+        try write(root, "2026-11-03", #"    { "project": "Northwnd", "seconds": 1800, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Internal")
+        let good = try #require(contents(dayFile(root, "2026-11-03")))
+        try "{ oops".write(to: dayFile(root, "2026-11-03"), atomically: true, encoding: .utf8)
+        try tracker.pause()
+        try good.write(to: dayFile(root, "2026-11-03"), atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: dayFile(root, "2026-11-03").path)
+        defer {
+            try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: dayFile(root, "2026-11-03").path)
+        }
+
+        #expect(throws: MalformedDayFile(day: tracker.today)) {
+            try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
+        }
+
+        #expect(contents(dayFile(root, "2026-11-03")) == good)
+    }
 }
