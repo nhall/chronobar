@@ -95,6 +95,30 @@ import ChronobarOperations
                 == .adjust(label: "Internal", input: "+15", date: "2026-11-02"))
         #expect(usageError("adjust", "1:15")?.kind == .usage)
     }
+
+    @Test func relabelTakesTheWordsAfterToAsTheNewLabel() throws {
+        #expect(try request("relabel", "Northwnd,", "Ticket", "665", "--to", "Northwind,", "Ticket", "665")
+                == .relabel(label: "Northwnd, Ticket 665", newLabel: "Northwind, Ticket 665"))
+        #expect(try request("relabel", "Northwnd", "--to=Northwind,", "Ticket", "665", "--day", "2026-11-02")
+                == .relabel(label: "Northwnd", newLabel: "Northwind, Ticket 665", date: "2026-11-02"))
+        #expect(try request("relabel", "--day=2026-11-02", "Northwnd", "--to", "Northwind")
+                == .relabel(label: "Northwnd", newLabel: "Northwind", date: "2026-11-02"))
+        #expect(try request("relabel", "Northwnd", "--to", "Ticket", "-10", "--json")
+                == .relabel(label: "Northwnd", newLabel: "Ticket -10"))
+        #expect(try request("relabel", "Northwnd", "--to", "--", "--draft")
+                == .relabel(label: "Northwnd", newLabel: "--draft"))
+    }
+
+    @Test(arguments: [
+        ["relabel", "Northwnd"],
+        ["relabel", "--to", "Northwind"],
+        ["relabel", "Northwnd", "--to"],
+        ["relabel", "Northwnd", "--to", "--day", "2026-11-02"],
+        ["adjust", "Internal", "1:15", "--to", "Overhead"],
+    ])
+    func relabelNeedsALabelAndANewLabel(arguments: [String]) {
+        #expect((try? Invocation(arguments, now: now, calendar: calendar)) == nil)
+    }
 }
 
 private struct Unexpected: Error {}
