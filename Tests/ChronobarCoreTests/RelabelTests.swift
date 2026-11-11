@@ -212,6 +212,23 @@ import ChronobarCore
         #expect(tracker.isRunning("Northwind"))
     }
 
+    /// Checked on the Day as re-read: a Timer started by a hand edit since the last read refuses it too.
+    @Test func aMergeIntoALabelStartedInTheFileSinceItWasReadIsRefusedAndChangesNothing() throws {
+        try write(root, "2026-11-03", #"    { "project": "Northwnd", "seconds": 1800, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try write(root, "2026-11-03", """
+            { "project": "Northwnd", "seconds": 1800, "note": "manual" },
+            { "project": "Northwind", "start": "2026-11-03T11:00:00-05:00", "end": null, "source": "agent" }
+        """)
+        let before = contents(dayFile(root, "2026-11-03"))
+
+        #expect(throws: NewLabelRunning(project: "Northwind")) {
+            try tracker.relabel("Northwnd", to: "northwind", on: tracker.today)
+        }
+
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+    }
+
     @Test func aMergeOnAnEarlierDayIntoALabelRunningTodayGoesAhead() throws {
         try write(root, "2026-11-02", """
             { "project": "Northwind", "seconds": 3600, "note": "manual" },

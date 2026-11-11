@@ -182,6 +182,10 @@ extension Tracker {
                 // Merging into the new Label's time there: refused where the same minutes would count twice.
                 // A fix of capitals or spaces stays the same Label, so it isn't a merge.
                 if !ProjectName.matches(project, name) {
+                    if let timer = entries.lazy.compactMap(\.openTimer)
+                        .first(where: { ProjectName.matches($0.project, project) }) {
+                        throw NewLabelRunning(project: timer.project)
+                    }
                     let moved = entries.compactMap { entry -> TimedEntry? in
                         guard moves(entry), case .timed(_, let start, let end, let source) = entry else { return nil }
                         return TimedEntry(project: project, start: start, end: end, source: source)
