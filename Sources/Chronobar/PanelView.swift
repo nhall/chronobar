@@ -238,8 +238,8 @@ struct PanelView: View {
                                     if actions.adjust(row.project, panel.adjustment, day) { panel.adjusting = nil }
                                 },
                                 labels: RowView.Labels(
-                                    suggestions: tracker.suggestions(for:), isPinned: tracker.isPinned,
-                                    pin: actions.pin, archive: actions.archive,
+                                    rows: sheet.rows, suggestions: tracker.suggestions(for:),
+                                    isPinned: tracker.isPinned, pin: actions.pin, archive: actions.archive,
                                     relabel: {
                                         guard let project = actions.relabel(row.project, panel.newLabel, day) else {
                                             return
@@ -492,11 +492,13 @@ private struct RowList<Rows: View>: View {
 /// One Project's total on the viewed Day. Today's rows end with ▶ to switch to the Project, or ⏸ to pause
 /// it while it runs; rows on any other Day have neither. Clicking the time types over it: a new total
 /// (`1:15`) or a change (`+15`, `-10`). Clicking the Label edits it in a Label field with the ＋ form's
-/// suggestions, to move the row's time to another Label. Return applies either edit, Escape cancels.
+/// suggestions, to move the row's time to another Label; while the typed Label is another row's, the field
+/// says the two would merge. Return applies either edit, Escape cancels.
 private struct RowView: View {
-    /// What the row's Label field needs: the ＋ form's suggestions and their Pin and Archive, and the
-    /// relabel Return makes.
+    /// What the row's Label field needs: the ＋ form's suggestions and their Pin and Archive, the Day's rows
+    /// for the hint that the typed Label would merge into one, and the relabel Return makes.
     struct Labels {
+        let rows: [DaySheet.Row]
         let suggestions: (String) -> [String]
         let isPinned: (String) -> Bool
         let pin: (String) -> Void
@@ -533,6 +535,14 @@ private struct RowView: View {
                            cancel: { panel.relabeling = nil },
                            isPinned: labels.isPinned, pin: labels.pin, archive: labels.archive)
                     .help("Another Label for this row's time. Return moves it, Escape cancels.")
+                // Beside the field, not under it: the suggestions open in a window under the field.
+                if let hint = MergeHint(typed: panel.newLabel, editing: row.project, rows: labels.rows) {
+                    Text(hint.text)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
             } else {
                 Button {
                     panel.relabeling = row.project

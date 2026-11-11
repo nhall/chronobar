@@ -58,9 +58,10 @@ enum MCPTools {
              description: "Move all of a Label's time on a Day (timed Entries, line items and adjustments) to "
                  + "another Label, for example to fix a typo or file the time under a more specific Label. Other "
                  + "Days keep the old Label. Returns the new Label as stored, its Entries and total, and the Day's "
-                 + "totals, which don't change. A change of capitals or spaces only is kept, also in the "
-                 + "pinned or archived list. For now refused for a running timer and for a new Label that "
-                 + "already has time that Day.",
+                 + "totals, which don't change. Into a Label that already has time that Day, the two rows merge; "
+                 + "refused if their timed Entries overlap, which would count that time twice. A change of "
+                 + "capitals or spaces only is kept, also in the pinned or archived list. For now refused for a "
+                 + "running timer, either Label's.",
              inputSchema: schema(["label": label("The Label whose row to move."),
                                   "new_label": label("The Label to move the time to. Matched to an existing Label "
                                                      + "ignoring case."),

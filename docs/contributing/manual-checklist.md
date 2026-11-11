@@ -214,11 +214,15 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] While one row's Label field is open, click another row's time: the Label field closes. Clicking a
       Label closes an open time edit the same way, and moving to another Day closes either.
 - [ ] Relabel a row on a past Day: only that Day's row changes.
+- [ ] With a `Northwnd` row (0:30) and a `Northwind` row (1:00) that don't overlap, click `Northwnd` and
+      type `northwind`: beside the field it reads "merges with Northwind (1:00)", readable while the
+      suggestions are open. Typing `Northwnd` again, or `NORTHWND`, or a Label with no row that Day, hides
+      it. Return: one `Northwind` row of 1:30, with the Total line and Clock time unchanged.
 - [ ] Pin a Label spelled `northwind` and relabel its row to `Northwind`: the row, the row on other Days
       and the pinned suggestion all read `Northwind`. An archived Label respelled this way stays
       archived. Relabel a row onto an archived Label: it shows in the suggestions again.
 - [ ] Beeps and keeps the field open, changing nothing: an empty Label, the running row (in other
-      capitals too), and a Label with time that Day already.
+      capitals too), a merge into a row whose timed time overlaps it, and a merge into the running row.
 
 **Idle after sleep and lock**
 
@@ -302,7 +306,8 @@ Try these against the [development copy](development.md#a-development-copy) (`ch
 - [ ] `chronobar relabel Client B --to Client C, Ticket 665 --day YYYY-MM-DD` for yesterday prints
       "Relabeled as Client C, Ticket 665 on …" with its total, and yesterday's Panel row reads the new
       Label while today's Client B row stays. `chronobar relabel Client B --to Client C` with Client C
-      already having time that Day exits 1 and changes nothing.
+      already having time today merges the rows and prints the combined total; with Client C's timed
+      time overlapping Client B's, it exits 1 with "already has time" and changes nothing.
 
 **Agents (MCP)**
 
