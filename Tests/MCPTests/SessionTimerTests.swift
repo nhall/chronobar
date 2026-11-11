@@ -138,6 +138,61 @@ import ChronobarOperations
         #expect(tracker.timers.isEmpty)
     }
 
+    // MARK: Relabeled timers
+
+    @Test func aTimerTheSessionStartedAndThenRelabeledIsStillItsOwn() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Internal")
+        let mcp = session(Operations(tracker: tracker), clock)
+        _ = try mcp.result("start", ["label": "Northwnd"])
+        clock.set("2026-11-03T10:00:00")
+        let relabeled = try mcp.result("relabel", ["label": "northwnd", "new_label": "Northwind"])
+        #expect(relabeled["timer"]?.objectValue?["label"] == "Northwind")
+
+        let moved = try mcp.result("set_start", ["at": "2026-11-03T08:45:00-05:00"])
+        let stopped = try mcp.result("stop")
+
+        #expect(moved["timer"]?.objectValue?["label"] == "Northwind")
+        #expect(stopped["entry"]?.objectValue?["label"] == "Northwind")
+        #expect(tracker.timers.map(\.project) == ["Internal"])
+    }
+
+    @Test func aCapitalisationFixTheSessionMadeKeepsItsTimerItsOwn() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Internal")
+        let mcp = session(Operations(tracker: tracker), clock)
+        _ = try mcp.result("start", ["label": "northwind"])
+        _ = try mcp.result("relabel", ["label": "northwind", "new_label": "Northwind"])
+
+        #expect(try mcp.result("stop")["entry"]?.objectValue?["label"] == "Northwind")
+    }
+
+    @Test func relabelingSomeoneElsesTimerDoesNotMakeItTheSessions() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Northwnd")
+        let mcp = session(Operations(tracker: tracker), clock)
+        _ = try mcp.result("relabel", ["label": "Northwnd", "new_label": "Northwind"])
+
+        #expect(mcp.error("stop")?.kind == "no_session_timer")
+        #expect(tracker.timers.map(\.project) == ["Northwind"])
+    }
+
+    @Test func aTimerRelabeledOutsideTheSessionIsNoLongerItsOwn() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        let operations = Operations(tracker: tracker)
+        let mcp = session(operations, clock), other = session(operations, clock)
+        _ = try mcp.result("start", ["label": "Northwnd"])
+        _ = try mcp.result("start", ["label": "Website Redsign"])
+        try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
+        _ = try other.result("relabel", ["label": "Website Redsign", "new_label": "Website Redesign"])
+
+        #expect(mcp.error("stop")?.kind == "no_session_timer")
+        // Started again under the old Label from the Panel: the user's timer, not the session's.
+        try tracker.start("Northwnd")
+        #expect(mcp.error("stop")?.kind == "no_session_timer")
+        #expect(tracker.timers.map(\.project) == ["Northwind", "Website Redesign", "Northwnd"])
+    }
+
     @Test func closingTheSessionLeavesItsTimersRunning() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         let operations = Operations(tracker: tracker)

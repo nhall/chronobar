@@ -365,21 +365,53 @@ import ChronobarOperations
         #expect(contents(dayFile(root, "2026-11-02")) == before)
     }
 
-    @Test func relabelsNotYetSupportedAreRefusedSayingWhy() throws {
+    @Test func relabelingARunningRowEchoesItsTimerUnderTheNewLabelBesideItsFinishedEntries() throws {
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+        _ = try operations.start("Northwnd")
+        clock.set("2026-11-03T10:00:00")
+        _ = try operations.stop("Northwnd")
+        _ = try operations.start("Northwnd")
+        clock.set("2026-11-03T10:30:00")
+
+        let relabeled = try operations.relabel("Northwnd", to: "Northwind", date: nil)
+
+        #expect(relabeled == RelabelResult(
+            label: "Northwind", date: "2026-11-03",
+            entries: [EntryResult(label: "Northwind", start: clock.date("2026-11-03T09:00:00"),
+                                  end: clock.date("2026-11-03T10:00:00"), source: .agent, totalSeconds: 90 * 60)],
+            totalSeconds: 90 * 60,
+            day: DayResult(date: "2026-11-03", totalSeconds: 90 * 60, totalMinutes: 90, elapsedSeconds: 90 * 60,
+                           elapsedMinutes: 90),
+            timer: TimerResult(label: "Northwind", start: clock.date("2026-11-03T10:00:00"), source: .agent,
+                               totalSeconds: 90 * 60)))
+        #expect(try operations.status().timers.map(\.label) == ["Northwind"])
+    }
+
+    @Test func relabelingOntoALabelWhoseTimerRunsIsRefusedNamingIt() throws {
         try write(root, "2026-11-03", #"    { "project": "Northwnd", "seconds": 900, "note": "manual" }"#)
         let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
         _ = try operations.start("Internal")
         clock.set("2026-11-03T10:00:00")
 
-        let running = operations.perform(.relabel(label: "Internal", newLabel: "Overhead", date: nil)).error
-        let intoRunning = operations.perform(.relabel(label: "Northwnd", newLabel: "internal", date: nil)).error
+        let error = operations.perform(.relabel(label: "Northwnd", newLabel: "internal", date: nil)).error
 
-        #expect(running?.kind == .failed)
-        #expect(running?.message == "Internal's timer is running, and Chronobar can't relabel a running timer yet. "
-                + "Stop it first, then relabel.")
-        #expect(intoRunning?.kind == .failed)
-        #expect(intoRunning?.message == "Internal's timer is running, and Chronobar can't merge time into a "
-                + "running timer yet. Stop it first, then relabel.")
+        #expect(error?.kind == .labelRunning)
+        #expect(error?.message == "Internal's timer is running, and relabel can't move time onto a running "
+                + "timer. Stop it first, or pick another label.")
+        #expect(error?.running?.map(\.label) == ["Internal"])
+    }
+
+    @Test func relabelingARunFromBeforeMidnightIsRefusedForNow() throws {
+        clock.set("2026-11-02T23:00:00")
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+        _ = try operations.start("Northwnd")
+        clock.set("2026-11-03T01:00:00")
+
+        let error = operations.perform(.relabel(label: "Northwnd", newLabel: "Northwind", date: nil)).error
+
+        #expect(error?.kind == .failed)
+        #expect(error?.message == "Northwnd's timer has run since before midnight, and Chronobar can't relabel "
+                + "such a run yet. Stop it first, then relabel.")
     }
 
     @Test func relabelingADayWhoseFileWontParseIsRefusedNamingIt() throws {

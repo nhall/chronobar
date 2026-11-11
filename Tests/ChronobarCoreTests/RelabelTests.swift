@@ -197,14 +197,14 @@ import ChronobarCore
         #expect(tracker.rows(tracker.today) == [Row(project: "Northwind", total: 90 * 60)])
     }
 
-    @Test func aMergeIntoALabelRunningThatDayIsRefusedForNow() throws {
+    @Test func aMergeIntoALabelRunningThatDayIsRefusedNamingItAndChangesNothing() throws {
         try write(root, "2026-11-03", #"    { "project": "Northwnd", "seconds": 1800, "note": "manual" }"#)
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Northwind")
         clock.set("2026-11-03T13:00:00")
         let before = contents(dayFile(root, "2026-11-03"))
 
-        #expect(throws: UnsupportedRelabel(project: "Northwind", reason: .mergeIntoRunning)) {
+        #expect(throws: NewLabelRunning(project: "Northwind")) {
             try tracker.relabel("Northwnd", to: "northwind", on: tracker.today)
         }
 
@@ -360,33 +360,185 @@ import ChronobarCore
         #expect(contents(dayFile(root, "2026-11-03")) == before)
     }
 
-    // MARK: Not yet supported
+    // MARK: A running Timer
 
-    @Test func relabelingARunningTimerIsRefusedForNow() throws {
+    @Test func relabelingARunningRowKeepsItsTimerRunningUnderTheNewLabelWithItsStartAndSource() throws {
+        clock.set("2026-11-03T09:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Northwnd", source: .agent)
+        clock.set("2026-11-03T10:00:00")
+        try tracker.pause("Northwnd")
+        try tracker.start("Internal")
+        try tracker.start("Northwnd", source: .agent)
+        clock.set("2026-11-03T12:00:00")
+
+        let relabeled = try tracker.relabel("northwnd", to: "Northwind", on: tracker.today)
+
+        #expect(contents(dayFile(root, "2026-11-03")) == """
+        {
+          "date": "2026-11-03",
+          "entries": [
+            { "project": "Northwind", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "agent" },
+            { "project": "Internal", "start": "2026-11-03T10:00:00-05:00", "end": null, "source": "app" },
+            { "project": "Northwind", "start": "2026-11-03T10:00:00-05:00", "end": null, "source": "agent" }
+          ]
+        }
+
+        """)
+        #expect(tracker.timers.map(\.project) == ["Internal", "Northwind"])
+        #expect(tracker.timers["Northwind"]?.start == clock.date("2026-11-03T10:00:00"))
+        #expect(tracker.timers["Northwind"]?.source == .agent)
+        #expect(!tracker.isRunning("Northwnd"))
+        #expect(relabeled.timer == tracker.timers["Northwind"])
+        #expect(relabeled.total == 3 * 3600)
+    }
+
+    @Test func aCapitalisationFixOfARunningTimerKeepsItRunningUnderTheNewSpelling() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("northwind")
+        clock.set("2026-11-03T13:00:00")
+
+        let relabeled = try tracker.relabel("northwind", to: "Northwind", on: tracker.today)
+
+        #expect(tracker.timers.map(\.project) == ["Northwind"])
+        #expect(tracker.timers.newest?.start == clock.date("2026-11-03T12:00:00"))
+        #expect(relabeled.timer?.project == "Northwind")
+        #expect(contents(dayFile(root, "2026-11-03"))?.contains(#""project": "Northwind""#) == true)
+    }
+
+    @Test func aRunningRowRelabeledIntoALabelWithOnlyFinishedTimeThatDayMergesAndRunsOn() throws {
+        try write(root, "2026-11-03", """
+            { "project": "Northwind", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" },
+            { "project": "Northwind", "seconds": 600, "note": "manual" }
+        """)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Northwnd")
+        clock.set("2026-11-03T12:30:00")
+        tracker.reload()
+        let (total, clockTime) = (tracker.dayTotal(tracker.today), tracker.elapsed(tracker.today))
+
+        let relabeled = try tracker.relabel("Northwnd", to: "northwind", on: tracker.today)
+
+        #expect(tracker.rows(tracker.today) == [Row(project: "Northwind", total: (60 + 10 + 30) * 60)])
+        #expect(tracker.timers.map(\.project) == ["Northwind"])
+        #expect(tracker.timers["Northwind"]?.start == clock.date("2026-11-03T12:00:00"))
+        #expect(relabeled.entries.map(\.end) == [clock.date("2026-11-03T10:00:00"), nil])
+        #expect(tracker.dayTotal(tracker.today) == total)
+        #expect(tracker.elapsed(tracker.today) == clockTime)
+    }
+
+    @Test func aRunningRowRelabeledOntoALabelWhoseTimerRunsIsRefusedAndBothRunOn() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Northwnd")
+        try tracker.start("Northwind", source: .agent)
+        clock.set("2026-11-03T13:00:00")
+        let before = contents(dayFile(root, "2026-11-03"))
+
+        #expect(throws: NewLabelRunning(project: "Northwind")) {
+            try tracker.relabel("Northwnd", to: "NORTHWIND", on: tracker.today)
+        }
+
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+        #expect(tracker.timers.map(\.project) == ["Northwnd", "Northwind"])
+    }
+
+    @Test func aRunningRowWhoseTimedEntriesOverlapTheNewLabelsIsRefusedAndRunsOn() throws {
+        try write(root, "2026-11-03", """
+            { "project": "Northwind", "start": "2026-11-03T11:00:00-05:00", "end": "2026-11-03T12:30:00-05:00", "source": "app" }
+        """)
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Northwnd")
         clock.set("2026-11-03T13:00:00")
         let before = contents(dayFile(root, "2026-11-03"))
 
-        #expect(throws: UnsupportedRelabel(project: "Northwnd", reason: .running)) {
-            try tracker.relabel("northwnd", to: "Northwind", on: tracker.today)
+        let overlap = #expect(throws: Overlap.self) {
+            try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
         }
 
+        #expect(overlap?.project == "Northwind")
+        #expect(overlap?.start == clock.date("2026-11-03T11:00:00"))
         #expect(contents(dayFile(root, "2026-11-03")) == before)
         #expect(tracker.isRunning("Northwnd"))
     }
 
-    @Test func aCapitalisationFixOfARunningTimerIsRefusedForNow() throws {
+    @Test func stopAndSetStartActOnTheRelabeledTimerUnderItsNewLabel() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
-        try tracker.start("northwind")
-        let before = contents(dayFile(root, "2026-11-03"))
+        try tracker.start("Northwnd")
+        clock.set("2026-11-03T13:00:00")
+        try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
 
-        #expect(throws: UnsupportedRelabel(project: "northwind", reason: .running)) {
-            try tracker.relabel("northwind", to: "Northwind", on: tracker.today)
+        #expect(throws: NotRunning(project: "Northwnd")) { try tracker.stop("Northwnd", at: clock.now) }
+        try tracker.setStart("Northwind", at: clock.date("2026-11-03T11:30:00"))
+        let stopped = try tracker.stop("Northwind", at: clock.date("2026-11-03T12:45:00"))
+
+        #expect(stopped == TimedEntry(project: "Northwind", start: clock.date("2026-11-03T11:30:00"),
+                                      end: clock.date("2026-11-03T12:45:00"), source: .app))
+        #expect(tracker.rows(tracker.today) == [Row(project: "Northwind", total: 75 * 60)])
+    }
+
+    // MARK: A running Timer's warning and Idle time
+
+    @Test func aTimerAlreadyWarnedAboutIsNotWarnedAboutAgainAfterARelabelOrARelaunch() throws {
+        let settings = TestSettings()
+        defer { settings.remove() }
+        clock.set("2026-11-03T09:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
+        tracker.longRunningThreshold = 2 * 3600
+        try tracker.start("northwnd", source: .agent)
+        clock.set("2026-11-03T11:00:00")
+        #expect(tracker.tick().map(\.run.project) == ["northwnd"])
+
+        try tracker.relabel("northwnd", to: "Northwnd", on: tracker.today)
+        clock.set("2026-11-03T11:01:00")
+        #expect(tracker.tick().isEmpty)
+        try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
+        clock.set("2026-11-03T11:02:00")
+        #expect(tracker.tick().isEmpty)
+
+        let relaunched = Tracker(clock: clock, storageRoot: root, defaults: settings.fresh())
+        relaunched.longRunningThreshold = 2 * 3600
+        #expect(relaunched.tick().isEmpty)
+    }
+
+    @Test func aTimerNotYetWarnedAboutIsWarnedAboutOnceUnderItsNewLabelFromItsOwnStart() throws {
+        clock.set("2026-11-03T09:00:00")
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        tracker.longRunningThreshold = 2 * 3600
+        try tracker.start("Northwnd")
+        clock.set("2026-11-03T10:00:00")
+        try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
+
+        clock.set("2026-11-03T10:59:00")
+        #expect(tracker.tick().isEmpty)
+        clock.set("2026-11-03T11:00:00")
+        #expect(tracker.tick().map(\.run) == [TimerRun(project: "Northwind", since: clock.date("2026-11-03T09:00:00"))])
+        #expect(tracker.tick().isEmpty)
+    }
+
+    @Test func idleTimeIsStillTakenOffARelabeledAppTimerAndLeftOnARelabeledAgentTimer() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Website Redsign")
+        try tracker.start("Client A, Tiket 665", source: .agent)
+        clock.set("2026-11-03T13:00:00")
+        try tracker.relabel("Website Redsign", to: "Website Redesign", on: tracker.today)
+        try tracker.relabel("Client A, Tiket 665", to: "Client A, Ticket 665", on: tracker.today)
+        clock.set("2026-11-03T14:00:00")
+
+        try tracker.resolveIdle(since: clock.date("2026-11-03T13:30:00"), choice: .remove)
+
+        #expect(contents(dayFile(root, "2026-11-03")) == """
+        {
+          "date": "2026-11-03",
+          "entries": [
+            { "project": "Website Redesign", "start": "2026-11-03T12:00:00-05:00", "end": "2026-11-03T13:30:00-05:00", "source": "app" },
+            { "project": "Client A, Ticket 665", "start": "2026-11-03T12:00:00-05:00", "end": null, "source": "agent" },
+            { "project": "Website Redesign", "start": "2026-11-03T14:00:00-05:00", "end": null, "source": "app" }
+          ]
         }
 
-        #expect(contents(dayFile(root, "2026-11-03")) == before)
-        #expect(tracker.timers.newest?.project == "northwind")
+        """)
+        #expect(tracker.appTimerRuns)
+        #expect(tracker.timers["Client A, Ticket 665"]?.source == .agent)
     }
 
     @Test func relabelingTheEarlierPieceOfARunStillRunningIsRefusedForNow() throws {
@@ -397,7 +549,7 @@ import ChronobarCore
         tracker.tick()
         let before = contents(dayFile(root, "2026-11-02"))
 
-        #expect(throws: UnsupportedRelabel(project: "Northwnd", reason: .running)) {
+        #expect(throws: UnsupportedRelabel(project: "Northwnd", reason: .runFromEarlierDay)) {
             try tracker.relabel("Northwnd", to: "Northwind", on: Day(year: 2026, month: 11, day: 2))
         }
 

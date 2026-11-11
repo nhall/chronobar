@@ -43,8 +43,10 @@ with its total for that Day.
   row that Day, the field says "merges with Northwind (1:00)": Return makes the two rows one, with the
   combined total, and moving it back later moves all of it. A merge that would count the same minutes
   twice is refused with a beep. Fixing only capitals or spaces works too, and on a pinned or archived
-  Label it changes the list's spelling, so every Day shows the fix. For now a running row is refused
-  with a beep, and so is a merge into one.
+  Label it changes the list's spelling, so every Day shows the fix. A running row keeps running under
+  the new Label, from the same start; a timer that already gave its long-running warning doesn't give
+  it again. Moving time onto a Label whose timer is running is refused with a beep: stop that timer
+  first. For now a timer running since before midnight is refused too.
 - The header shows the date, (i) and ⚙. (i) opens the Time Summary: today, yesterday, this week and
   this month, each with its Clock time.
 - ‹ › move a week back or forward without limit. On any Day other than today, ＋ only logs time and

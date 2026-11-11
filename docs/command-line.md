@@ -53,8 +53,11 @@ Label, so the Day's Total and Clock time stay the same. The Label on other Days 
 new Label already has time that Day, the two rows merge into one; if their timed Entries overlap, it's
 refused (`overlap`) and names the new Label's Entry. A new Label that is archived comes back to the
 suggestions. A change of capitals or spaces only (`relabel northwind --to Northwind`) is kept, and on a
-pinned or archived Label it changes the list's spelling too, so every Day shows it. For now it refuses
-a running timer, either Label's. A Label with no time that Day is refused (`unknown_label`).
+pinned or archived Label it changes the list's spelling too, so every Day shows it. A running timer
+keeps running under the new Label, with the same start and the same source. Moving time onto a Label
+whose timer is running that Day is refused (`label_running`), since two timers never share a Label;
+for now so is a timer running since before midnight. A Label with no time that Day is refused
+(`unknown_label`).
 
 ## Reading and tidying
 
@@ -117,7 +120,7 @@ The exit status is:
 
 Error kinds: `invalid_request`, `unknown_operation`, `invalid_label`, `unknown_label`, `invalid_date`,
 `not_running`, `nothing_running`, `ambiguous`, `future_time`, `end_before_start`, `overlap`,
-`invalid_duration` and `malformed_file`. Over MCP there is also `no_session_timer` (see
+`label_running`, `invalid_duration` and `malformed_file`. Over MCP there is also `no_session_timer` (see
 [Connecting agents](connecting-agents.md#which-timer-stop-the-timer-means)).
 
 `version_mismatch` (exit status 1) means the running app is a different version from `chronobar`,

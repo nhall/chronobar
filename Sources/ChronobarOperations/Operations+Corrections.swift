@@ -50,8 +50,9 @@ extension Operations {
         let day = try date.map(parsedDay) ?? tracker.today
         let relabeling = try core { try tracker.relabel(label, to: newLabel, on: day) }
         return RelabelResult(label: relabeling.project, date: relabeling.day.description,
-                             entries: relabeling.entries.map(result), totalSeconds: relabeling.total,
-                             day: dayResult(relabeling.day))
+                             entries: relabeling.entries.filter { $0.end != nil }.map(result),
+                             totalSeconds: relabeling.total, day: dayResult(relabeling.day),
+                             timer: relabeling.timer.map(timerResult))
     }
 
     /// The `OperationError` for a correction Core refused, or nil for any other error.
@@ -74,15 +75,15 @@ extension Operations {
                            + "adjust also takes a change such as +15 or -10.")
         case let error as NoTimeOnDay:
             OperationError(.unknownLabel, "\(error.project) has no time on \(error.day), so there's nothing to relabel.")
+        case let error as NewLabelRunning:
+            OperationError(.labelRunning, "\(error.project)'s timer is running, and relabel can't move time onto "
+                           + "a running timer. Stop it first, or pick another label.", running: runningTimers())
         case let error as UnsupportedRelabel:
             // Refusals until relabel handles these cases; `failed`, so no new error kind goes on the wire.
             switch error.reason {
-            case .running:
-                OperationError(.failed, "\(error.project)'s timer is running, and Chronobar can't relabel a "
-                               + "running timer yet. Stop it first, then relabel.")
-            case .mergeIntoRunning:
-                OperationError(.failed, "\(error.project)'s timer is running, and Chronobar can't merge time into "
-                               + "a running timer yet. Stop it first, then relabel.")
+            case .runFromEarlierDay:
+                OperationError(.failed, "\(error.project)'s timer has run since before midnight, and Chronobar "
+                               + "can't relabel such a run yet. Stop it first, then relabel.")
             }
         default:
             nil

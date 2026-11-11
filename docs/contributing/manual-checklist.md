@@ -221,8 +221,20 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] Pin a Label spelled `northwind` and relabel its row to `Northwind`: the row, the row on other Days
       and the pinned suggestion all read `Northwind`. An archived Label respelled this way stays
       archived. Relabel a row onto an archived Label: it shows in the suggestions again.
-- [ ] Beeps and keeps the field open, changing nothing: an empty Label, the running row (in other
-      capitals too), a merge into a row whose timed time overlaps it, and a merge into the running row.
+- [ ] Start `Northwnd` with ▶, relabel its row to `Northwind`: the row reads `Northwind`, still
+      highlighted with ⏸, its total and the Pill keep counting from the same start, and ⏸ stops it.
+      Relabel it again to `northwind`: it keeps running in the new capitals.
+- [ ] Relabel a running row into a Label with only finished time that Day: one row, still running,
+      with the combined total.
+- [ ] With Long-running warnings at 2 hours, let a Timer pass them and get its notification, then
+      relabel its row (and again in other capitals only): no second notification, now or after a
+      relaunch.
+- [ ] Relabel a running row started in the app, then sleep the Mac past the Idle threshold: the Idle
+      alert names the new Label, and removing the time restarts it under that Label. A relabeled
+      agent Timer gets no Idle alert.
+- [ ] Beeps and keeps the field open, changing nothing: an empty Label, a merge into a row whose timed
+      time overlaps it, a row moved onto a Label whose Timer is running (the running row in other
+      capitals is fine), and a Timer running since before midnight.
 
 **Idle after sleep and lock**
 
@@ -307,7 +319,10 @@ Try these against the [development copy](development.md#a-development-copy) (`ch
       "Relabeled as Client C, Ticket 665 on …" with its total, and yesterday's Panel row reads the new
       Label while today's Client B row stays. `chronobar relabel Client B --to Client C` with Client C
       already having time today merges the rows and prints the combined total; with Client C's timed
-      time overlapping Client B's, it exits 1 with "already has time" and changes nothing.
+      time overlapping Client B's, it exits 1 with "already has time" and changes nothing. With
+      Client B running, `chronobar relabel Client B --to Client E` prints "Its timer runs on, since …"
+      and the Panel's running row reads Client E; onto a Label whose Timer runs it exits 1 with
+      "can't move time onto a running timer".
 
 **Agents (MCP)**
 
@@ -324,6 +339,9 @@ Register the development copy in your client under a name of its own (in Claude 
       Timer.
 - [ ] Ask it to "move today's Client B time to Client D": it calls `relabel`, the Panel's row reads
       Client D with the same 0:30, and the agent gives Client D's total.
+- [ ] Start a Timer from the agent, ask it to relabel the running Timer, then to "stop the timer": it
+      stops the Timer under its new Label. Start another from the agent, relabel that one in the
+      Panel, and ask again: it stops nothing and lists the running Timers.
 - [ ] Start Client A from the agent and Client B with ▶ in the Panel, then ask it to "stop the timer": it
       stops Client A only. Start a second Label from the agent and ask again: it stops nothing and asks
       which, listing all three.

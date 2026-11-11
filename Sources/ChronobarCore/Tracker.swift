@@ -209,6 +209,14 @@ public final class Tracker {
             .map { warning(for: $0, threshold: threshold) }
     }
 
+    /// After a relabel moved the run of `project`'s Timer to `timer`, carries its Long-running warning over,
+    /// so the same run isn't warned about again under its new Label. A fix of capitals or spaces counts:
+    /// a run is remembered by its exact spelling.
+    func rekeyWarning(from project: String, to timer: Running) {
+        let run = run(of: timer)
+        warnings.rekey(TimerRun(project: project, since: run.since), to: run)
+    }
+
     /// The Long-running warning for `run`, past a threshold of `threshold` seconds, on this Tracker's
     /// calendar.
     private func warning(for run: TimerRun, threshold: TimeInterval) -> LongRunningWarning {
