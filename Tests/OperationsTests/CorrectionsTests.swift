@@ -271,6 +271,89 @@ import ChronobarOperations
         #expect(operations.perform(.adjust(label: " ", input: "1:00", date: nil)).error?.kind == .invalidLabel)
     }
 
+    // MARK: Relabel
+
+    @Test func relabelingEchoesTheStoredEntriesAndTheDaysTotals() throws {
+        try write(root, "2026-11-02", """
+            { "project": "Northwnd", "start": "2026-11-02T09:00:00-05:00", "end": "2026-11-02T10:00:00-05:00", "source": "agent" },
+            { "project": "Northwnd", "seconds": 900, "note": "manual" }
+        """)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let relabeled = try operations.relabel("northwnd", to: "Northwind, Ticket 665", date: "2026-11-02")
+
+        #expect(relabeled == RelabelResult(
+            label: "Northwind, Ticket 665", date: "2026-11-02",
+            entries: [EntryResult(label: "Northwind, Ticket 665", start: clock.date("2026-11-02T09:00:00"),
+                                  end: clock.date("2026-11-02T10:00:00"), source: .agent, totalSeconds: 75 * 60)],
+            totalSeconds: 75 * 60,
+            day: DayResult(date: "2026-11-02", totalSeconds: 75 * 60, totalMinutes: 75, elapsedSeconds: 3600, elapsedMinutes: 60)))
+    }
+
+    @Test func relabelingWithNoDayRelabelsToday() throws {
+        try write(root, "2026-11-03", #"    { "project": "Northwnd", "seconds": 900, "note": "manual" }"#)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let relabeled = try operations.relabel("Northwnd", to: "Northwind", date: nil)
+
+        #expect(relabeled.date == "2026-11-03")
+        #expect(relabeled.entries.isEmpty)
+        #expect(relabeled.totalSeconds == 900)
+    }
+
+    @Test(arguments: [("Northwnd", " "), (" ", "Northwind")])
+    func relabelingFromOrToABlankLabelIsRefused(label: String, newLabel: String) throws {
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let error = operations.perform(.relabel(label: label, newLabel: newLabel, date: nil)).error
+
+        #expect(error?.kind == .invalidLabel)
+    }
+
+    @Test func relabelingALabelWithNoTimeThatDayIsRefusedNamingTheDay() throws {
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let error = operations.perform(.relabel(label: "Northwnd", newLabel: "Northwind", date: "2026-11-02")).error
+
+        #expect(error?.kind == .unknownLabel)
+        #expect(error?.message == "Northwnd has no time on 2026-11-02, so there's nothing to relabel.")
+    }
+
+    @Test func relabelsNotYetSupportedAreRefusedSayingWhy() throws {
+        try write(root, "2026-11-02", """
+            { "project": "Northwnd", "seconds": 900, "note": "manual" },
+            { "project": "Northwind", "seconds": 900, "note": "manual" }
+        """)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+        _ = try operations.start("Internal")
+        clock.set("2026-11-03T10:00:00")
+
+        let running = operations.perform(.relabel(label: "Internal", newLabel: "Overhead", date: nil)).error
+        let merge = operations.perform(.relabel(label: "Northwnd", newLabel: "northwind", date: "2026-11-02")).error
+        let respelling = operations.perform(.relabel(label: "Northwnd", newLabel: "NORTHWND", date: "2026-11-02")).error
+
+        #expect(running?.kind == .failed)
+        #expect(running?.message == "Internal's timer is running, and Chronobar can't relabel a running timer yet. "
+                + "Stop it first, then relabel.")
+        #expect(merge?.kind == .failed)
+        #expect(merge?.message == "Northwind already has time that Day, and Chronobar can't merge two rows yet. "
+                + "Pick a Label with no time that Day.")
+        #expect(respelling?.kind == .failed)
+        #expect(respelling?.message == "That is Northwnd spelled another way, and Chronobar can't change only "
+                + "a Label's capitals or spaces yet.")
+    }
+
+    @Test func relabelingADayWhoseFileWontParseIsRefusedNamingIt() throws {
+        try write(root, "2026-11-02", #"    { "project": "Northwnd", "seconds": 900, "note": "manual" }"#)
+        try "{ oops".write(to: dayFile(root, "2026-11-02"), atomically: true, encoding: .utf8)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let error = operations.perform(.relabel(label: "Northwnd", newLabel: "Northwind", date: "2026-11-02")).error
+
+        #expect(error?.kind == .malformedFile)
+        #expect(error?.message.contains("days/2026-11-02.json") == true)
+    }
+
     // MARK: On the wire
 
     private func respond(_ line: String, _ operations: Operations) throws -> [String: Any] {
@@ -298,6 +381,7 @@ import ChronobarOperations
         let added = try respond(#"{"op": "add_entry", "label": "Internal", "start": "2026-11-03T07:00:00-05:00", "end": "2026-11-03T07:30:00-05:00"}"#, operations)
         let logged = try respond(#"{"op": "add_entry", "label": "Internal", "duration": "0:15", "date": "2026-11-02"}"#, operations)
         let adjusted = try respond(#"{"op": "adjust", "label": "Internal", "input": "-10"}"#, operations)
+        let relabeled = try respond(#"{"op": "relabel", "label": "Internal", "new_label": "Overhead", "date": "2026-11-02"}"#, operations)
 
         #expect(moved["op"] as? String == "set_start")
         #expect(((moved["result"] as? [String: Any])?["timer"] as? [String: Any])?["start"] as? String
@@ -307,6 +391,9 @@ import ChronobarOperations
         #expect(((logged["result"] as? [String: Any])?["manual"] as? [String: Any])?["date"] as? String == "2026-11-02")
         #expect((adjusted["result"] as? [String: Any])?["change_seconds"] as? Int == -10 * 60)
         #expect((adjusted["result"] as? [String: Any])?["total_seconds"] as? Int == 20 * 60)
+        #expect(relabeled["op"] as? String == "relabel")
+        #expect((relabeled["result"] as? [String: Any])?["label"] as? String == "Overhead")
+        #expect((relabeled["result"] as? [String: Any])?["total_seconds"] as? Int == 15 * 60)
     }
 
     @Test(arguments: [#"{"op": "set_start", "at": "08:30"}"#, #"{"op": "set_start", "at": "2026-11-03T08:30:00"}"#])
@@ -339,6 +426,7 @@ import ChronobarOperations
             .addEntry(label: "Internal", span: .times(start: clock.date("2026-11-03T07:00:00"), end: clock.date("2026-11-03T07:30:00"))),
             .addEntry(label: "Internal", span: .duration("15", date: "2026-11-02")),
             .adjust(label: "Internal", input: "+5", date: "2026-11-02"),
+            .relabel(label: "Internal", newLabel: "Overhead", date: "2026-11-02"),
             .stop(label: nil, at: clock.date("2026-11-03T09:50:00")),
         ]
 
@@ -376,6 +464,12 @@ extension Operations {
         guard case .adjust(let result) = try perform(.adjust(label: label, input: input, date: date)).success() else {
             throw Unexpected()
         }
+        return result
+    }
+
+    func relabel(_ label: String, to newLabel: String, date: String?) throws -> RelabelResult {
+        guard case .relabel(let result) = try perform(.relabel(label: label, newLabel: newLabel, date: date)).success()
+        else { throw Unexpected() }
         return result
     }
 }

@@ -9,7 +9,8 @@ public struct OperationError: Error, Codable, Equatable, Sendable {
         case unknownOperation = "unknown_operation"
         /// A Label that is empty once trimmed.
         case invalidLabel = "invalid_label"
-        /// `archive` named a Label with no time, not pinned and not archived.
+        /// `archive` named a Label with no time, not pinned and not archived, or `relabel` one with no time
+        /// on that Day.
         case unknownLabel = "unknown_label"
         /// A date that isn't a calendar Day written `YYYY-MM-DD`.
         case invalidDate = "invalid_date"

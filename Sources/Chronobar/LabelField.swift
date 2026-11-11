@@ -9,7 +9,7 @@ import ChronobarCore
 /// through the list doesn't narrow it. Typing narrows the list and opens it while anything matches, and
 /// closes it when nothing does. There is no inline completion, so what was typed is never replaced by a
 /// longer name. Return on a highlighted name picks it, fills the field and closes the list; otherwise
-/// Return submits. Escape closes the list. Right-clicking a name offers Pin (unless pinned) and Archive.
+/// Return submits. Escape closes the list, or with it closed calls `cancel`, if given. Right-clicking a name offers Pin (unless pinned) and Archive.
 struct LabelField: NSViewRepresentable {
     @Binding var name: String
     /// Whether the list is showing. The form's default button gives up Return meanwhile, so Return can
@@ -19,6 +19,8 @@ struct LabelField: NSViewRepresentable {
     /// Bumped to put focus in the field.
     let focusRequests: Int
     let submit: () -> Void
+    /// Escape with the list closed, as a row's Label field uses it; nil leaves Escape to the window.
+    var cancel: (() -> Void)? = nil
     let isPinned: (String) -> Bool
     let pin: (String) -> Void
     let archive: (String) -> Void
@@ -174,7 +176,8 @@ struct LabelField: NSViewRepresentable {
             let outcome = list.press(key)
             switch outcome {
             case .ignored:
-                return false
+                guard key == .escape, let cancel = parent?.cancel else { return false }
+                cancel()
             case .handled:
                 apply()
             case .show(let text):

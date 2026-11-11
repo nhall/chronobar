@@ -83,6 +83,7 @@ The server offers a tool for each [command](command-line.md), with the same rule
 | `set_start` | Moves a running timer's start. |
 | `add_entry` | Adds a finished line item, by start and end or by duration on a Day. |
 | `adjust` | Sets or changes a Label's total on a Day. |
+| `relabel` | Moves all of a Label's time on a Day to another Label. |
 | `day` | Reads a Day's rows, Total and Clock time. |
 | `week` | Reads a week's daily Totals and each Label's week total. |
 | `summary` | Reads today, yesterday, this week and this month. |

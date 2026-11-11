@@ -52,6 +52,38 @@ public struct Overlap: Error, Equatable {
     public let end: Date?
 }
 
+/// A relabel named a Label with no Entries on its Day, so there is no row to move.
+public struct NoTimeOnDay: Error, Equatable {
+    public let project: String
+    public let day: Day
+
+    public init(project: String, day: Day) {
+        self.project = project
+        self.day = day
+    }
+}
+
+/// A relabel this version doesn't make yet. Each is refused and changes nothing.
+public struct UnsupportedRelabel: Error, Equatable {
+    public enum Reason: Sendable {
+        /// The Label's Timer is running and its run reaches the Day.
+        case running
+        /// The new Label already has time on the Day, so the rows would merge.
+        case merge
+        /// The new Label is the same Label spelled with other capitals or spaces.
+        case respelling
+    }
+
+    /// The running or respelled Label, or the one the rows would merge into, as stored.
+    public let project: String
+    public let reason: Reason
+
+    public init(project: String, reason: Reason) {
+        self.project = project
+        self.reason = reason
+    }
+}
+
 /// Corrections after the fact. Each one checks its times, then reads every Day it writes before writing
 /// any, so a refusal changes nothing.
 extension Tracker {
@@ -108,6 +140,54 @@ extension Tracker {
         catchUp()
         guard day <= today else { throw FutureDay(day: day) }
         return try log(name, duration, on: day)
+    }
+
+    /// Relabels `name`'s row on `day`: moves every one of its Entries there, timed and manual, adjustments
+    /// included, to `newName`, written under its stored spelling as for start. The Label on other Days is
+    /// untouched, and an archived new Label comes back. Relabeling to the row's own spelling changes
+    /// nothing. Refused if the Label has no Entries on `day` or `day`'s file won't parse or has writes
+    /// waiting; and, for now, for a running Timer's run, a new Label with time on `day` already, and a fix of
+    /// capitalisation or spacing alone. Returns what it stored.
+    @discardableResult
+    public func relabel(_ name: String, to newName: String, on day: Day) throws -> Relabeling {
+        catchUp()
+        let target = ProjectName.trimmed(newName)
+        guard !target.isEmpty else { throw EmptyProjectName() }
+        try files.checkReadable(day)
+        guard let row = rows(day).first(where: { ProjectName.matches($0.project, name) }) else {
+            throw NoTimeOnDay(project: ProjectName.trimmed(name), day: day)
+        }
+        if ProjectName.matches(row.project, target) {
+            guard target == row.project else { throw UnsupportedRelabel(project: row.project, reason: .respelling) }
+            return relabeling(row.project, on: day)
+        }
+        if let timer = timers[name], try files.readRun(of: timer).contains(where: { $0.day == day }) {
+            throw UnsupportedRelabel(project: timer.project, reason: .running)
+        }
+        return try labels.resolvingForWrite(target) { project, bringingBack in
+            // Checked again on the Entries as re-read, so a hand edit since can't slip past.
+            try files.change([day], alongWith: bringingBack) { _, entries in
+                guard entries.contains(where: { ProjectName.matches($0.project, name) }) else {
+                    throw NoTimeOnDay(project: ProjectName.trimmed(name), day: day)
+                }
+                if entries.contains(where: { ProjectName.matches($0.project, project) }) {
+                    throw UnsupportedRelabel(project: project, reason: .merge)
+                }
+                entries = entries.map { ProjectName.matches($0.project, name) ? $0.relabeled(project) : $0 }
+            }
+            reread()
+            return relabeling(project, on: day)
+        }
+    }
+
+    /// The Label's row on `day` as a relabel returns it: its timed Entries there and its Total.
+    private func relabeling(_ project: String, on day: Day) -> Relabeling {
+        let entries = files.entries(on: day).compactMap { entry -> TimedEntry? in
+            guard case .timed(let label, let start, let end, let source) = entry,
+                  ProjectName.matches(label, project) else { return nil }
+            return TimedEntry(project: label, start: start, end: end, source: source)
+        }
+        return Relabeling(project: project, day: day, entries: entries, total: total(project, on: day).wholeSeconds)
     }
 
     /// `start` to `end` (nil: still running, today) as one timed Entry per Day, cut at each midnight.

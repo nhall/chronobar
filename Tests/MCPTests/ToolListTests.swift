@@ -6,7 +6,7 @@ import MCP
 /// The tools `chronobar mcp` lists: one per operation, each with a JSON Schema for its arguments.
 @Suite struct ToolListTests {
     @Test func everyOperationIsATool() {
-        #expect(MCPTools.all.map(\.name) == ["status", "start", "stop", "set_start", "add_entry", "adjust",
+        #expect(MCPTools.all.map(\.name) == ["status", "start", "stop", "set_start", "add_entry", "adjust", "relabel",
                                                  "day", "week", "summary", "labels", "archive", "pin"])
     }
 
@@ -31,11 +31,17 @@ import MCP
         #expect(required("set_start") == ["at"])
         #expect(required("add_entry") == ["label"])
         #expect(required("adjust") == ["label", "input"])
+        #expect(required("relabel") == ["label", "new_label"])
         #expect(required("day") == [])
         #expect(required("week") == [])
         #expect(required("labels") == [])
         #expect(required("archive") == ["label"])
         #expect(required("pin") == ["label"])
+    }
+
+    @Test func toolsThatRewriteRecordedTimeAreMarkedDestructive() {
+        let destructive = MCPTools.all.filter { $0.annotations.destructiveHint == true }.map(\.name)
+        #expect(destructive == ["stop", "set_start", "adjust", "relabel"])
     }
 
     @Test func readingToolsAreMarkedReadOnly() {

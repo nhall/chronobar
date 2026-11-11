@@ -146,7 +146,8 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
       Transparency on it is opaque. Check both in light and dark menu bars.
 - [ ] With Keyboard navigation on (System Settings › Keyboard), open the Panel from the Pill with ⌃F8 and
       Space, then use Tab, Space and Return alone to: view another Day, move a week each way, go back to
-      today, start and pause a row, change a row's total (Escape cancels), open (i) and ＋, Log time,
+      today, start and pause a row, change a row's total and its Label (Escape cancels each), open (i)
+      and ＋, Log time,
       open the ⚙ menu and each of its items. Escape closes the Panel.
 - [ ] With Keyboard navigation off (the macOS default), open the Panel and, without the mouse: ← and →
       move the viewed Day, past the strip's ends into the next or previous week; ⌘[ and ⌘] move a week;
@@ -203,6 +204,18 @@ Mark anything that isn't built yet *(not built yet)*, and update this list as fe
 - [ ] Click a row's time, type `1:15`, Return: the row reads `1:15`. Try `+15` and `-10` too.
 - [ ] `-9:00` on a short row stops at `0:00`; a typo like `1:7x` beeps and changes nothing.
 - [ ] Adjusting the running row keeps the Timer running from the new total.
+- [ ] Click a stopped row's Label: it turns into a Label field holding the Label, focused, with ▾ and
+      the ＋ form's suggestions. Type a new Label, Return: the row reads the new Label with the same
+      time, and the Total line, Week strip, (i) Time Summary and Pill don't change. The same Label on
+      another Day keeps its name.
+- [ ] Pick a suggestion with ↓ and Return, then Return again: the row moves to it. Escape with the list
+      open closes the list; Escape again cancels and the row is as it was. Return on the unchanged
+      Label closes the field and changes nothing.
+- [ ] While one row's Label field is open, click another row's time: the Label field closes. Clicking a
+      Label closes an open time edit the same way, and moving to another Day closes either.
+- [ ] Relabel a row on a past Day: only that Day's row changes.
+- [ ] Beeps and keeps the field open, changing nothing: an empty Label, the running row, a Label with time
+      that Day already, and the same Label in other capitals.
 
 **Idle after sleep and lock**
 
@@ -283,13 +296,17 @@ Try these against the [development copy](development.md#a-development-copy) (`ch
       1 with "already has time".
 - [ ] `chronobar add Client B --duration 15 --day YYYY-MM-DD` for yesterday: that Day in the Panel
       shows the extra 0:15. `chronobar adjust Client B -10` takes 0:10 off today's total.
+- [ ] `chronobar relabel Client B --to Client C, Ticket 665 --day YYYY-MM-DD` for yesterday prints
+      "Relabeled as Client C, Ticket 665 on …" with its total, and yesterday's Panel row reads the new
+      Label while today's Client B row stays. `chronobar relabel Client B --to Client C` with Client C
+      already having time that Day exits 1 and changes nothing.
 
 **Agents (MCP)**
 
 Register the development copy in your client under a name of its own (in Claude Code,
 `claude mcp add chronobar-dev -- <path>/build/bin/chronobar --dev mcp`), and remove it afterwards.
 
-- [ ] The client lists the twelve tools, with descriptions, and connects without errors.
+- [ ] The client lists the thirteen tools, with descriptions, and connects without errors.
 - [ ] Ask "start a timer for Client A": the Panel shows Client A running with the terminal icon, and the
       agent repeats the stored start time.
 - [ ] A few minutes later, ask it to stop the Timer back at a minute ago: it calls `stop` without a
@@ -297,6 +314,8 @@ Register the development copy in your client under a name of its own (in Claude 
       Client A's total.
 - [ ] Ask "add a line item for Client B from 9:00 to 9:30 today": a 0:30 Client B row appears without a
       Timer.
+- [ ] Ask it to "move today's Client B time to Client D": it calls `relabel`, the Panel's row reads
+      Client D with the same 0:30, and the agent gives Client D's total.
 - [ ] Start Client A from the agent and Client B with ▶ in the Panel, then ask it to "stop the timer": it
       stops Client A only. Start a second Label from the agent and ask again: it stops nothing and asks
       which, listing all three.
@@ -304,7 +323,7 @@ Register the development copy in your client under a name of its own (in Claude 
       In a new session, "stop the timer" stops nothing and lists it; "stop Client A" stops it.
 - [ ] Try the same session in a second MCP client.
 - [ ] Register `chronobar mcp` with each setup in [Connecting agents](../connecting-agents.md#setup): Claude Code, Codex, Gemini CLI,
-      Claude Desktop and Cursor. Each lists the twelve tools and can run `status`. Claude Desktop and
+      Claude Desktop and Cursor. Each lists the thirteen tools and can run `status`. Claude Desktop and
       Cursor, opened from the Dock, connect with the full path.
 
 **Long-running warning**

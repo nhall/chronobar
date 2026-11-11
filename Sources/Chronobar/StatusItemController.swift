@@ -34,6 +34,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             adjust: { [weak self] project, input, day in
                 self?.perform { try tracker.adjust(project, input, on: day) } ?? false
             },
+            relabel: { [weak self] project, newLabel, day in
+                self?.attempt { try tracker.relabel(project, to: newLabel, on: day).project }
+            },
             archive: { [weak self] project in self?.perform { try tracker.archiveProject(project) } },
             pin: { [weak self] project in self?.perform { try tracker.pinProject(project) } },
             openDataFolder: { [weak self] in

@@ -45,6 +45,15 @@ extension Operations {
                             day: dayResult(adjustment.day))
     }
 
+    func relabel(_ label: String, to newLabel: String, on date: String?) throws(OperationError) -> RelabelResult {
+        let label = try named(label)
+        let day = try date.map(parsedDay) ?? tracker.today
+        let relabeling = try core { try tracker.relabel(label, to: newLabel, on: day) }
+        return RelabelResult(label: relabeling.project, date: relabeling.day.description,
+                             entries: relabeling.entries.map(result), totalSeconds: relabeling.total,
+                             day: dayResult(relabeling.day))
+    }
+
     /// The `OperationError` for a correction Core refused, or nil for any other error.
     func correctionError(_ error: any Error) -> OperationError? {
         switch error {
@@ -63,6 +72,21 @@ extension Operations {
         case let error as InvalidDuration:
             OperationError(.invalidDuration, "\"\(error.text)\" isn't a duration such as 1:30 or 45 (minutes); "
                            + "adjust also takes a change such as +15 or -10.")
+        case let error as NoTimeOnDay:
+            OperationError(.unknownLabel, "\(error.project) has no time on \(error.day), so there's nothing to relabel.")
+        case let error as UnsupportedRelabel:
+            // Refusals until relabel handles these cases; `failed`, so no new error kind goes on the wire.
+            switch error.reason {
+            case .running:
+                OperationError(.failed, "\(error.project)'s timer is running, and Chronobar can't relabel a "
+                               + "running timer yet. Stop it first, then relabel.")
+            case .merge:
+                OperationError(.failed, "\(error.project) already has time that Day, and Chronobar can't merge "
+                               + "two rows yet. Pick a Label with no time that Day.")
+            case .respelling:
+                OperationError(.failed, "That is \(error.project) spelled another way, and Chronobar can't change "
+                               + "only a Label's capitals or spaces yet.")
+            }
         default:
             nil
         }
