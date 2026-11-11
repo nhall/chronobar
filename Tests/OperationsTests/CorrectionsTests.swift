@@ -319,25 +319,55 @@ import ChronobarOperations
         #expect(error?.message == "Northwnd has no time on 2026-11-02, so there's nothing to relabel.")
     }
 
-    @Test func relabelsNotYetSupportedAreRefusedSayingWhy() throws {
+    @Test func relabelingIntoALabelWithTimeThatDayEchoesTheMergedRow() throws {
         try write(root, "2026-11-02", """
-            { "project": "Northwnd", "seconds": 900, "note": "manual" },
-            { "project": "Northwind", "seconds": 900, "note": "manual" }
+            { "project": "Northwind", "start": "2026-11-02T09:00:00-05:00", "end": "2026-11-02T10:00:00-05:00", "source": "app" },
+            { "project": "Northwnd", "seconds": 1800, "note": "manual" }
         """)
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let relabeled = try operations.relabel("Northwnd", to: "northwind", date: "2026-11-02")
+
+        #expect(relabeled == RelabelResult(
+            label: "Northwind", date: "2026-11-02",
+            entries: [EntryResult(label: "Northwind", start: clock.date("2026-11-02T09:00:00"),
+                                  end: clock.date("2026-11-02T10:00:00"), source: .app, totalSeconds: 90 * 60)],
+            totalSeconds: 90 * 60,
+            day: DayResult(date: "2026-11-02", totalSeconds: 90 * 60, totalMinutes: 90, elapsedSeconds: 3600, elapsedMinutes: 60)))
+    }
+
+    @Test func aMergeThatWouldCountTimeTwiceIsAnOverlapNamingTheNewLabelsEntry() throws {
+        try write(root, "2026-11-02", """
+            { "project": "Northwind", "start": "2026-11-02T09:00:00-05:00", "end": "2026-11-02T10:00:00-05:00", "source": "app" },
+            { "project": "Northwnd", "start": "2026-11-02T09:30:00-05:00", "end": "2026-11-02T10:30:00-05:00", "source": "app" }
+        """)
+        let before = contents(dayFile(root, "2026-11-02"))
+        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+
+        let error = operations.perform(.relabel(label: "Northwnd", newLabel: "Northwind", date: "2026-11-02")).error
+
+        #expect(error?.kind == .overlap)
+        #expect(error?.message == "Northwind already has time from 2026-11-02T09:00:00-05:00 to "
+                + "2026-11-02T10:00:00-05:00, which this would count twice.")
+        #expect(contents(dayFile(root, "2026-11-02")) == before)
+    }
+
+    @Test func relabelsNotYetSupportedAreRefusedSayingWhy() throws {
+        try write(root, "2026-11-03", #"    { "project": "Northwnd", "seconds": 900, "note": "manual" }"#)
         let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
         _ = try operations.start("Internal")
         clock.set("2026-11-03T10:00:00")
 
         let running = operations.perform(.relabel(label: "Internal", newLabel: "Overhead", date: nil)).error
-        let merge = operations.perform(.relabel(label: "Northwnd", newLabel: "northwind", date: "2026-11-02")).error
-        let respelling = operations.perform(.relabel(label: "Northwnd", newLabel: "NORTHWND", date: "2026-11-02")).error
+        let intoRunning = operations.perform(.relabel(label: "Northwnd", newLabel: "internal", date: nil)).error
+        let respelling = operations.perform(.relabel(label: "Northwnd", newLabel: "NORTHWND", date: nil)).error
 
         #expect(running?.kind == .failed)
         #expect(running?.message == "Internal's timer is running, and Chronobar can't relabel a running timer yet. "
                 + "Stop it first, then relabel.")
-        #expect(merge?.kind == .failed)
-        #expect(merge?.message == "Northwind already has time that Day, and Chronobar can't merge two rows yet. "
-                + "Pick a Label with no time that Day.")
+        #expect(intoRunning?.kind == .failed)
+        #expect(intoRunning?.message == "Internal's timer is running, and Chronobar can't merge time into a "
+                + "running timer yet. Stop it first, then relabel.")
         #expect(respelling?.kind == .failed)
         #expect(respelling?.message == "That is Northwnd spelled another way, and Chronobar can't change only "
                 + "a Label's capitals or spaces yet.")

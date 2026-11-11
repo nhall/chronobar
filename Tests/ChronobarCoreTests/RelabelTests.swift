@@ -118,6 +118,114 @@ import ChronobarCore
         #expect(contents(dayFile(root, "2026-11-03")) == before)
     }
 
+    // MARK: Merging
+
+    @Test func relabelingIntoALabelWithTimeThatDayMergesTheRowsAndKeepsTheDaysTotalAndClockTime() throws {
+        try write(root, "2026-11-03", """
+            { "project": "Northwind", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" },
+            { "project": "Northwnd", "start": "2026-11-03T10:30:00-05:00", "end": "2026-11-03T11:00:00-05:00", "source": "agent" }
+        """)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        let (total, clockTime) = (tracker.dayTotal(tracker.today), tracker.elapsed(tracker.today))
+
+        let relabeled = try tracker.relabel("Northwnd", to: "northwind", on: tracker.today)
+
+        #expect(contents(dayFile(root, "2026-11-03")) == """
+        {
+          "date": "2026-11-03",
+          "entries": [
+            { "project": "Northwind", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" },
+            { "project": "Northwind", "start": "2026-11-03T10:30:00-05:00", "end": "2026-11-03T11:00:00-05:00", "source": "agent" }
+          ]
+        }
+
+        """)
+        #expect(tracker.rows(tracker.today) == [Row(project: "Northwind", total: 90 * 60)])
+        #expect(relabeled == Relabeling(
+            project: "Northwind", day: tracker.today,
+            entries: [TimedEntry(project: "Northwind", start: clock.date("2026-11-03T09:00:00"),
+                                 end: clock.date("2026-11-03T10:00:00"), source: .app),
+                      TimedEntry(project: "Northwind", start: clock.date("2026-11-03T10:30:00"),
+                                 end: clock.date("2026-11-03T11:00:00"), source: .agent)],
+            total: 90 * 60))
+        #expect(tracker.dayTotal(tracker.today) == total)
+        #expect(tracker.elapsed(tracker.today) == clockTime)
+    }
+
+    @Test func manualEntriesAlwaysMerge() throws {
+        try write(root, "2026-11-03", """
+            { "project": "Northwind", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" },
+            { "project": "Northwind", "seconds": 600, "note": "manual" },
+            { "project": "Northwnd", "seconds": 7200, "note": "manual" },
+            { "project": "Northwnd", "seconds": -300, "note": "adjustment" }
+        """)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
+
+        #expect(tracker.rows(tracker.today) == [Row(project: "Northwind", total: (60 + 10 + 120 - 5) * 60)])
+    }
+
+    @Test func aMergeWhoseTimedEntriesOverlapIsRefusedNamingTheNewLabelsEntryAndChangesNothing() throws {
+        try write(root, "2026-11-03", """
+            { "project": "Northwnd", "start": "2026-11-03T08:00:00-05:00", "end": "2026-11-03T08:30:00-05:00", "source": "app" },
+            { "project": "Northwind", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" },
+            { "project": "Northwnd", "start": "2026-11-03T09:45:00-05:00", "end": "2026-11-03T10:15:00-05:00", "source": "agent" }
+        """)
+        let before = contents(dayFile(root, "2026-11-03"))
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        let overlap = #expect(throws: Overlap.self) {
+            try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
+        }
+
+        #expect(overlap?.project == "Northwind")
+        #expect(overlap?.start == clock.date("2026-11-03T09:00:00"))
+        #expect(overlap?.end == clock.date("2026-11-03T10:00:00"))
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+    }
+
+    @Test func entriesThatOnlyTouchEndToStartMerge() throws {
+        try write(root, "2026-11-03", """
+            { "project": "Northwind", "start": "2026-11-03T09:00:00-05:00", "end": "2026-11-03T10:00:00-05:00", "source": "app" },
+            { "project": "Northwnd", "start": "2026-11-03T10:00:00-05:00", "end": "2026-11-03T10:30:00-05:00", "source": "app" }
+        """)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+
+        try tracker.relabel("Northwnd", to: "Northwind", on: tracker.today)
+
+        #expect(tracker.rows(tracker.today) == [Row(project: "Northwind", total: 90 * 60)])
+    }
+
+    @Test func aMergeIntoALabelRunningThatDayIsRefusedForNow() throws {
+        try write(root, "2026-11-03", #"    { "project": "Northwnd", "seconds": 1800, "note": "manual" }"#)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Northwind")
+        clock.set("2026-11-03T13:00:00")
+        let before = contents(dayFile(root, "2026-11-03"))
+
+        #expect(throws: UnsupportedRelabel(project: "Northwind", reason: .mergeIntoRunning)) {
+            try tracker.relabel("Northwnd", to: "northwind", on: tracker.today)
+        }
+
+        #expect(contents(dayFile(root, "2026-11-03")) == before)
+        #expect(tracker.isRunning("Northwind"))
+    }
+
+    @Test func aMergeOnAnEarlierDayIntoALabelRunningTodayGoesAhead() throws {
+        try write(root, "2026-11-02", """
+            { "project": "Northwind", "seconds": 3600, "note": "manual" },
+            { "project": "Northwnd", "seconds": 1800, "note": "manual" }
+        """)
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        try tracker.start("Northwind")
+
+        try tracker.relabel("Northwnd", to: "Northwind", on: Day(year: 2026, month: 11, day: 2))
+
+        #expect(tracker.rows(Day(year: 2026, month: 11, day: 2)) == [Row(project: "Northwind", total: 90 * 60)])
+        #expect(tracker.isRunning("Northwind"))
+    }
+
     // MARK: Not yet supported
 
     @Test func aCapitalisationOrSpacingFixIsRefusedForNow() throws {
@@ -127,21 +235,6 @@ import ChronobarCore
 
         #expect(throws: UnsupportedRelabel(project: "northwind", reason: .respelling)) {
             try tracker.relabel("northwind", to: "Northwind", on: tracker.today)
-        }
-
-        #expect(contents(dayFile(root, "2026-11-03")) == before)
-    }
-
-    @Test func relabelingIntoALabelWithTimeThatDayIsRefusedForNow() throws {
-        try write(root, "2026-11-03", """
-            { "project": "Northwnd", "seconds": 1800, "note": "manual" },
-            { "project": "Northwind", "seconds": 3600, "note": "manual" }
-        """)
-        let before = contents(dayFile(root, "2026-11-03"))
-        let tracker = Tracker(clock: clock, storageRoot: root)
-
-        #expect(throws: UnsupportedRelabel(project: "Northwind", reason: .merge)) {
-            try tracker.relabel("Northwnd", to: "northwind", on: tracker.today)
         }
 
         #expect(contents(dayFile(root, "2026-11-03")) == before)

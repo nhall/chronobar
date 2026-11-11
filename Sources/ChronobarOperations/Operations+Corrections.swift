@@ -80,9 +80,9 @@ extension Operations {
             case .running:
                 OperationError(.failed, "\(error.project)'s timer is running, and Chronobar can't relabel a "
                                + "running timer yet. Stop it first, then relabel.")
-            case .merge:
-                OperationError(.failed, "\(error.project) already has time that Day, and Chronobar can't merge "
-                               + "two rows yet. Pick a Label with no time that Day.")
+            case .mergeIntoRunning:
+                OperationError(.failed, "\(error.project)'s timer is running, and Chronobar can't merge time into "
+                               + "a running timer yet. Stop it first, then relabel.")
             case .respelling:
                 OperationError(.failed, "That is \(error.project) spelled another way, and Chronobar can't change "
                                + "only a Label's capitals or spaces yet.")

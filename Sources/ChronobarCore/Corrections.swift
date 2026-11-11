@@ -68,8 +68,8 @@ public struct UnsupportedRelabel: Error, Equatable {
     public enum Reason: Sendable {
         /// The Label's Timer is running and its run reaches the Day.
         case running
-        /// The new Label already has time on the Day, so the rows would merge.
-        case merge
+        /// The new Label's Timer is running and its run reaches the Day, so the rows would merge into it.
+        case mergeIntoRunning
         /// The new Label is the same Label spelled with other capitals or spaces.
         case respelling
     }
@@ -143,11 +143,12 @@ extension Tracker {
     }
 
     /// Relabels `name`'s row on `day`: moves every one of its Entries there, timed and manual, adjustments
-    /// included, to `newName`, written under its stored spelling as for start. The Label on other Days is
-    /// untouched, and an archived new Label comes back. Relabeling to the row's own spelling changes
-    /// nothing. Refused if the Label has no Entries on `day` or `day`'s file won't parse or has writes
-    /// waiting; and, for now, for a running Timer's run, a new Label with time on `day` already, and a fix of
-    /// capitalisation or spacing alone. Returns what it stored.
+    /// included, to `newName`, written under its stored spelling as for start. A new Label with time on `day`
+    /// already gets the moved Entries beside its own, merging the rows; refused with `Overlap` if timed
+    /// Entries of the two would share time. The Label on other Days is untouched, and an archived new Label
+    /// comes back. Relabeling to the row's own spelling changes nothing. Refused if the Label has no Entries
+    /// on `day` or `day`'s file won't parse or has writes waiting; and, for now, where either Label's running
+    /// Timer's run reaches `day`, and for a fix of capitalisation or spacing alone. Returns what it stored.
     @discardableResult
     public func relabel(_ name: String, to newName: String, on day: Day) throws -> Relabeling {
         catchUp()
@@ -161,8 +162,10 @@ extension Tracker {
             guard target == row.project else { throw UnsupportedRelabel(project: row.project, reason: .respelling) }
             return relabeling(row.project, on: day)
         }
-        if let timer = timers[name], try files.readRun(of: timer).contains(where: { $0.day == day }) {
-            throw UnsupportedRelabel(project: timer.project, reason: .running)
+        for (label, reason) in [(name, UnsupportedRelabel.Reason.running), (target, .mergeIntoRunning)] {
+            if let timer = timers[label], try files.readRun(of: timer).contains(where: { $0.day == day }) {
+                throw UnsupportedRelabel(project: timer.project, reason: reason)
+            }
         }
         return try labels.resolvingForWrite(target) { project, bringingBack in
             // Checked again on the Entries as re-read, so a hand edit since can't slip past.
@@ -170,9 +173,13 @@ extension Tracker {
                 guard entries.contains(where: { ProjectName.matches($0.project, name) }) else {
                     throw NoTimeOnDay(project: ProjectName.trimmed(name), day: day)
                 }
-                if entries.contains(where: { ProjectName.matches($0.project, project) }) {
-                    throw UnsupportedRelabel(project: project, reason: .merge)
+                // Merging into the new Label's time there: refused where the same minutes would count twice.
+                let moved = entries.compactMap { entry -> TimedEntry? in
+                    guard case .timed(let label, let start, let end, let source) = entry,
+                          ProjectName.matches(label, name) else { return nil }
+                    return TimedEntry(project: project, start: start, end: end, source: source)
                 }
+                if let overlap = overlap(of: moved, with: entries) { throw overlap }
                 entries = entries.map { ProjectName.matches($0.project, name) ? $0.relabeled(project) : $0 }
             }
             reread()
