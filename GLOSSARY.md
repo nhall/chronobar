@@ -30,6 +30,13 @@ One local calendar date and the Entries on it. Every Timer running past midnight
 holds only its own time.
 _Avoid_: Date (for the concept), log
 
+**Relabeling**:
+Moving all of one Label's Entries on a Day to another Label. A running Timer moves with its whole run,
+earlier Days included, and stays the same Timer. Into a Label that already has time that Day, the two
+merge.
+_Avoid_: Renaming a Timer (a Timer has no name of its own), renaming a Label (that would mean every
+Day), splitting
+
 **Total**:
 The sum of Labels' time over a Day, a week or a longer period. With Timers side by side it can exceed
 the Clock time.
