@@ -78,13 +78,6 @@ extension Operations {
         case let error as NewLabelRunning:
             OperationError(.labelRunning, "\(error.project)'s timer is running, and relabel can't move time onto "
                            + "a running timer. Stop it first, or pick another label.", running: runningTimers())
-        case let error as UnsupportedRelabel:
-            // Refusals until relabel handles these cases; `failed`, so no new error kind goes on the wire.
-            switch error.reason {
-            case .runFromEarlierDay:
-                OperationError(.failed, "\(error.project)'s timer has run since before midnight, and Chronobar "
-                               + "can't relabel such a run yet. Stop it first, then relabel.")
-            }
         default:
             nil
         }

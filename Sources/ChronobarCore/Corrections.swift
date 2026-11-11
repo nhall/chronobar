@@ -72,23 +72,6 @@ public struct NewLabelRunning: Error, Equatable {
     public init(project: String) { self.project = project }
 }
 
-/// A relabel this version doesn't make yet. Each is refused and changes nothing.
-public struct UnsupportedRelabel: Error, Equatable {
-    public enum Reason: Sendable {
-        /// The Label's Timer is running and its run reaches the Day, but began before today's midnight.
-        case runFromEarlierDay
-    }
-
-    /// The running Label, as stored.
-    public let project: String
-    public let reason: Reason
-
-    public init(project: String, reason: Reason) {
-        self.project = project
-        self.reason = reason
-    }
-}
-
 /// Corrections after the fact. Each one checks its times, then reads every Day it writes before writing
 /// any, so a refusal changes nothing.
 extension Tracker {
@@ -154,11 +137,13 @@ extension Tracker {
     /// comes back; the old Label's lists are left alone. A fix of capitals or spaces alone is written as
     /// typed, and respells the Label on the Pinned or Archived Labels too, in the same save. Relabeling to
     /// the row's own spelling changes nothing. A running row's Timer runs on under the new Label as the
-    /// same Timer: its start, Source and Long-running warning stay. Refused with `NewLabelRunning` where the
-    /// new Label's Timer runs on `day`, unless it is the row's own Timer and only its capitals or spaces
-    /// change. Refused too if the Label has no Entries on `day`, `day`'s file won't parse or has writes
-    /// waiting, or a Label list won't parse; and, for now, where the Label's running Timer began before
-    /// today's midnight and its run reaches `day`. Returns what it stored.
+    /// same Timer: its start, Source and Long-running warning stay. Where that run began on an earlier Day,
+    /// or runs on past `day`, its pieces on those Days move too, and only they: the one case reaching past
+    /// `day`, and every Day it touches is checked and written together. A stopped run's pieces are separate
+    /// rows, so only `day`'s moves. Refused with `NewLabelRunning` where the new Label's Timer runs on a Day
+    /// being relabeled, unless it is the row's own Timer and only its capitals or spaces change. Refused too
+    /// if the Label has no Entries on `day`, a Day's file won't parse or has writes waiting, or a Label list
+    /// won't parse. Returns what it stored.
     @discardableResult
     public func relabel(_ name: String, to newName: String, on day: Day) throws -> Relabeling {
         catchUp()
@@ -169,35 +154,41 @@ extension Tracker {
             throw NoTimeOnDay(project: ProjectName.trimmed(name), day: day)
         }
         if target == row.project { return relabeling(row.project, on: day) }
-        // The run moving with the row, if the Label's Timer reaches `day`.
-        let moving = try timers[name].flatMap { timer in
-            try files.readRun(of: timer).contains { $0.day == day } ? timer : nil
-        }
-        if let moving, try files.readRun(of: moving).count > 1 {
-            throw UnsupportedRelabel(project: moving.project, reason: .runFromEarlierDay)
-        }
+        // The run moving with the row, if the Label's Timer reaches `day`. All of it moves, its pieces on
+        // other Days included, so it stays one Timer that can still be stopped or moved back past midnight.
+        let run = try timers[name].map { try files.readRun(of: $0) }
+            .flatMap { pieces in pieces.contains { $0.day == day } ? pieces : nil } ?? []
+        let moving = run.isEmpty ? nil : timers[name]
+        let days = Set([day] + run.map(\.day))
         // Two Timers never share a Label; a fix of capitals or spaces keeps the one it has.
         if !ProjectName.matches(target, name), let timer = timers[target],
-           try files.readRun(of: timer).contains(where: { $0.day == day }) {
+           try files.readRun(of: timer).contains(where: { days.contains($0.day) }) {
             throw NewLabelRunning(project: timer.project)
         }
         return try labels.resolvingForRelabel(row.project, to: target) { project, lists in
             // Checked again on the Entries as re-read, so a hand edit since can't slip past.
-            try files.change([day], alongWith: lists) { _, entries in
-                guard entries.contains(where: { ProjectName.matches($0.project, name) }) else {
-                    throw NoTimeOnDay(project: ProjectName.trimmed(name), day: day)
+            try files.change(days, alongWith: lists) { changing, entries in
+                // `day`'s whole row moves; on another Day only the run's piece does, not the Label's other time.
+                let piece = run.first { $0.day == changing }
+                let moves = { (entry: Entry) -> Bool in
+                    guard ProjectName.matches(entry.project, name) else { return false }
+                    guard changing != day else { return true }
+                    guard case .timed(_, let start, _, _) = entry else { return false }
+                    return start == piece?.start
+                }
+                guard entries.contains(where: moves) else {
+                    throw NoTimeOnDay(project: ProjectName.trimmed(name), day: changing)
                 }
                 // Merging into the new Label's time there: refused where the same minutes would count twice.
                 // A fix of capitals or spaces stays the same Label, so it isn't a merge.
                 if !ProjectName.matches(project, name) {
                     let moved = entries.compactMap { entry -> TimedEntry? in
-                        guard case .timed(let label, let start, let end, let source) = entry,
-                              ProjectName.matches(label, name) else { return nil }
+                        guard moves(entry), case .timed(_, let start, let end, let source) = entry else { return nil }
                         return TimedEntry(project: project, start: start, end: end, source: source)
                     }
                     if let overlap = overlap(of: moved, with: entries) { throw overlap }
                 }
-                entries = entries.map { ProjectName.matches($0.project, name) ? $0.relabeled(project) : $0 }
+                entries = entries.map { moves($0) ? $0.relabeled(project) : $0 }
             }
             reread()
             if let moving, let timer = timers[project] { rekeyWarning(from: moving.project, to: timer) }

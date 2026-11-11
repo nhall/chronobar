@@ -401,17 +401,17 @@ import ChronobarOperations
         #expect(error?.running?.map(\.label) == ["Internal"])
     }
 
-    @Test func relabelingARunFromBeforeMidnightIsRefusedForNow() throws {
+    @Test func relabelingARunFromBeforeMidnightEchoesItsTimerAndMovesYesterdaysPiece() throws {
         clock.set("2026-11-02T23:00:00")
-        let operations = Operations(tracker: Tracker(clock: clock, storageRoot: root))
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        let operations = Operations(tracker: tracker)
         _ = try operations.start("Northwnd")
         clock.set("2026-11-03T01:00:00")
 
-        let error = operations.perform(.relabel(label: "Northwnd", newLabel: "Northwind", date: nil)).error
+        let relabeled = try operations.relabel("Northwnd", to: "Northwind", date: nil)
 
-        #expect(error?.kind == .failed)
-        #expect(error?.message == "Northwnd's timer has run since before midnight, and Chronobar can't relabel "
-                + "such a run yet. Stop it first, then relabel.")
+        #expect(relabeled.timer?.label == "Northwind")
+        #expect(tracker.rows(Day(year: 2026, month: 11, day: 2)) == [Row(project: "Northwind", total: 3600)])
     }
 
     @Test func relabelingADayWhoseFileWontParseIsRefusedNamingIt() throws {

@@ -63,7 +63,8 @@ enum MCPTools {
                  + "change. Into a Label that already has time that Day, the two rows merge; refused if their "
                  + "timed Entries overlap, which would count that time twice, or if the new Label's timer is "
                  + "running that Day. A change of capitals or spaces only is kept, also in the pinned or "
-                 + "archived list. For now refused for a timer running since before midnight.",
+                 + "archived list. A timer running since before midnight moves whole, with its time on the "
+                 + "earlier Days.",
              inputSchema: schema(["label": label("The Label whose row to move."),
                                   "new_label": label("The Label to move the time to. Matched to an existing Label "
                                                      + "ignoring case."),
