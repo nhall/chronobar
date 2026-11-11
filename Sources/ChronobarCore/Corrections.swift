@@ -52,6 +52,17 @@ public struct Overlap: Error, Equatable {
     public let end: Date?
 }
 
+/// A relabel named a Label with no Entries on its Day, so there is no row to move.
+public struct NoTimeOnDay: Error, Equatable {
+    public let project: String
+    public let day: Day
+
+    public init(project: String, day: Day) {
+        self.project = project
+        self.day = day
+    }
+}
+
 /// Corrections after the fact. Each one checks its times, then reads every Day it writes before writing
 /// any, so a refusal changes nothing.
 extension Tracker {
@@ -108,6 +119,29 @@ extension Tracker {
         catchUp()
         guard day <= today else { throw FutureDay(day: day) }
         return try log(name, duration, on: day)
+    }
+
+    /// Relabels `name`'s row on `day`: moves every one of its Entries there, timed and manual, adjustments
+    /// included, to `newName`, written under its stored spelling as for start. The Label on other Days is
+    /// untouched. Returns what it stored.
+    @discardableResult
+    public func relabel(_ name: String, to newName: String, on day: Day) throws -> Relabeling {
+        catchUp()
+        return try labels.resolvingForWrite(newName) { project, bringingBack in
+            try files.change([day], alongWith: bringingBack) { _, entries in
+                guard entries.contains(where: { ProjectName.matches($0.project, name) }) else {
+                    throw NoTimeOnDay(project: ProjectName.trimmed(name), day: day)
+                }
+                entries = entries.map { ProjectName.matches($0.project, name) ? $0.relabeled(project) : $0 }
+            }
+            reread()
+            let moved = files.entries(on: day).compactMap { entry -> TimedEntry? in
+                guard case .timed(let label, let start, let end, let source) = entry,
+                      ProjectName.matches(label, project) else { return nil }
+                return TimedEntry(project: label, start: start, end: end, source: source)
+            }
+            return Relabeling(project: project, day: day, entries: moved, total: total(project, on: day).wholeSeconds)
+        }
     }
 
     /// `start` to `end` (nil: still running, today) as one timed Entry per Day, cut at each midnight.
