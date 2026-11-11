@@ -18,7 +18,8 @@ through MCP or a plain command line. Everything stays on your Mac.
 
 - Timers run side by side, one per Label you type, such as "Northwind, Ticket 665".
 - Agents drive it through MCP or the `chronobar` command, and over MCP, "stop the timer" stops the session's own.
-- Fix a recording after the fact: stop it back at 14:40, move a start, add a line item, set a total.
+- Fix a recording after the fact: stop it back at 14:40, move a start, add a line item, set a total,
+  or move a row to another Label.
 - The Panel, which opens from the menu bar, shows the Total you'll bill beside the Clock time you
   actually worked: the time any timer was running, with overlaps counted once.
 - Idle checks cover the timers you started; agents' timers keep going, and any timer, yours or an agent's, that runs too long raises a warning.
