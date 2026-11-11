@@ -1,12 +1,12 @@
-/// What a relabel stored: the new Label, as stored, the Day, the timed Entries it moved there, oldest
-/// first, the new Label's Total on that Day, floored to whole seconds as Chronobar shows it, and its Timer
-/// if one runs. Relabeling to the same Label with the same spelling stores nothing and returns the row as
-/// it was.
+/// What a relabel stored: the new Label, as stored, the Day, the new Label's timed Entries there, oldest
+/// first, its Total on that Day, floored to whole seconds as Chronobar shows it, and its Timer if one
+/// runs. After a merge, those Entries and that Total include the time the new Label had already.
+/// Relabeling to the same Label with the same spelling stores nothing and returns the row as it was.
 public struct Relabeling: Equatable, Sendable {
     public let project: String
     public let day: Day
-    /// The moved timed Entries, a running Timer's open one ending at nil; manual ones and adjustments
-    /// count only in `total`.
+    /// Every timed Entry of the new Label on the Day, moved or already its own, a running Timer's open one
+    /// ending at nil; manual ones and adjustments count only in `total`.
     public let entries: [TimedEntry]
     /// Whole seconds.
     public let total: Int
