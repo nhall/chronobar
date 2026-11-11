@@ -89,6 +89,25 @@ import ChronobarOperations
         #expect(error.text == "The running Chronobar is older than this command. Quit Chronobar and run the command again.")
     }
 
+    @Test func relabelMergesIntoALabelWithTimeThatDayAndRefusesTimeCountedTwice() throws {
+        let tracker = Tracker(clock: clock, storageRoot: root)
+        let mcp = session(Operations(tracker: tracker), clock)
+        _ = try mcp.result("add_entry", ["label": "Northwind", "start": "2026-11-03T07:00:00-05:00",
+                                         "end": "2026-11-03T08:00:00-05:00"])
+        _ = try mcp.result("add_entry", ["label": "Northwnd", "start": "2026-11-03T07:30:00-05:00",
+                                         "end": "2026-11-03T08:30:00-05:00"])
+        _ = try mcp.result("add_entry", ["label": "Typo", "duration": "0:30"])
+
+        let merged = try mcp.result("relabel", ["label": "Typo", "new_label": "northwind"])
+        let error = try #require(mcp.error("relabel", ["label": "Northwnd", "new_label": "Northwind"]))
+
+        #expect(merged["label"] == "Northwind")
+        #expect(merged["total_seconds"] == .int(90 * 60))
+        #expect(error.kind == "overlap")
+        #expect(error.text.hasPrefix("Northwind already has time from 2026-11-03T07:00:00-05:00"))
+        #expect(tracker.rows(tracker.today).map(\.project) == ["Northwind", "Northwnd"])
+    }
+
     @Test func aRefusalAboutTimersListsTheRunningOnes() throws {
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Internal")
