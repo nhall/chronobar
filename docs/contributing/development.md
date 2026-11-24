@@ -9,7 +9,8 @@ Running the tests, and a development copy that runs beside your everyday Chronob
 `scripts/bundle-app.sh` builds exactly what the Homebrew formula installs.
 
 `swift test` runs the tests. The test suite needs Xcode, because Swift Testing isn't usable with the
-Command Line Tools alone; building the app doesn't.
+Command Line Tools alone; building the app doesn't. GitHub runs `swift test` on every pull request
+and push to `main` ([`.github/workflows/test.yml`](../../.github/workflows/test.yml)).
 
 Some command-line tests run the built `chronobar` against a fake app on a temporary socket. They set
 `CHRONOBAR_SOCKET` to that socket's path: with it set, `chronobar` reaches only that socket and never
