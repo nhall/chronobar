@@ -24,17 +24,18 @@ import ChronobarCore
 
     // MARK: Daylight saving at midnight
 
-    /// Havana falls back at midnight on 2026-11-01, so that Day is 25 hours long.
+    /// Havana fell back at midnight on 2025-11-02, so that Day was 25 hours long. A past change, so a
+    /// newer time zone database can't move it: Cuba cancelled its 2026 fall-back (tzdata 2026f).
     @Test func aTimerRunningThroughAFallBackMidnightGivesEachDayItsOwnTime() throws {
-        let clock = FakeClock("2026-10-31T22:00:00", timeZone: "America/Havana")
+        let clock = FakeClock("2025-11-01T22:00:00", timeZone: "America/Havana")
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
-        clock.set("2026-11-02T01:00:00")
+        clock.set("2025-11-03T01:00:00")
         try tracker.pause()
 
-        #expect(tracker.total("Website Redesign", on: Day("2026-10-31")!) == 2 * 3600)
-        #expect(tracker.total("Website Redesign", on: Day("2026-11-01")!) == 25 * 3600)
-        #expect(tracker.total("Website Redesign", on: Day("2026-11-02")!) == 1 * 3600)
+        #expect(tracker.total("Website Redesign", on: Day("2025-11-01")!) == 2 * 3600)
+        #expect(tracker.total("Website Redesign", on: Day("2025-11-02")!) == 25 * 3600)
+        #expect(tracker.total("Website Redesign", on: Day("2025-11-03")!) == 1 * 3600)
     }
 
     /// Santiago springs forward at midnight on 2026-09-06, so that Day is 23 hours long.
