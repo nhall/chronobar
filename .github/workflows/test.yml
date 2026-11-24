@@ -23,4 +23,5 @@ jobs:
         with:
           persist-credentials: false
       - run: swift --version
+      - run: swift .github/diag.swift
       - run: swift test
