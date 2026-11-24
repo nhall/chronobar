@@ -1,5 +1,7 @@
 # Releases install from a private tap that clones the source at a release tag, with its commit recorded
 
+Superseded by [ADR 0008](0008-public-tap-keeps-cloning-at-the-release-tag.md): both repositories are now public.
+
 The Homebrew formula (source of truth `packaging/homebrew/chronobar.rb`, copied to the
 `nhall/homebrew-tap` repository) uses a git `url` with both `tag` and `revision`, not a release
 tarball. Both repositories are private, and Homebrew downloads tarballs without credentials, whereas a
