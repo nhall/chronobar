@@ -129,28 +129,29 @@ import ChronobarCore
         #expect(tracker.total("Website Redesign", on: tracker.today) == 15 * 60)
     }
 
-    /// Havana falls back at midnight on 2026-11-01: 00:00–01:00 happens twice and the Day starts at the first.
+    /// Havana fell back at midnight on 2025-11-02: 00:00–01:00 happened twice and the Day starts at the
+    /// first. A past change, so a newer time zone database can't move it (Cuba cancelled its 2026 one).
     @Test func rolloverWhenMidnightRepeats() throws {
-        let clock = FakeClock("2026-10-31T23:30:00", timeZone: "America/Havana")
+        let clock = FakeClock("2025-11-01T23:30:00", timeZone: "America/Havana")
         let tracker = Tracker(clock: clock, storageRoot: root)
         try tracker.start("Website Redesign")
         clock.advance(2 * 3600)  // 00:30 the second time round
         tracker.tick()
 
-        #expect(contents(dayFile(root, "2026-10-31")) == """
+        #expect(contents(dayFile(root, "2025-11-01")) == """
         {
-          "date": "2026-10-31",
+          "date": "2025-11-01",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-10-31T23:30:00-04:00", "end": "2026-11-01T00:00:00-04:00", "source": "app" }
+            { "project": "Website Redesign", "start": "2025-11-01T23:30:00-04:00", "end": "2025-11-02T00:00:00-04:00", "source": "app" }
           ]
         }
 
         """)
-        #expect(contents(dayFile(root, "2026-11-01")) == """
+        #expect(contents(dayFile(root, "2025-11-02")) == """
         {
-          "date": "2026-11-01",
+          "date": "2025-11-02",
           "entries": [
-            { "project": "Website Redesign", "start": "2026-11-01T00:00:00-04:00", "end": null, "source": "app" }
+            { "project": "Website Redesign", "start": "2025-11-02T00:00:00-04:00", "end": null, "source": "app" }
           ]
         }
 
