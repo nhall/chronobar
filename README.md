@@ -1,5 +1,7 @@
 # Chronobar
 
+[![Chronobar MCP server on Glama](https://glama.ai/mcp/servers/nhall/chronobar/badges/score.svg)](https://glama.ai/mcp/servers/nhall/chronobar)
+
 A menu bar time tracker for macOS that times several pieces of work at once, and that your AI agents
 can start, stop and correct for you.
 
