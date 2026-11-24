@@ -24,10 +24,12 @@ final class FakeApp: @unchecked Sendable {
             close(listener)
             throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
         }
-        let listener = listener
+        // A copy for the thread, named apart from the property: Swift 6.3 reads a later local of the
+        // same name as the one `bind` above captures, and stops with "captured before declared".
+        let listening = listener
         Thread.detachNewThread {
             while true {
-                let client = accept(listener, nil, nil)
+                let client = accept(listening, nil, nil)
                 guard client >= 0 else { return }
                 Self.answer(client, with: reply)
             }
