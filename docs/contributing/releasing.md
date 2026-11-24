@@ -4,7 +4,7 @@ How to tag a release, update the Homebrew formula and publish the release on Git
 [Back to AGENTS.md](../../AGENTS.md)
 
 The Homebrew formula's source of truth is [`packaging/homebrew/chronobar.rb`](../../packaging/homebrew/chronobar.rb).
-[ADR 0006](../adr/0006-private-tap-git-clone-at-release-tag.md) records why it clones at a release tag, with the tag's commit recorded beside it.
+[ADR 0008](../adr/0008-public-tap-keeps-cloning-at-the-release-tag.md) records why it clones at a release tag, with the tag's commit recorded beside it.
 The tap is the `nhall/homebrew-tap` repository, which holds a copy at `Formula/chronobar.rb`.
 
 1. Set the MCP server's version (`MCPServer.version` in `Sources/ChronobarCLI/MCPServer.swift`) and
