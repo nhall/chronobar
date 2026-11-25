@@ -75,11 +75,22 @@ extension CallTool.Result {
         return ""
     }
 
-    /// The structured error's `kind`.
-    var kind: String? { structuredContent?.objectValue?["kind"]?.stringValue }
+    /// An error's JSON, from its second text block: an error has no structured content (it would have to
+    /// match the tool's output schema), so the whole error comes as JSON in text.
+    var errorJSON: [String: Value]? {
+        let texts = content.compactMap { content -> String? in
+            guard case .text(let text, _, _) = content else { return nil }
+            return text
+        }
+        guard texts.count > 1 else { return nil }
+        return (try? JSONDecoder().decode(Value.self, from: Data(texts[1].utf8)))?.objectValue
+    }
 
-    /// The Labels in the structured error's `running`.
+    /// The error's `kind`.
+    var kind: String? { errorJSON?["kind"]?.stringValue }
+
+    /// The Labels in the error's `running`.
     var running: [String]? {
-        structuredContent?.objectValue?["running"]?.arrayValue?.compactMap { $0.objectValue?["label"]?.stringValue }
+        errorJSON?["running"]?.arrayValue?.compactMap { $0.objectValue?["label"]?.stringValue }
     }
 }

@@ -92,7 +92,8 @@ The server offers a tool for each [command](command-line.md), with the same rule
 | `pin` | Keeps a Label in the suggestions. |
 
 Each tool returns the stored times and totals as structured JSON, so the agent can tell you exactly what
-was recorded. A refusal is a tool error with its message and, where it helps, the running timers.
+was recorded, and declares that JSON's shape as an output schema. A refusal is a tool error: its message,
+then the whole error as JSON in text (`kind`, `message` and, where it helps, the running timers).
 Times are ISO 8601 with an offset; `elapsed_seconds` is the Clock time: how long any timer was
 running, counting overlaps once. Each Day's totals, and `day`'s rows and `week`'s totals and Labels,
 also give `total_minutes` (and for totals `elapsed_minutes`), the hours and minutes the Panel shows,

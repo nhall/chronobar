@@ -3,7 +3,13 @@ import MCP
 /// The tools `chronobar mcp` lists: one per operation, named as the operation is on the wire, so a tool's
 /// arguments are the request's keys.
 enum MCPTools {
-    static let all: [Tool] = [
+    /// The tools, each with its output schema (`MCPOutputSchemas`).
+    static let all: [Tool] = definitions.map { tool in
+        Tool(name: tool.name, title: tool.title, description: tool.description, inputSchema: tool.inputSchema,
+             annotations: tool.annotations, outputSchema: MCPOutputSchemas.byTool[tool.name])
+    }
+
+    private static let definitions: [Tool] = [
         Tool(name: "status", title: "Running timers",
              description: "What is being timed right now: each running timer (Label, start, source, the Label's "
                  + "total today), with today's Day total and clock time (elapsed_seconds: the time when any timer "
