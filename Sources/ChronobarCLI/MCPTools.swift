@@ -5,9 +5,11 @@ import MCP
 enum MCPTools {
     static let all: [Tool] = [
         Tool(name: "status", title: "Running timers",
-             description: "List the running timers (Label, start, source, the Label's total today) and today's "
-                 + "Day total and clock time (elapsed_seconds: the time when any timer ran, overlaps counted "
-                 + "once, without time logged by hand).",
+             description: "What is being timed right now: each running timer (Label, start, source, the Label's "
+                 + "total today), with today's Day total and clock time (elapsed_seconds: the time when any timer "
+                 + "ran, overlaps counted once, without time logged by hand). For every Label with time today, "
+                 + "stopped ones too, call day; for a week, week; for today, yesterday, this week and this month "
+                 + "at once, summary.",
              inputSchema: schema([:]), annotations: reading),
         Tool(name: "start", title: "Start a timer",
              description: "Start a timer for a Label, such as \"Client A, Ticket 665\". If the Label's timer is "
@@ -72,24 +74,33 @@ enum MCPTools {
                                  required: ["label", "new_label"]),
              annotations: changing(destructive: true)),
         Tool(name: "day", title: "A Day's rows",
-             description: "List a Day's Labels with their totals (and which are running, today), with the Day "
-                 + "total and clock time (elapsed_seconds). For a question about a week, call week instead.",
+             description: "Every Label with time on one Day (today if date is left out), each with its total "
+                 + "and, today, whether its timer is running, plus the Day's total and clock time "
+                 + "(elapsed_seconds). Use it for what was worked on a given Day, or to find a row before adjust "
+                 + "or relabel. For several Days call week; for only what is running now, status.",
              inputSchema: schema(["date": date("The Day; today if left out.")]),
              annotations: reading),
         Tool(name: "week", title: "A week's totals",
-             description: "For the week containing a date (this week if left out), each Day's total and clock "
-                 + "time (elapsed_seconds), each Label's total across the week, and the week's totals: what was "
-                 + "spent on a Label this week or last.",
+             description: "One week, starting on the user's first weekday: the week containing date (this week "
+                 + "if left out; any date in last week for last week). Returns each Day's total and clock time "
+                 + "(elapsed_seconds), each Label's total across the week, and the week's totals. Use it for "
+                 + "time spent on a Label this week or last; for one Day's Labels call day, and for the week's "
+                 + "total beside today's and the month's, summary.",
              inputSchema: schema(["date": date("Any Day in the week; today if left out.")]),
              annotations: reading),
         Tool(name: "summary", title: "Time Summary",
-             description: "Today, yesterday, this week and this month: the total across every Label and the "
-                 + "clock time (elapsed_seconds) for each.",
+             description: "Four totals at once, across every Label: today, yesterday, this week (as week counts "
+                 + "it) and this calendar month, each with its clock time (elapsed_seconds). Takes no arguments. "
+                 + "Use it for how much was tracked over these periods; it has no per-Label figures, so for those "
+                 + "call day or week.",
              inputSchema: schema([:]), annotations: reading),
         Tool(name: "labels", title: "Find Labels",
-             description: "List the suggested Labels (used in the last 30 days, plus pinned ones, minus archived "
-                 + "ones), or those containing query, to resolve what the user said to the Label stored. With a "
-                 + "query, match says whether it names a suggested, archived, unused or new Label.",
+             description: "The Labels the user is likely to mean: the suggestions (Labels used in the last 30 "
+                 + "days, plus pinned ones, minus archived ones; the same list the Panel suggests), or, with "
+                 + "query, every Label containing that text. Call it before start, add_entry or relabel when the "
+                 + "user names work loosely, such as \"the Northwind ticket\", to use the Label as stored. With a "
+                 + "query, match says whether the text names a suggested, archived, unused or new Label. Changes "
+                 + "nothing.",
              inputSchema: schema(["query": .object(["type": "string",
                                                     "description": "Text the Labels should contain, ignoring case."])]),
              annotations: reading),
@@ -99,7 +110,10 @@ enum MCPTools {
              inputSchema: schema(["label": label("The Label to archive.")], required: ["label"]),
              annotations: changing(idempotent: true)),
         Tool(name: "pin", title: "Pin a Label",
-             description: "Keep a Label in the suggestions however long since it was used.",
+             description: "Keep a Label in the suggestions (what labels lists and the Panel suggests) however "
+                 + "long since it was used, for work the user returns to now and then. An archived Label is "
+                 + "brought back. Its time doesn't change, and pinning a pinned Label changes nothing. The "
+                 + "opposite is archive.",
              inputSchema: schema(["label": label("The Label to pin.")], required: ["label"]),
              annotations: changing(idempotent: true)),
     ]
