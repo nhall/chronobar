@@ -1,5 +1,9 @@
 # Chronobar
 
+[![Tests](https://github.com/nhall/chronobar/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/nhall/chronobar/actions/workflows/test.yml)
+[![Latest release](https://img.shields.io/github/v/release/nhall/chronobar)](https://github.com/nhall/chronobar/releases/latest)
+[![macOS 14 or later](https://img.shields.io/badge/macOS-14%2B-blue)](docs/install.md#requirements)
+[![MIT license](https://img.shields.io/github/license/nhall/chronobar)](LICENSE)
 [![Chronobar MCP server on Glama](https://glama.ai/mcp/servers/nhall/chronobar/badges/score.svg)](https://glama.ai/mcp/servers/nhall/chronobar)
 
 A menu bar time tracker for macOS that times several pieces of work at once, and that your AI agents
