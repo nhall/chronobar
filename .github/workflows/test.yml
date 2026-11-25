@@ -24,3 +24,24 @@ jobs:
           persist-credentials: false
       - run: swift --version
       - run: swift test
+
+  # The oldest toolchains the README promises: the Command Line Tools 16 ship Swift 6.0 (16.0) and
+  # 6.1 (16.4). Builds the app as the Homebrew formula does, then runs the tests.
+  oldest-toolchain:
+    name: test (Xcode ${{ matrix.xcode }})
+    runs-on: macos-15
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        xcode: ["16.0", "16.4"]
+    env:
+      XCODE: ${{ matrix.xcode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: sudo xcode-select --switch "/Applications/Xcode_$XCODE.app"
+      - run: swift --version
+      - run: scripts/bundle-app.sh build
+      - run: swift test
