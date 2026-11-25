@@ -131,7 +131,8 @@ struct PanelView: View {
         let day = panel.viewedDay ?? today
         let isToday = day == today
         let sheet = tracker.daySheet(day)
-        PanelStack(available: panel.availableHeight - 2 * Self.padding) {
+        // Double(padding): Swift 6.0 and 6.1 find `2 * padding` ambiguous beside a Double.
+        PanelStack(available: panel.availableHeight - 2 * Double(Self.padding)) {
             HStack {
                 Button(action: showToday) {
                     // Room around the text for the focus ring Tab gives it, which otherwise sits on the
