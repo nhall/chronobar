@@ -182,8 +182,11 @@ struct FileWrite {
             try move(source, over: destination)
             return nil
         }
+        // macOS only; elsewhere (the Linux build for Glama, ADR 0009) straight to the fallback below.
+        #if canImport(Darwin)
         if renamex_np(source.path, destination.path, UInt32(RENAME_SWAP)) == 0 { return source }
         guard errno == ENOTSUP || errno == EINVAL else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        #endif
         let backup = sibling(of: destination, suffix: "bak")
         if (try? FileManager.default.linkItem(at: destination, to: backup)) == nil {
             try FileManager.default.copyItem(at: destination, to: backup)

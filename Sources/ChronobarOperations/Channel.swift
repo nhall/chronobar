@@ -5,6 +5,9 @@ import ChronobarCore
 /// readable and writable by its owner only. Each connection carries any number of request lines, each
 /// answered in turn with one response line (`Wire`). The socket file lives as long as the app: `ChannelServer`
 /// removes it at quit and replaces one a crash left. Requests over it are tried by hand (README checklist).
+///
+/// The `#if canImport(Darwin)` branches let `chronobar mcp` build on Linux, so Glama can list its tools
+/// (ADR 0009). Chronobar itself runs only on macOS; on Linux there is no app to connect to.
 public enum Channel {
     public static let socketName = "chronobar.sock"
 
@@ -47,21 +50,29 @@ public enum Channel {
         withUnsafeMutableBytes(of: &address.sun_path) { bytes in
             path.withUnsafeBytes { bytes.copyMemory(from: $0) }
         }
+        #if canImport(Darwin)
         address.sun_len = UInt8(MemoryLayout<sockaddr_un>.size)
+        #endif
         return address
     }
 
     /// A new stream socket that won't raise SIGPIPE when its peer has gone.
     static func makeSocket() throws -> Int32 {
+        #if canImport(Darwin)
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        #else
+        let fd = socket(AF_UNIX, Int32(SOCK_STREAM.rawValue), 0)
+        #endif
         guard fd >= 0 else { throw Failure("socket") }
         noSigPipe(fd)
         return fd
     }
 
     static func noSigPipe(_ fd: Int32) {
+        #if canImport(Darwin)
         var on: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
+        #endif
     }
 
     /// Writes all of `data`.
@@ -69,7 +80,11 @@ public enum Channel {
         try data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) in
             var offset = 0
             while offset < bytes.count {
+                #if canImport(Darwin)
                 let written = Darwin.write(fd, bytes.baseAddress! + offset, bytes.count - offset)
+                #else
+                let written = Glibc.write(fd, bytes.baseAddress! + offset, bytes.count - offset)
+                #endif
                 if written < 0 {
                     if errno == EINTR { continue }
                     throw Failure("write")
@@ -112,6 +127,8 @@ struct LineReader {
     }
 }
 
+// Only the app uses it, and the app runs only on macOS.
+#if canImport(Darwin)
 /// The app's end: listens on the socket and answers each line on the main actor, where Core lives, so
 /// requests take their turn with the Panel's own changes and the app stays the only writer.
 public final class ChannelServer: @unchecked Sendable {
@@ -223,6 +240,7 @@ public final class ChannelServer: @unchecked Sendable {
         }
     }
 }
+#endif
 
 /// The `chronobar` command's end: one connection to the app.
 public final class ChannelClient {

@@ -1,4 +1,8 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#else
+import Foundation  // CGRect, for the Linux build of `chronobar mcp` (ADR 0009)
+#endif
 
 /// How tall the Panel can be: no taller than the room under the Pill on its screen. Past that only the rows
 /// scroll, so the header, the Week strip, and ＋ with its form stay in view.

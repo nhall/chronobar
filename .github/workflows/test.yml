@@ -45,3 +45,16 @@ jobs:
       - run: swift --version
       - run: scripts/bundle-app.sh build
       - run: swift test
+
+  # The Dockerfile Glama builds to list and score the MCP tools (ADR 0009): builds it and checks the
+  # server answers and lists its tools, so a macOS-only change can't break it unnoticed.
+  linux:
+    name: linux (MCP image)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: docker build -t chronobar-mcp .
+      - run: scripts/check-mcp-tools.sh docker run -i --rm chronobar-mcp
