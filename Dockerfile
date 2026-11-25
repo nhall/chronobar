@@ -1,13 +1,11 @@
-# `chronobar mcp` on Linux, for Glama, which builds this image, starts the server and lists its tools
-# to score them (docs/adr/0009-mcp-server-builds-on-linux-for-glama.md). Chronobar itself is a macOS
-# app: here the server answers initialize and tools/list, and every tool call reports that the app
-# isn't running. To use Chronobar, install it with Homebrew on a Mac (docs/install.md).
-FROM swift:6.2-noble AS build
-WORKDIR /src
+# `chronobar mcp` on Linux, built as Glama builds it (docs/adr/0009-mcp-server-builds-on-linux-for-glama.md):
+# Glama generates its own Dockerfile from the build spec in its admin page, a Debian bookworm image with the
+# repository in /app and scripts/linux-build.sh as the build step. This one does the same, so the Test
+# workflow checks that build. Chronobar itself is a macOS app: here the server answers initialize and
+# tools/list, and every tool call reports that it runs only on macOS.
+FROM debian:bookworm-slim
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /app
 COPY . .
-RUN swift build -c release --product chronobar-cli
-
-FROM swift:6.2-noble-slim
-COPY --from=build /src/.build/release/chronobar-cli /usr/local/bin/chronobar
-ENTRYPOINT ["chronobar"]
-CMD ["mcp"]
+RUN sh scripts/linux-build.sh
+CMD ["chronobar", "mcp"]
