@@ -36,8 +36,13 @@ enum MCPTools {
              annotations: changing(destructive: true)),
         Tool(name: "set_start", title: "Move a timer's start",
              description: "Move the start of a running timer, for example when the user says they actually "
-                 + "started at 1:15. It may reach back across midnight. Without a label, acts on the timer this "
-                 + "session started, as stop does.",
+                 + "started at 1:15. The new start replaces the old one, which isn't kept: an earlier start adds "
+                 + "the time between, a later one removes it, and a start before today's midnight puts the time "
+                 + "on the Days before (returned in earlier). To undo, call it again with the old start, so note "
+                 + "it from status first. Without a label, acts on the timer this session started, as stop does. "
+                 + "Refused, changing nothing, if the timer isn't running (not_running, with the running timers), "
+                 + "the time is in the future, or the Label already has time in the new stretch (overlap). For a "
+                 + "timer that has stopped, use add_entry or adjust instead.",
              inputSchema: schema(["label": label("The Label whose timer to move. Leave out for this session's timer."),
                                   "at": time("The new start. Not in the future.")],
                                  required: ["at"]),
@@ -55,8 +60,13 @@ enum MCPTools {
                                  required: ["label"]),
              annotations: changing()),
         Tool(name: "adjust", title: "Adjust a total",
-             description: "Set a Label's total on a Day (1:15) or change it (+15, -10 minutes), by adding a manual "
-                 + "Entry for the difference.",
+             description: "Correct a Label's total on a Day: set it (1:15) or change it (+15, -10 minutes), by "
+                 + "adding a manual Entry for the difference; a running timer keeps running. Setting a total is "
+                 + "safe to repeat, but each change adds up, so +15 twice is +30. A total never goes below zero. "
+                 + "Returns change_seconds (0 if the total was already right) and the new total; to undo, adjust "
+                 + "by the opposite change or set the old total. Use it to fix a total the user says is wrong; to "
+                 + "record work with its times, use add_entry, and to move a running timer's start, set_start. "
+                 + "Refused if input isn't a total or change (invalid_duration).",
              inputSchema: schema(["label": label("The Label whose total to change."),
                                   "input": duration("The new total, such as 1:15, or a change, such as +15 or -10."),
                                   "date": date("The Day; today if left out.")],
@@ -112,9 +122,15 @@ enum MCPTools {
                                                     "description": "Text the Labels should contain, ignoring case."])]),
              annotations: reading),
         Tool(name: "archive", title: "Archive a Label",
-             description: "Unpin a Label and hide it from the suggestions, keeping all its time. Starting it again "
-                 + "brings it back.",
-             inputSchema: schema(["label": label("The Label to archive.")], required: ["label"]),
+             description: "Hide a Label from the suggestions (what labels lists and the Panel suggests) and "
+                 + "unpin it, for work that is finished, such as a closed ticket. Nothing is deleted: all its time "
+                 + "stays in every Day and total, and a running timer keeps running. Starting it, adding time to "
+                 + "it or pinning it brings it back. Archiving an archived Label changes nothing. The opposite is "
+                 + "pin; to rename or merge a Label's time instead, use relabel. Fails, changing nothing, if the "
+                 + "label is empty or the Label lists can't be read.",
+             inputSchema: schema(["label": label("The Label to archive. Matched to an existing Label ignoring "
+                                                 + "case.")],
+                                 required: ["label"]),
              annotations: changing(idempotent: true)),
         Tool(name: "pin", title: "Pin a Label",
              description: "Keep a Label in the suggestions (what labels lists and the Panel suggests) however "
