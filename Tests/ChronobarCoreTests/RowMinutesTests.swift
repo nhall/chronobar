@@ -29,7 +29,7 @@ private func hms(_ hours: Int, _ minutes: Int, _ seconds: Int) -> TimeInterval {
     }
 
     @Test func wholeMinuteRowsAreShownAsTheyAre() {
-        let minutes = RowMinutes(seconds: [3600, 20 * 60, 0])
+        let minutes = RowMinutes(seconds: [3600, 20 * 60.0, 0])
 
         #expect(minutes.total == 80)
         #expect(minutes.rows == [60, 20, 0])
