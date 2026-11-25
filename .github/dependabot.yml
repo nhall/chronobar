@@ -1,0 +1,13 @@
+# Keeps the GitHub Actions the workflows use up to date: they're pinned to a commit, so without this a
+# new release (or a security fix) never reaches them. Swift packages aren't listed: Package.swift pins
+# them on purpose (ADR 0004) and caps the MCP SDK's dependencies at what Swift 6.1 can build, so a
+# version bump there is a deliberate change. Security alerts and fixes for them stay on in the
+# repository's settings.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
