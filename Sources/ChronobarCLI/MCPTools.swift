@@ -90,9 +90,10 @@ enum MCPTools {
              annotations: reading),
         Tool(name: "summary", title: "Time Summary",
              description: "Four totals at once, across every Label: today, yesterday, this week (as week counts "
-                 + "it) and this calendar month, each with its clock time (elapsed_seconds). Takes no arguments. "
-                 + "Use it for how much was tracked over these periods; it has no per-Label figures, so for those "
-                 + "call day or week.",
+                 + "it) and this calendar month. Returns today, yesterday, week and month, each with first and "
+                 + "last (the Days it covers, YYYY-MM-DD), total_seconds and elapsed_seconds (clock time). Takes "
+                 + "no arguments. Use it for how much was tracked over these periods; it has no per-Label "
+                 + "figures, so for those call day or week.",
              inputSchema: schema([:]), annotations: reading),
         Tool(name: "labels", title: "Find Labels",
              description: "The Labels the user is likely to mean: the suggestions (Labels used in the last 30 "
@@ -112,9 +113,13 @@ enum MCPTools {
         Tool(name: "pin", title: "Pin a Label",
              description: "Keep a Label in the suggestions (what labels lists and the Panel suggests) however "
                  + "long since it was used, for work the user returns to now and then. An archived Label is "
-                 + "brought back. Its time doesn't change, and pinning a pinned Label changes nothing. The "
-                 + "opposite is archive.",
-             inputSchema: schema(["label": label("The Label to pin.")], required: ["label"]),
+                 + "brought back, and a Label with no time yet is pinned as written, so it is suggested before "
+                 + "it is first timed. Returns the Label as stored. Its time doesn't change, and pinning a pinned "
+                 + "Label changes nothing. Undo with archive, which unpins and hides it. Fails, changing nothing, "
+                 + "if the label is empty or the Label lists can't be read.",
+             inputSchema: schema(["label": label("The Label to pin. Matched to an existing Label ignoring case; "
+                                                 + "otherwise pinned as written.")],
+                                 required: ["label"]),
              annotations: changing(idempotent: true)),
     ]
 
