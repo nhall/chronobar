@@ -74,7 +74,8 @@ import ChronobarOperations
 
         #expect(error.kind == "end_before_start")
         #expect(!error.text.isEmpty)
-        #expect(error.text == error.structuredContent?.objectValue?["message"]?.stringValue)
+        #expect(error.text == error.errorJSON?["message"]?.stringValue)
+        #expect(error.structuredContent == nil)
     }
 
     /// An app older than `chronobar mcp`, kept running through an upgrade, answers without a field the
