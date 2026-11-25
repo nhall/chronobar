@@ -12,6 +12,16 @@ Running the tests, and a development copy that runs beside your everyday Chronob
 Command Line Tools alone; building the app doesn't. GitHub runs `swift test` on every pull request
 and push to `main` ([`.github/workflows/test.yml`](../../.github/workflows/test.yml)).
 
+`chronobar mcp` also builds on Linux, only so Glama can list and score its tools
+([ADR 0009](../adr/0009-mcp-server-builds-on-linux-for-glama.md)). Keep macOS-only APIs in
+ChronobarCore, ChronobarOperations and ChronobarCLI behind `#if canImport(Darwin)` or `#if os(macOS)`. To
+check the Linux build as GitHub does:
+
+```sh
+docker build -t chronobar-mcp .
+scripts/check-mcp-tools.sh docker run -i --rm chronobar-mcp
+```
+
 Some command-line tests run the built `chronobar` against a fake app on a temporary socket. They set
 `CHRONOBAR_SOCKET` to that socket's path: with it set, `chronobar` reaches only that socket and never
 launches the app, so the tests never touch your everyday or development copy.

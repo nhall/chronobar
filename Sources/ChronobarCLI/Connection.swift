@@ -47,6 +47,11 @@ func connect(to copy: BuildVariant.Copy, wait: TimeInterval = 10,
 /// Launch Services knows a Homebrew install only once it has been opened, and forgets it on each
 /// `brew upgrade` (the old keg's path is gone), so the copy beside the command comes first.
 private func launch(_ copy: BuildVariant.Copy) throws(OperationError) {
+    #if !os(macOS)
+    // The Linux build exists only so Glama can list the tools (ADR 0009); there's no app to launch.
+    throw OperationError(.appUnreachable, "\(copy.name) runs only on macOS. "
+                         + "Install it with Homebrew on a Mac: brew install nhall/tap/chronobar")
+    #else
     let open = Process()
     open.executableURL = URL(fileURLWithPath: "/usr/bin/open")
     if let executable = Bundle.main.executableURL, let app = copy.app(besideExecutable: executable) {
@@ -66,6 +71,7 @@ private func launch(_ copy: BuildVariant.Copy) throws(OperationError) {
         throw OperationError(.appUnreachable, "Couldn't find \(copy.name) (\(copy.bundleID)) to launch it. "
                              + "Open it once from Finder so macOS knows where it is, then try again.")
     }
+    #endif
 }
 
 extension BuildVariant.Copy {
