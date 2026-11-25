@@ -12,10 +12,10 @@ class Chronobar < Formula
   head "https://github.com/nhall/chronobar.git", branch: "main"
 
   # Builds with the Swift toolchain from the Command Line Tools; Xcode is not required.
-  # Needs Swift 6.0 or later (Package.swift's tools version, and the MCP SDK's floor):
-  # Command Line Tools 16 or later. SwiftPM stops with "requires a minimum Swift tools version"
-  # on an older toolchain.
-  depends_on macos: :sonoma
+  # Needs Swift 6.1 or later (the MCP SDK's code): Command Line Tools 16.3 or later, which need
+  # macOS 15.2. An older toolchain stops with a compile error in the SDK. Homebrew can only require
+  # Sequoia, not 15.2; the install docs say 15.2.
+  depends_on macos: :sequoia
 
   def install
     # SwiftPM's own sandbox can't nest inside Homebrew's, and it fetches the packages pinned by

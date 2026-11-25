@@ -17,10 +17,10 @@ let package = Package(
         // `chronobar mcp`. Its Package@swift-6.0.swift lets this package stay at tools version 6.0.
         .package(url: "https://github.com/modelcontextprotocol/swift-sdk", exact: "0.12.1"),
         // Capped, not used directly: the SDK's dependencies, held to the last releases whose manifests
-        // Swift 6.0 and 6.1 (Command Line Tools 16) can read. Later ones need Swift 6.2, so without
-        // these caps SwiftPM resolves to them and the Homebrew build fails on Command Line Tools 16.
-        .package(url: "https://github.com/apple/swift-log.git", "1.5.0"..<"1.12.0"),
-        .package(url: "https://github.com/apple/swift-system.git", "1.4.0"..<"1.7.0"),
+        // Swift 6.1 (Command Line Tools 16.3, the oldest this builds with) can read. Later ones need
+        // Swift 6.2, so without these caps SwiftPM resolves to them and the Homebrew build fails there.
+        .package(url: "https://github.com/apple/swift-log.git", "1.5.0"..<"1.16.0"),
+        .package(url: "https://github.com/apple/swift-system.git", "1.4.0"..<"1.9.0"),
         .package(url: "https://github.com/apple/swift-collections.git", "1.1.0"..<"1.7.0"),
     ],
     targets: [

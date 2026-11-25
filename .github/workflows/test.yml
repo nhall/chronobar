@@ -25,8 +25,8 @@ jobs:
       - run: swift --version
       - run: swift test
 
-  # The oldest toolchains the README promises: the Command Line Tools 16 ship Swift 6.0 (16.0) and
-  # 6.1 (16.4). Builds the app as the Homebrew formula does, then runs the tests.
+  # The oldest toolchain the README promises: Xcode and the Command Line Tools 16.3, Swift 6.1 (the MCP
+  # SDK's code needs 6.1). Builds the app as the Homebrew formula does, then runs the tests.
   oldest-toolchain:
     name: test (Xcode ${{ matrix.xcode }})
     runs-on: macos-15
@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        xcode: ["16.0", "16.4"]
+        xcode: ["16.3"]
     env:
       XCODE: ${{ matrix.xcode }}
     steps:

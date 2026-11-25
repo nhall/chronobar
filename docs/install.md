@@ -5,9 +5,9 @@ How to install Chronobar with Homebrew or from source, and what to do on first r
 
 ## Requirements
 
-- macOS 14 Sonoma or later.
-- The Command Line Tools 16 or later (`xcode-select --install`), for Swift 6.0 or later. Xcode is not
-  required.
+- macOS 15.2 Sequoia or later.
+- The Command Line Tools 16.3 or later (`xcode-select --install`), for Swift 6.1 or later. Xcode is not
+  required. Homebrew builds Chronobar on your Mac, and Swift 6.1 needs macOS 15.2.
 
 ## Homebrew
 
